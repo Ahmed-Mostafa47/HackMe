@@ -9,6 +9,7 @@ import RegisterPage from "./components/auth/RegisterPage";
 import EmailVerificationPage from "./components/auth/EmailVerificationPage";
 import SetPasswordPage from "./components/auth/SetPasswordPage";
 import ForgotPasswordPage from "./components/auth/ForgotPasswordPage";
+import ResetPasswordPage from "./components/auth/ResetPasswordPage";
 import Navbar from "./components/layout/Navbar";
 import HomePage from "./components/pages/HomePage";
 import Dashboard from "./components/pages/Dashboard";
@@ -42,6 +43,7 @@ function AppContent() {
     else if (path === "/verify") setAuthMode("verification");
     else if (path === "/set-password") setAuthMode("setPassword");
     else if (path === "/forgot-password") setAuthMode("forgotPassword");
+    else if (path === "/reset-password") setAuthMode("resetPassword");
     else setAuthMode("login");
   }, [location]);
 
@@ -156,6 +158,18 @@ function AppContent() {
         );
       case "forgotPassword":
         return <ForgotPasswordPage onBackToLogin={handleBackToLogin} />;
+      case "resetPassword":
+        const params = new URLSearchParams(location.search);
+        const resetToken = params.get("token");
+        return (
+          <ResetPasswordPage
+            token={resetToken}
+            onBackToLogin={handleBackToLogin}
+            onResetSuccess={() => {
+              handleBackToLogin();
+            }}
+          />
+        );
       default:
         return (
           <LoginPage

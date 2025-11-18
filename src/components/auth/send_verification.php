@@ -72,7 +72,7 @@ $stmt->execute();
 $stmt->close();
 
 // Insert new verification
-$stmt = $conn->prepare('INSERT INTO email_verifications (email, username, verification_code, is_verified, expires_at) VALUES (?, ?, ?, 0, DATE_ADD(NOW(), INTERVAL 10 MINUTE))');
+$stmt = $conn->prepare('INSERT INTO email_verifications (email, username, verification_code, is_verified, expires_at) VALUES (?, ?, ?, 0, DATE_ADD(NOW(), INTERVAL 5 MINUTE))');
 if (!$stmt) {
     echo json_encode(['success' => false, 'message' => 'Database prepare failed: ' . $conn->error]);
     exit;
@@ -100,7 +100,7 @@ try {
     $mail->addAddress($email, $username);
     $mail->isHTML(false);
     $mail->Subject = 'CTF Platform - Verification Code';
-    $mail->Body = "Hello $username,\n\nYour verification code is: $code\nIt expires in 10 minutes.";
+    $mail->Body = "Hello $username,\n\nYour verification code is: $code\nIt expires in 5 minutes.";
 
     $mail->send();
     echo json_encode(['success'=>true, 'message'=>'Verification code sent successfully']);

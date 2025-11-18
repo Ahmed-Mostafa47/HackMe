@@ -8,19 +8,38 @@ const ForgotPasswordPage = ({ onBackToLogin, onResetSent }) => {
   const [isSent, setIsSent] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!email) return;
 
     setIsLoading(true);
 
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const response = await fetch('http://localhost/graduatoin_project/src/components/auth/forgot_password.php', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: email }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setIsLoading(false);
+        setIsSent(true);
+        if (onResetSent) {
+          onResetSent(email);
+        }
+      } else {
+        setIsLoading(false);
+        alert('Error: ' + (data.message || 'Failed to send reset email'));
+      }
+    } catch (error) {
       setIsLoading(false);
-      setIsSent(true);
-      onResetSent(email);
-    }, 1500);
+      alert('Network error: ' + error.message);
+    }
   };
 
   const handleReset = () => {
