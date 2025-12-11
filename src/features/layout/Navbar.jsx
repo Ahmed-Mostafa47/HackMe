@@ -1,9 +1,13 @@
 import React, { useState } from "react";
-import { Terminal, Cpu, Code, Users, Star, Shield, Menu, X } from "lucide-react";
+import { Terminal, Cpu, Code, Users, Star, Shield, Menu, X, Bell } from "lucide-react";
 import { navItems } from "../../data/navigationData";
+import { useNotifications } from "../../hooks/useNotifications";
 
 const Navbar = ({ setCurrentPage, onLogout, currentPage, currentUser, isAdmin }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const userId = currentUser?.user_id || currentUser?.id;
+  // Only load unread count for the badge, not full notifications
+  const { unreadCount } = useNotifications(userId, { autoLoad: true, loadUnreadCountOnly: true });
 
   const getIcon = (iconName) => {
     const icons = {
@@ -101,6 +105,19 @@ const Navbar = ({ setCurrentPage, onLogout, currentPage, currentUser, isAdmin })
               <Star className="w-3.5 h-3.5 lg:w-4 lg:h-4 text-green-400" />
               <span className="text-white font-semibold font-mono text-xs lg:text-sm">{getUserPoints()}_PTS</span>
             </div>
+            
+            {/* Notifications button */}
+            <button
+              onClick={() => setCurrentPage('notifications')}
+              className="relative flex items-center justify-center w-9 h-9 lg:w-10 lg:h-10 border border-gray-600 rounded-lg text-gray-300 hover:text-white hover:border-green-500/50 transition-all duration-200"
+            >
+              <Bell className="w-4 h-4 lg:w-5 lg:h-5" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center border-2 border-gray-900">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </button>
             
             {/* Profile button */}
             <button

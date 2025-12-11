@@ -22,6 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once __DIR__ . '/../../utils/db_connect.php';
 require_once __DIR__ . '/comments_repository.php';
+require_once __DIR__ . '/../../utils/notification_helper.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 $pathInfo = $_SERVER['PATH_INFO'] ?? '';
@@ -319,6 +320,36 @@ function handle_create_comment(mysqli $conn): void
     if ($comment) {
         if ($parentId !== null) {
             $comment['parent_id'] = $parentId;
+
+            // Send notification to parent comment owner
+            $parentStmt = $conn->prepare("SELECT user_id, content FROM comments WHERE id = ? LIMIT 1");
+            if ($parentStmt) {
+                $parentStmt->bind_param('i', $parentId);
+                $parentStmt->execute();
+                $parentResult = $parentStmt->get_result()->fetch_assoc();
+                $parentStmt->close();
+
+                if ($parentResult && (int)$parentResult['user_id'] !== $userId) {
+                    $parentOwnerId = (int)$parentResult['user_id'];
+                    $replyContent = mb_substr($sanitizedContent, 0, 50);
+                    if (mb_strlen($sanitizedContent) > 50) {
+                        $replyContent .= '...';
+                    }
+
+                    send_notification(
+                        $conn,
+                        $parentOwnerId,
+                        $userId,
+                        'reply',
+                        'New Reply',
+                        "Someone replied to your comment: \"$replyContent\"",
+                        '/comments'
+                    );
+                }
+            }
+        } else {
+            // New top-level comment - notify all users who have commented (optional)
+            // For now, we'll skip this to avoid spam, but you can add it if needed
         }
         // Ensure replies array exists
         if (!isset($comment['replies'])) {

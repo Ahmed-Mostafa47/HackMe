@@ -35,12 +35,15 @@ A professional **cybersecurity training platform** built with **React** and **PH
 - **🔑 Password Management** - Change password, reset password, forgot password
 - **👤 User Profiles** - Comprehensive user profiles with role management
 - **🎭 Role-Based Access Control** - Admin, Instructor, and Student roles
+- **📝 Role Requests** - Self-service role upgrade requests with admin approval
+- **👥 User Management** - Admin dashboard for managing users and role requests
 
 ### Training & Labs
 - **🎓 White Box & Black Box Labs** - Different types of vulnerability labs
 - **🏆 Challenge System** - Interactive challenges with flag submission
 - **📊 Progress Tracking** - Points, ranks, and achievement system
-- **💬 Community Features** - Comments and discussions
+- **💬 Community Features** - Comments, discussions, and like system
+- **🔔 Real-time Notifications** - Live notification system for updates and alerts
 
 ### User Interface
 - **🎨 Hacker-Themed UI** - Matrix-style terminal interface
@@ -72,6 +75,8 @@ A professional **cybersecurity training platform** built with **React** and **PH
 - **npm/yarn** - Package manager
 - **Composer** - PHP dependency manager
 - **XAMPP/WAMP** - Local development server (optional)
+- **Socket.io** - Real-time bidirectional event-based communication
+- **Express.js** - Web framework for notification server
 
 ---
 
@@ -122,8 +127,16 @@ graduatoin_project/
 │   │   ├── create_reset_token.php
 │   │   └── vendor/              # PHPMailer dependencies
 │   ├── api/                     # API endpoints
-│   │   └── comments/
-│   │       └── index.php
+│   │   ├── comments/            # Comments and likes system
+│   │   │   ├── index.php
+│   │   │   ├── comments_repository.php
+│   │   │   └── like.php
+│   │   ├── request_role.php     # Role request management
+│   │   ├── reset_password.php   # Password reset
+│   │   ├── notify.php            # Notification system
+│   │   ├── getNotifications.php  # Fetch notifications
+│   │   ├── markAsRead.php       # Mark notifications as read
+│   │   └── manage_users.php     # User management
 │   ├── utils/                   # Utility files
 │   │   ├── db_connect.php      # Database connection
 │   │   └── certs/               # SSL certificates (if using)
@@ -132,6 +145,9 @@ graduatoin_project/
 │       ├── add_password_resets_table.sql
 │       └── add_role_requests_table.sql
 │
+├── notification-server/         # Real-time notification server
+│   ├── server.js                # Socket.io server
+│   └── package.json
 ├── public/                      # Static assets
 ├── package.json                 # Node.js dependencies
 ├── composer.json                # PHP dependencies
@@ -181,6 +197,16 @@ composer install
 ```
 
 This will install PHPMailer and other PHP dependencies in `server/auth/vendor/`.
+
+### Step 4: Install Notification Server Dependencies (Optional)
+
+```bash
+cd notification-server
+npm install
+cd ..
+```
+
+This will install Socket.io and Express.js for the real-time notification server.
 
 ---
 
@@ -344,6 +370,18 @@ npm run dev
 
 The frontend will be available at: `http://localhost:5173` (or the port shown in terminal)
 
+### Step 2.5: Start Notification Server (Optional)
+
+```bash
+# From project root
+cd notification-server
+npm start
+# Or for development with auto-reload:
+npm run dev
+```
+
+The notification server will run on `http://localhost:3001` (or the configured port).
+
 ### Step 3: Access the Application
 
 1. Open your browser
@@ -388,6 +426,13 @@ Base URL: `http://localhost/graduatoin_project/server/api/`
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET/POST | `/comments/index.php` | Comments management |
+| POST | `/comments/like.php` | Like/unlike comments |
+| GET/POST | `/request_role.php` | Role request management |
+| POST | `/reset_password.php` | Reset password (token or authenticated) |
+| POST | `/notify.php` | Send notifications |
+| GET | `/getNotifications.php` | Fetch user notifications |
+| POST | `/markAsRead.php` | Mark notifications as read |
+| GET/POST | `/manage_users.php` | User management (admin only) |
 
 ---
 
@@ -425,6 +470,9 @@ Key tables:
 - `user_roles` - User-role assignments
 - `password_resets` - Password reset tokens
 - `role_requests` - Role upgrade requests
+- `comments` - User comments and discussions
+- `comment_likes` - Comment likes tracking
+- `notifications` - System notifications
 
 ---
 
@@ -570,6 +618,8 @@ This project is licensed under the MIT License.
 ## 👥 Authors
 
 - **Ahmed Mostafa** - [GitHub](https://github.com/Ahmed-Mostafa47)
+- **Abdelrahman Hamada** - [GitHub](https://github.com/ABDOHAMDA)
+- **Ahmed Mohammed** - [GitHub](https://github.com/ahmedmohamed74631)
 
 ---
 

@@ -13,7 +13,7 @@ import ResetPasswordPage from "./features/auth/pages/ResetPasswordPage";
 import ChangePasswordPage from "./features/auth/pages/ChangePasswordPage";
 import Navbar from "./features/layout/Navbar";
 import HomePage from "./features/home/HomePage";
-import DashboardPage from "./features/dashboard/DashboardPage";
+import LeaderboardPage from "./features/dashboard/LeaderboardPage";
 import TrainingSelectionPage from "./features/dashboard/TrainingSelectionPage";
 import LabsPage from "./features/labs/LabsPage";
 import LabDetailPage from "./features/labs/LabDetailPage";
@@ -21,6 +21,8 @@ import ChallengePage from "./features/labs/ChallengePage";
 import CommentsPage from "./features/network/CommentsPage";
 import ProfilePage from "./features/profile/ProfilePage";
 import AdminDashboardPage from "./features/dashboard/AdminDashboardPage";
+import NotificationsPage from "./features/notifications/NotificationsPage";
+import NotificationContainer from "./components/notifications/NotificationContainer";
 import axios from "axios";
 import { useAuth } from "./hooks/useAuth";
 import { useLabs } from "./hooks/useLabs";
@@ -361,7 +363,7 @@ function AppContent() {
       case "/":
         return <HomePage setCurrentPage={(p) => navigate(`/${p}`)} />;
       case "/dashboard":
-        return <DashboardPage />;
+        return <LeaderboardPage />;
       case "/training":
         return (
           <TrainingSelectionPage
@@ -386,6 +388,8 @@ function AppContent() {
         return <ChallengePage setCurrentPage={(p) => navigate(`/${p}`)} />;
       case "/comments":
         return <CommentsPage currentUser={currentUser} isAdmin={isAdmin} />;
+      case "/notifications":
+        return <NotificationsPage currentUser={currentUser} />;
       case "/profile":
         return (
           <ProfilePage
@@ -454,6 +458,14 @@ function AppContent() {
             currentPage={location.pathname.replace("/", "") || "home"}
             currentUser={currentUser}
             isAdmin={isAdmin}
+          />
+          <NotificationContainer 
+            userId={currentUser?.user_id || currentUser?.id} 
+            onNotificationClick={(notification) => {
+              if (notification.link) {
+                navigate(notification.link);
+              }
+            }}
           />
           {renderPage()}
         </>

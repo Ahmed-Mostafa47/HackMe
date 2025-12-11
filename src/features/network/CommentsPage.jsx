@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { Send, Heart, MessageCircle, Loader2, Trash2, RefreshCw, X } from "lucide-react";
 import {
   createComment,
@@ -14,9 +14,11 @@ const CommentsPage = ({ currentUser, isAdmin }) => {
   const [newComment, setNewComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [replyingTo, setReplyingTo] = useState(null);
   const [replyContent, setReplyContent] = useState({});
+  const commentsRef = useRef([]); // Ref to track comments without causing re-renders
 
   const userId = currentUser?.user_id ?? null;
   const userAvatar = currentUser?.profile_meta?.avatar || "💀";
@@ -26,8 +28,15 @@ const CommentsPage = ({ currentUser, isAdmin }) => {
     return Boolean(userId && trimmed.length > 0 && trimmed.length <= MAX_COMMENT_LENGTH);
   }, [newComment, userId]);
 
-  const loadComments = useCallback(async () => {
-    setIsLoading(true);
+  const loadComments = useCallback(async (isRefresh = false) => {
+    // Check if we have existing comments to determine loading state
+    const hasComments = commentsRef.current.length > 0;
+    if (isRefresh || hasComments) {
+      setIsRefreshing(true);
+    } else {
+      setIsLoading(true);
+    }
+    
     try {
       const { comments: payload } = await fetchComments(userId);
       // Ensure all comments have replies array initialized and are properly structured
@@ -43,18 +52,25 @@ const CommentsPage = ({ currentUser, isAdmin }) => {
         return normalized;
       });
       setComments(normalizedComments);
+      commentsRef.current = normalizedComments; // Update ref
       setError("");
     } catch (err) {
       setError(err.message || "Unable to load comments.");
       console.error('Error loading comments:', err);
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
   }, [userId]);
 
   useEffect(() => {
     loadComments();
   }, [loadComments]);
+  
+  // Keep ref in sync with comments state
+  useEffect(() => {
+    commentsRef.current = comments;
+  }, [comments]);
 
   const formatTimestamp = (timestamp) => {
     if (!timestamp) return "JUST_NOW";
@@ -110,7 +126,7 @@ const CommentsPage = ({ currentUser, isAdmin }) => {
       });
       if (comment) {
         // Reload comments to get proper nested structure with all replies
-        await loadComments();
+        await loadComments(true); // Pass true to indicate refresh (keeps existing comments visible)
         setNewComment("");
       }
       setError("");
@@ -134,7 +150,7 @@ const CommentsPage = ({ currentUser, isAdmin }) => {
       });
       if (comment) {
         // Reload comments to get proper nested structure
-        await loadComments();
+        await loadComments(true); // Pass true to indicate refresh (keeps existing comments visible)
         setReplyContent((prev) => {
           const updated = { ...prev };
           delete updated[parentId];
@@ -209,11 +225,11 @@ const CommentsPage = ({ currentUser, isAdmin }) => {
       });
       if (comment) {
         // Reload to get accurate state
-        await loadComments();
+        await loadComments(true); // Pass true to indicate refresh (keeps existing comments visible)
       }
     } catch (err) {
       setError(err.message || "Unable to update like status.");
-      loadComments();
+      loadComments(true);
     }
   };
 
@@ -280,10 +296,10 @@ const CommentsPage = ({ currentUser, isAdmin }) => {
               </button>
               <button
                 type="button"
-                onClick={loadComments}
+                onClick={() => loadComments(true)}
                 className="flex items-center justify-center gap-2 px-4 sm:px-5 md:px-6 py-2 sm:py-2.5 md:py-3 rounded-lg font-semibold border border-gray-600 text-gray-300 hover:border-green-500/50 hover:text-green-400 transition-all duration-300 font-mono text-xs sm:text-sm"
               >
-                <RefreshCw className={`w-3 h-3 sm:w-4 sm:h-4 ${isLoading ? "animate-spin" : ""}`} />
+                <RefreshCw className={`w-3 h-3 sm:w-4 sm:h-4 ${isRefreshing ? "animate-spin" : ""}`} />
                 <span className="text-xs sm:text-sm">SYNC_FEED</span>
               </button>
             </div>
@@ -295,7 +311,16 @@ const CommentsPage = ({ currentUser, isAdmin }) => {
           )}
         </div>
 
-        <div className="space-y-4 sm:space-y-5 md:space-y-6">
+        <div className="space-y-4 sm:space-y-5 md:space-y-6 relative">
+          {/* Show loading overlay only during refresh, not initial load */}
+          {isRefreshing && (
+            <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-center py-2">
+              <div className="bg-gray-800/90 backdrop-blur-sm px-4 py-2 rounded-lg border border-green-500/50 flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin text-green-400" />
+                <span className="text-xs text-green-400 font-mono">SYNCING...</span>
+              </div>
+            </div>
+          )}
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-green-400" />

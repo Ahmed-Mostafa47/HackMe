@@ -2,7 +2,7 @@ import React from 'react';
 import { Trophy, Target, Award, Bug, Clock } from 'lucide-react';
 import { statsData, leaderboardData, activityData } from '../../data/statsData';
 
-const DashboardPage = () => {
+const LeaderboardPage = () => {
   const getIcon = (iconName) => {
     const icons = {
       Trophy: Trophy,
@@ -19,7 +19,7 @@ const DashboardPage = () => {
       <div className="max-w-7xl mx-auto w-full">
         <div className="mb-10 text-center px-2">
           <h1 className="text-4xl sm:text-5xl font-bold text-green-400 mb-3 font-mono tracking-tight leading-tight">
-            DASHBOARD
+            LEADERBOARD
           </h1>
           <p className="text-base sm:text-xl text-gray-400 font-mono">
             // MISSION_PROGRESS_TRACKING
@@ -150,4 +150,5 @@ const DashboardPage = () => {
   );
 };
 
-export default DashboardPage;
+export default LeaderboardPage;
+

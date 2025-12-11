@@ -6,11 +6,13 @@ require_once __DIR__ . '/../../utils/permissions.php';
 function sanitize_comment_text(string $text): string
 {
     $clean = trim($text);
-    $clean = strip_tags($clean);
-    $clean = preg_replace('/\s+/', ' ', $clean) ?? $clean;
-    $clean = mb_substr($clean, 0, 500, 'UTF-8');
+    $clean = strip_tags($clean); // Remove HTML tags to prevent XSS
+    $clean = preg_replace('/\s+/', ' ', $clean) ?? $clean; // Normalize whitespace
+    $clean = mb_substr($clean, 0, 500, 'UTF-8'); // Limit length
 
-    return htmlspecialchars($clean, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    // Don't HTML-encode here - React will handle XSS protection when rendering
+    // Prepared statements already protect against SQL injection
+    return $clean;
 }
 
 function parse_profile_meta(?string $meta): array
@@ -62,6 +64,10 @@ function format_comment_row(array $row): array
         }
     }
 
+    // Decode HTML entities in content (for backward compatibility with old encoded comments)
+    $content = $row['content'] ?? '';
+    $content = html_entity_decode($content, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
     return [
         'id' => (int)($row['id'] ?? 0),
         'parent_id' => isset($row['parent_id']) ? (int)$row['parent_id'] : null,
@@ -69,7 +75,7 @@ function format_comment_row(array $row): array
         'user' => $row['username'] ?? 'OPERATIVE',
         'avatar' => $profileMeta['avatar'] ?? '💀',
         'rank' => $profileMeta['rank'] ?? null,
-        'text' => $row['content'] ?? '',
+        'text' => $content,
         'likes' => (int)($row['likes'] ?? 0),
         'liked_by_current_user' => isset($row['liked_by_current_user'])
             ? (bool)$row['liked_by_current_user']

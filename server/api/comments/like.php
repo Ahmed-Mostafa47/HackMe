@@ -22,6 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 require_once __DIR__ . '/../../utils/db_connect.php';
 require_once __DIR__ . '/comments_repository.php';
+require_once __DIR__ . '/../../utils/notification_helper.php';
 
 try {
     $payload = json_decode(file_get_contents('php://input') ?: '[]', true);
@@ -87,6 +88,33 @@ try {
         $insertStmt->execute();
         $insertStmt->close();
         $liked = true;
+
+        // Send notification to comment owner
+        $commentOwnerStmt = $conn->prepare("SELECT user_id, content FROM comments WHERE id = ? LIMIT 1");
+        if ($commentOwnerStmt) {
+            $commentOwnerStmt->bind_param('i', $commentId);
+            $commentOwnerStmt->execute();
+            $commentResult = $commentOwnerStmt->get_result()->fetch_assoc();
+            $commentOwnerStmt->close();
+
+            if ($commentResult && (int)$commentResult['user_id'] !== $userId) {
+                $commentOwnerId = (int)$commentResult['user_id'];
+                $commentContent = mb_substr($commentResult['content'], 0, 50);
+                if (mb_strlen($commentResult['content']) > 50) {
+                    $commentContent .= '...';
+                }
+
+                send_notification(
+                    $conn,
+                    $commentOwnerId,
+                    $userId,
+                    'like',
+                    'New Like',
+                    "Someone liked your comment: \"$commentContent\"",
+                    '/comments'
+                );
+            }
+        }
     }
 
     $countStmt = $conn->prepare("SELECT COUNT(*) AS likes FROM comment_likes WHERE comment_id = ?");

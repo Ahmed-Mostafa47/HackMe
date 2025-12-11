@@ -19,3 +19,7 @@ CREATE INDEX idx_comments_parent_id ON comments(parent_id);
 -- Update existing comments to ensure they're all top-level (parent_id = NULL)
 UPDATE comments SET parent_id = NULL WHERE parent_id IS NULL;
 
+
+
+
+
