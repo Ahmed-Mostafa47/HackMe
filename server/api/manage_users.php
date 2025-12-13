@@ -39,6 +39,9 @@ try {
         case 'PUT':
             handle_put_request($conn);
             break;
+        case 'DELETE':
+            handle_delete_request($conn);
+            break;
         default:
             http_response_code(405);
             echo json_encode([
@@ -302,6 +305,168 @@ function handle_put_request(mysqli $conn)
         echo json_encode([
             'success' => false,
             'message' => 'Failed to remove role'
+        ]);
+        ob_end_flush();
+    }
+}
+
+/**
+ * DELETE Request Handler
+ * - Delete user account (SuperAdmin only)
+ */
+function handle_delete_request(mysqli $conn)
+{
+    $data = json_decode(file_get_contents('php://input'), true);
+    
+    if (!isset($data['current_user_id']) || !isset($data['target_user_id'])) {
+        ob_clean();
+        http_response_code(400);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Missing required fields: current_user_id, target_user_id'
+        ]);
+        ob_end_flush();
+        return;
+    }
+    
+    $currentUserId = (int)$data['current_user_id'];
+    $targetUserId = (int)$data['target_user_id'];
+    
+    // Check if current user is superadmin
+    if (!isSuperAdmin($conn, $currentUserId)) {
+        ob_clean();
+        http_response_code(403);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Access denied. SuperAdmin privileges required to delete users.'
+        ]);
+        ob_end_flush();
+        return;
+    }
+    
+    // Prevent deleting yourself
+    if ($currentUserId === $targetUserId) {
+        ob_clean();
+        http_response_code(400);
+        echo json_encode([
+            'success' => false,
+            'message' => 'You cannot delete your own account.'
+        ]);
+        ob_end_flush();
+        return;
+    }
+    
+    // Prevent deleting the last superadmin
+    $targetUserRoles = getUserRoles($conn, $targetUserId);
+    if (in_array('superadmin', $targetUserRoles)) {
+        $superAdminCount = countSuperAdmins($conn, $targetUserId);
+        if ($superAdminCount <= 1) {
+            ob_clean();
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Cannot delete the last superadmin.'
+            ]);
+            ob_end_flush();
+            return;
+        }
+    }
+    
+    // Start transaction
+    $conn->begin_transaction();
+    
+    try {
+        // Delete user roles
+        $delete_roles_stmt = $conn->prepare('DELETE FROM user_roles WHERE user_id = ?');
+        if ($delete_roles_stmt) {
+            $delete_roles_stmt->bind_param('i', $targetUserId);
+            $delete_roles_stmt->execute();
+            $delete_roles_stmt->close();
+        }
+        
+        // Delete role requests
+        $delete_role_requests_stmt = $conn->prepare('DELETE FROM role_requests WHERE user_id = ?');
+        if ($delete_role_requests_stmt) {
+            $delete_role_requests_stmt->bind_param('i', $targetUserId);
+            $delete_role_requests_stmt->execute();
+            $delete_role_requests_stmt->close();
+        }
+        
+        // Delete password resets
+        $delete_resets_stmt = $conn->prepare('DELETE FROM password_resets WHERE user_id = ?');
+        if ($delete_resets_stmt) {
+            $delete_resets_stmt->bind_param('i', $targetUserId);
+            $delete_resets_stmt->execute();
+            $delete_resets_stmt->close();
+        }
+        
+        // Delete comments
+        $delete_comments_stmt = $conn->prepare('DELETE FROM comments WHERE user_id = ?');
+        if ($delete_comments_stmt) {
+            $delete_comments_stmt->bind_param('i', $targetUserId);
+            $delete_comments_stmt->execute();
+            $delete_comments_stmt->close();
+        }
+        
+        // Delete notifications
+        $delete_notifications_stmt = $conn->prepare('DELETE FROM notifications WHERE user_id = ?');
+        if ($delete_notifications_stmt) {
+            $delete_notifications_stmt->bind_param('i', $targetUserId);
+            $delete_notifications_stmt->execute();
+            $delete_notifications_stmt->close();
+        }
+        
+        // Get user email first, then delete email verifications
+        $email_stmt = $conn->prepare('SELECT email FROM users WHERE user_id = ?');
+        if ($email_stmt) {
+            $email_stmt->bind_param('i', $targetUserId);
+            $email_stmt->execute();
+            $email_result = $email_stmt->get_result();
+            $email_row = $email_result->fetch_assoc();
+            $email_stmt->close();
+            
+            if ($email_row && isset($email_row['email'])) {
+                $delete_email_verifications_stmt = $conn->prepare('DELETE FROM email_verifications WHERE email = ?');
+                if ($delete_email_verifications_stmt) {
+                    $delete_email_verifications_stmt->bind_param('s', $email_row['email']);
+                    $delete_email_verifications_stmt->execute();
+                    $delete_email_verifications_stmt->close();
+                }
+            }
+        }
+        
+        // Finally, delete the user
+        $delete_user_stmt = $conn->prepare('DELETE FROM users WHERE user_id = ?');
+        if (!$delete_user_stmt) {
+            throw new Exception('Failed to prepare delete user statement: ' . $conn->error);
+        }
+        
+        $delete_user_stmt->bind_param('i', $targetUserId);
+        
+        if (!$delete_user_stmt->execute()) {
+            throw new Exception('Failed to delete user: ' . $delete_user_stmt->error);
+        }
+        
+        $delete_user_stmt->close();
+        
+        // Commit transaction
+        $conn->commit();
+        
+        ob_clean();
+        echo json_encode([
+            'success' => true,
+            'message' => 'User deleted successfully'
+        ]);
+        ob_end_flush();
+        
+    } catch (Exception $e) {
+        // Rollback transaction on error
+        $conn->rollback();
+        ob_clean();
+        http_response_code(500);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Failed to delete user: ' . $e->getMessage()
         ]);
         ob_end_flush();
     }

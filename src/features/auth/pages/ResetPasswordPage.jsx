@@ -3,7 +3,7 @@ import { Lock, Eye, EyeOff, Check, AlertCircle, ArrowLeft } from "lucide-react";
 import BinaryRain from "@/features/shared/ui/BinaryRain";
 import axios from "axios";
 
-const API_URL = "http://localhost/graduatoin_project/server/auth/reset_password.php";
+const API_URL = "http://localhost/HackMe/server/auth/reset_password.php";
 
 const ResetPasswordPage = ({
   token,

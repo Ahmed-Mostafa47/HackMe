@@ -1,10 +1,11 @@
 import React, { useState } from "react";
-import { ShieldCheck, KeyRound, Award, Users } from "lucide-react";
+import { ShieldCheck, KeyRound, Award, Users, Trash2, Eye, EyeOff, AlertTriangle } from "lucide-react";
 
 const ProfilePage = ({
   currentUser,
   onRequestRole,
   onChangePassword,
+  onDeleteAccount,
   roleRequestStatus,
   roleRequestMessage,
   roleRequestLoading = false,
@@ -19,6 +20,10 @@ const ProfilePage = ({
   const [desiredRole, setDesiredRole] = useState("admin");
   const [comment, setComment] = useState("");
   const [showCommentModal, setShowCommentModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [showDeletePassword, setShowDeletePassword] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const getStatusBadge = (status) => {
     if (!status) return null;
@@ -216,11 +221,141 @@ const ProfilePage = ({
                   <KeyRound className="w-4 h-4" />
                   CHANGE_PASSWORD
                 </button>
+                
+                {/* Delete Account Button - Enhanced Design */}
+                <div className="relative mt-2">
+                  <div className="absolute inset-0 bg-red-500/20 blur-xl rounded-lg opacity-50 group-hover:opacity-75 transition-opacity duration-300"></div>
+                  <button
+                    onClick={() => setShowDeleteModal(true)}
+                    className="relative w-full group flex items-center justify-center gap-2 bg-gradient-to-r from-red-600 via-red-700 to-red-800 text-white py-3 rounded-lg font-semibold border-2 border-red-500/50 hover:border-red-400/70 shadow-lg hover:shadow-red-500/40 hover:shadow-2xl transform hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 font-mono overflow-hidden"
+                  >
+                    {/* Animated background effect */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
+                    
+                    {/* Icon with animation */}
+                    <Trash2 className="relative w-4 h-4 group-hover:rotate-12 group-hover:scale-110 transition-transform duration-300" />
+                    
+                    {/* Text */}
+                    <span className="relative text-sm">DELETE_ACCOUNT</span>
+                    
+                    {/* Warning pulse effect */}
+                    <div className="absolute top-1 right-1 w-2 h-2 bg-red-300 rounded-full animate-pulse"></div>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Delete Account Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-gray-900/95 backdrop-blur-xl border-2 border-red-500/40 rounded-xl p-6 max-w-md w-full shadow-2xl shadow-red-500/20 animate-in zoom-in-95 duration-200">
+            {/* Glow effect behind modal */}
+            <div className="absolute inset-0 bg-red-500/5 blur-2xl rounded-xl -z-10"></div>
+            
+            <div className="mb-5">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="relative w-12 h-12 rounded-full bg-gradient-to-br from-red-500/30 to-red-600/20 flex items-center justify-center border-2 border-red-500/40">
+                  <AlertTriangle className="w-6 h-6 text-red-400 animate-pulse" />
+                  <div className="absolute inset-0 rounded-full bg-red-400/20 animate-ping"></div>
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-red-400 font-mono">
+                    DELETE_ACCOUNT
+                  </h3>
+                  <p className="text-xs text-red-400/70 font-mono mt-0.5">
+                    DESTRUCTIVE_ACTION
+                  </p>
+                </div>
+              </div>
+              <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 mb-3">
+                <p className="text-sm text-red-200 font-mono leading-relaxed">
+                  ⚠️ This action cannot be undone. All your data will be permanently deleted from the system.
+                </p>
+              </div>
+              <p className="text-xs text-gray-400 font-mono">
+                Enter your password below to confirm account deletion.
+              </p>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="relative">
+                <label className="block text-xs font-semibold text-gray-400 mb-2 font-mono">
+                  [PASSWORD_CONFIRMATION]
+                </label>
+                <div className="relative group">
+                  <input
+                    type={showDeletePassword ? "text" : "password"}
+                    value={deletePassword}
+                    onChange={(e) => setDeletePassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full bg-gray-800/50 border-2 border-gray-600/50 rounded-lg px-4 py-3 pr-10 text-white text-sm placeholder-gray-500 focus:border-red-500 focus:bg-gray-800 focus:ring-2 focus:ring-red-500/20 focus:outline-none transition-all font-mono disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={isDeleting}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowDeletePassword(!showDeletePassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-red-400 transition-colors"
+                    disabled={isDeleting}
+                  >
+                    {showDeletePassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setDeletePassword("");
+                  setShowDeletePassword(false);
+                }}
+                disabled={isDeleting}
+                className="flex-1 bg-gray-700/80 hover:bg-gray-700 text-white py-3 rounded-lg font-mono text-sm font-semibold transition-all duration-200 border border-gray-600/50 hover:border-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                CANCEL
+              </button>
+              <button
+                onClick={async () => {
+                  if (!deletePassword) {
+                    alert("⚠️ Please enter your password");
+                    return;
+                  }
+
+                  setIsDeleting(true);
+                  const success = await onDeleteAccount(deletePassword);
+                  if (success) {
+                    setShowDeleteModal(false);
+                    setDeletePassword("");
+                  } else {
+                    setIsDeleting(false);
+                  }
+                }}
+                disabled={isDeleting || !deletePassword}
+                className="relative flex-1 group bg-gradient-to-r from-red-600 via-red-700 to-red-800 hover:from-red-700 hover:via-red-800 hover:to-red-900 text-white py-3 rounded-lg font-mono text-sm font-bold transition-all duration-300 shadow-lg hover:shadow-red-500/40 border-2 border-red-500/50 hover:border-red-400/70 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 overflow-hidden"
+              >
+                {/* Shimmer effect */}
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
+                
+                {isDeleting ? (
+                  <>
+                    <div className="relative w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span className="relative">DELETING...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="relative w-4 h-4 group-hover:scale-110 transition-transform" />
+                    <span className="relative">DELETE_ACCOUNT</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

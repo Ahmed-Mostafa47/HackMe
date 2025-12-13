@@ -202,7 +202,7 @@ $NODE_SERVER_URL = 'http://localhost:3001/push';
 
 **Test notification creation:**
 ```bash
-curl -X POST http://localhost/graduatoin_project/server/api/notify.php \
+curl -X POST http://localhost/HackeMe/server/api/notify.php \
   -H "Content-Type: application/json" \
   -d '{
     "user_id": 1,
@@ -216,7 +216,7 @@ curl -X POST http://localhost/graduatoin_project/server/api/notify.php \
 
 **Test getting notifications:**
 ```bash
-curl "http://localhost/graduatoin_project/server/api/getNotifications.php?user_id=1"
+curl "http://localhost/HackeMe/server/api/getNotifications.php?user_id=1"
 ```
 
 ---
@@ -279,7 +279,7 @@ SELECT * FROM notifications WHERE user_id = 1;
 
 **Create notification:**
 ```bash
-curl -X POST http://localhost/graduatoin_project/server/api/notify.php \
+curl -X POST http://localhost/HackeMe/server/api/notify.php \
   -H "Content-Type: application/json" \
   -d '{
     "user_id": 1,
@@ -292,7 +292,7 @@ curl -X POST http://localhost/graduatoin_project/server/api/notify.php \
 
 **Get notifications:**
 ```bash
-curl "http://localhost/graduatoin_project/server/api/getNotifications.php?user_id=1"
+curl "http://localhost/HackeMe/server/api/getNotifications.php?user_id=1"
 ```
 
 ### Test 3: Node.js Server

@@ -13,6 +13,7 @@ import ResetPasswordPage from "./features/auth/pages/ResetPasswordPage";
 import ChangePasswordPage from "./features/auth/pages/ChangePasswordPage";
 import Navbar from "./features/layout/Navbar";
 import HomePage from "./features/home/HomePage";
+import LandingPage from "./features/home/LandingPage";
 import LeaderboardPage from "./features/dashboard/LeaderboardPage";
 import TrainingSelectionPage from "./features/dashboard/TrainingSelectionPage";
 import LabsPage from "./features/labs/LabsPage";
@@ -28,7 +29,7 @@ import { useAuth } from "./hooks/useAuth";
 import { useLabs } from "./hooks/useLabs";
 import "./styles/animations.css";
 
-const API_BASE = "http://localhost/graduatoin_project/server/api";
+const API_BASE = "http://localhost/HackMe/server/api";
 
 function AppContent() {
   const {
@@ -71,6 +72,8 @@ function AppContent() {
     else if (path === "/set-password") setAuthMode("setPassword");
     else if (path === "/forgot-password") setAuthMode("forgotPassword");
     else if (path === "/reset-password") setAuthMode("resetPassword");
+    else if (path === "/login") setAuthMode("login");
+    else if (path === "/" && !isLoggedIn) setAuthMode("landing");
     else setAuthMode("login");
   }, [location, isLoggedIn]);
 
@@ -102,7 +105,7 @@ function AppContent() {
   const handleRegisterStart = async (userData) => {
     try {
       const response = await fetch(
-        "http://localhost/graduatoin_project/server/auth/send_verification.php",
+        "http://localhost/HackMe/server/auth/send_verification.php",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -151,9 +154,47 @@ function AppContent() {
 
   const handleBackToVerification = () => navigate("/verify");
   const handleForgotPassword = () => navigate("/forgot-password");
-  const handleBackToLogin = () => navigate("/");
+  const handleBackToLogin = () => navigate("/login");
   const handleChangePassword = () => navigate("/change-password");
   const handleProfilePasswordReset = () => navigate("/reset-password?mode=profile");
+  
+  const handleDeleteAccount = async (password) => {
+    if (!currentUser?.user_id) {
+      alert("⚠️ Error: User not found.");
+      return false;
+    }
+
+    try {
+      const response = await axios.post(
+        "http://localhost/HackMe/server/auth/delete_account.php",
+        {
+          user_id: currentUser.user_id,
+          password: password,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (response.data && response.data.success) {
+        // Logout user and redirect to landing page
+        handleLogout();
+        navigate("/");
+        alert("✅ Account deleted successfully.");
+        return true;
+      } else {
+        const errorMessage = response.data?.message || "Failed to delete account.";
+        alert("⚠️ " + errorMessage);
+        return false;
+      }
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || error.message || "Error connecting to server.";
+      alert("⚠️ " + errorMessage);
+      return false;
+    }
+  };
   const handleLoginSuccess = (userData) => {
     handleLogin(userData);
     navigate("/home");
@@ -293,6 +334,13 @@ function AppContent() {
 
   const renderAuthPage = () => {
     switch (authMode) {
+      case "landing":
+        return (
+          <LandingPage
+            onNavigateToLogin={() => navigate("/login")}
+            onNavigateToRegister={() => navigate("/register")}
+          />
+        );
       case "login":
         return (
           <LoginPage
@@ -305,7 +353,7 @@ function AppContent() {
         return (
           <RegisterPage
             onRegister={handleRegisterStart}
-            onSwitchToLogin={() => navigate("/")}
+            onSwitchToLogin={() => navigate("/login")}
           />
         );
       case "verification":
@@ -343,6 +391,14 @@ function AppContent() {
           />
         );
       default:
+        if (location.pathname === "/" && !isLoggedIn) {
+          return (
+            <LandingPage
+              onNavigateToLogin={() => navigate("/login")}
+              onNavigateToRegister={() => navigate("/register")}
+            />
+          );
+        }
         return (
           <LoginPage
             onLogin={handleLoginSuccess}
@@ -396,6 +452,7 @@ function AppContent() {
             currentUser={currentUser}
             onRequestRole={handleRoleRequest}
             onChangePassword={handleChangePassword}
+            onDeleteAccount={handleDeleteAccount}
             roleRequestStatus={roleRequestStatus}
             isAdmin={isAdmin}
             isInstructor={isInstructor}

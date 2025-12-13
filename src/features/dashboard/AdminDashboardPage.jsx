@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Shield, Users, Database, Activity, ChevronDown, ChevronUp, UserPlus, UserMinus } from "lucide-react";
+import { Shield, Users, Database, Activity, ChevronDown, ChevronUp, UserPlus, UserMinus, Trash2, AlertTriangle } from "lucide-react";
 import axios from "axios";
 
-const API_BASE = "http://localhost/graduatoin_project/server/api";
+const API_BASE = "http://localhost/HackMe/server/api";
 
 const AdminDashboardPage = ({
   pendingRoleRequests = [],
@@ -27,6 +27,8 @@ const AdminDashboardPage = ({
   const [availableRoles, setAvailableRoles] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [processingUserId, setProcessingUserId] = useState(null);
+  const [deleteConfirmUserId, setDeleteConfirmUserId] = useState(null);
+  const [deletingUserId, setDeletingUserId] = useState(null);
 
   useEffect(() => {
     setRequests(pendingRoleRequests);
@@ -170,6 +172,30 @@ const AdminDashboardPage = ({
       );
     } finally {
       setProcessingUserId(null);
+    }
+  };
+
+  const handleDeleteUser = async (targetUserId) => {
+    setDeletingUserId(targetUserId);
+    try {
+      const { data } = await axios.delete(`${API_BASE}/manage_users.php`, {
+        data: {
+          current_user_id: currentUser?.user_id,
+          target_user_id: targetUserId,
+        },
+      });
+      if (data.success) {
+        triggerStatusMessage("USER_DELETED_SUCCESSFULLY", "success");
+        setDeleteConfirmUserId(null);
+        fetchUsers();
+      }
+    } catch (error) {
+      triggerStatusMessage(
+        error.response?.data?.message || "FAILED_TO_DELETE_USER",
+        "error"
+      );
+    } finally {
+      setDeletingUserId(null);
     }
   };
 
@@ -430,9 +456,19 @@ const AdminDashboardPage = ({
                                 </div>
                               )}
                               
-                              <p className="text-xs text-gray-500 font-mono mt-3 text-center italic">
+                              <p className="text-xs text-gray-500 font-mono mt-3 text-center italic mb-3">
                                 ASSIGNING_NEW_ROLE_WILL_REMOVE_CURRENT_ROLE
                               </p>
+
+                              {/* Delete User Button */}
+                              <button
+                                onClick={() => setDeleteConfirmUserId(user.user_id)}
+                                disabled={processingUserId === user.user_id || deletingUserId === user.user_id}
+                                className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-red-500/50 bg-red-500/10 text-red-400 font-mono text-xs font-semibold hover:bg-red-500/20 hover:border-red-500/70 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                                DELETE_USER
+                              </button>
                             </div>
                           )}
 
@@ -609,6 +645,72 @@ const AdminDashboardPage = ({
           )}
         </div>
       </div>
+
+      {/* Delete User Confirmation Modal */}
+      {deleteConfirmUserId && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-gray-900 border-2 border-red-500/40 rounded-xl p-6 max-w-md w-full shadow-2xl">
+            <div className="mb-5">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="relative w-12 h-12 rounded-full bg-gradient-to-br from-red-500/30 to-red-600/20 flex items-center justify-center border-2 border-red-500/40">
+                  <AlertTriangle className="w-6 h-6 text-red-400" />
+                  <div className="absolute inset-0 rounded-full bg-red-400/20 animate-ping"></div>
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-red-400 font-mono">
+                    DELETE_USER
+                  </h3>
+                  <p className="text-xs text-red-400/70 font-mono mt-0.5">
+                    DESTRUCTIVE_ACTION
+                  </p>
+                </div>
+              </div>
+              
+              {(() => {
+                const userToDelete = users.find(u => u.user_id === deleteConfirmUserId);
+                return userToDelete ? (
+                  <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 mb-3">
+                    <p className="text-sm text-red-200 font-mono leading-relaxed">
+                      ⚠️ Are you sure you want to delete user <strong className="text-red-300">{userToDelete.username}</strong>?
+                    </p>
+                    <p className="text-xs text-red-200/70 font-mono mt-2">
+                      This action cannot be undone. All user data will be permanently deleted.
+                    </p>
+                  </div>
+                ) : null;
+              })()}
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setDeleteConfirmUserId(null)}
+                disabled={deletingUserId !== null}
+                className="flex-1 bg-gray-700/80 hover:bg-gray-700 text-white py-3 rounded-lg font-mono text-sm font-semibold transition-all duration-200 border border-gray-600/50 hover:border-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                CANCEL
+              </button>
+              <button
+                onClick={() => handleDeleteUser(deleteConfirmUserId)}
+                disabled={deletingUserId !== null}
+                className="relative flex-1 group bg-gradient-to-r from-red-600 via-red-700 to-red-800 hover:from-red-700 hover:via-red-800 hover:to-red-900 text-white py-3 rounded-lg font-mono text-sm font-bold transition-all duration-300 shadow-lg hover:shadow-red-500/40 border-2 border-red-500/50 hover:border-red-400/70 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 overflow-hidden"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
+                {deletingUserId === deleteConfirmUserId ? (
+                  <>
+                    <div className="relative w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span className="relative">DELETING...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="relative w-4 h-4 group-hover:scale-110 transition-transform" />
+                    <span className="relative">DELETE_USER</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

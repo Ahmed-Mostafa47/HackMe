@@ -83,7 +83,7 @@ A professional **cybersecurity training platform** built with **React** and **PH
 ## 🏗️ Project Structure
 
 ```
-graduatoin_project/
+HackeMe/
 ├── src/                          # Frontend React application
 │   ├── features/                 # Feature-based organization
 │   │   ├── auth/
@@ -339,7 +339,7 @@ $mail->Password = 'your-app-password';  // Gmail App Password
 ### Step 3: Configure API Base URL (Frontend)
 
 The frontend is configured to use:
-- Development: `http://localhost/graduatoin_project/server/api`
+- Development: `http://localhost/HackeMe/server/api`
 - Update in `src/services/apiClient.js` if your setup differs
 
 ---
@@ -350,7 +350,7 @@ The frontend is configured to use:
 
 #### Using XAMPP:
 1. Ensure **Apache** and **MySQL** are running in XAMPP Control Panel
-2. Your PHP files should be accessible at: `http://localhost/graduatoin_project/server/`
+2. Your PHP files should be accessible at: `http://localhost/HackeMe/server/`
 
 #### Using PHP Built-in Server (Alternative):
 ```bash
@@ -406,7 +406,7 @@ The notification server will run on `http://localhost:3001` (or the configured p
 
 ### Authentication Endpoints
 
-Base URL: `http://localhost/graduatoin_project/server/auth/`
+Base URL: `http://localhost/HackeMe/server/auth/`
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -421,7 +421,7 @@ Base URL: `http://localhost/graduatoin_project/server/auth/`
 
 ### API Endpoints
 
-Base URL: `http://localhost/graduatoin_project/server/api/`
+Base URL: `http://localhost/HackeMe/server/api/`
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|

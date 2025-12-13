@@ -16,7 +16,7 @@ const ForgotPasswordPage = ({ onBackToLogin, onResetSent }) => {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost/graduatoin_project/server/auth/forgot_password.php', {
+      const response = await fetch('http://localhost/HackMe/server/auth/forgot_password.php', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

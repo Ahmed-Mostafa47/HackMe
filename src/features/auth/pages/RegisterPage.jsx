@@ -27,7 +27,7 @@ const handleSubmit = async (e) => {
 
   try {
     const response = await axios.post(
-      'http://localhost/graduatoin_project/server/auth/send_verification.php',
+      'http://localhost/HackMe/server/auth/send_verification.php',
       formData,
       { headers: { 'Content-Type': 'application/json' } }
     );
