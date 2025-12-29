@@ -119,6 +119,11 @@ function AppContent() {
         setPendingUser(userData);
         setVerificationEmail(userData.email);
         sessionStorage.setItem("verificationEmail", userData.email); // حفظ الإيميل مؤقتًا
+        
+        // Store expiration time (5 minutes from now)
+        const expirationTime = Date.now() + (5 * 60 * 1000); // 5 minutes in milliseconds
+        localStorage.setItem("verificationCodeExpiresAt", expirationTime.toString());
+        
         navigate("/verify");
       } else {
         alert(data.message || "❌ Registration failed.");
@@ -129,6 +134,8 @@ function AppContent() {
   };
 
   const handleVerificationComplete = () => {
+    // Clear expiration time on verification complete
+    localStorage.removeItem("verificationCodeExpiresAt");
     navigate("/set-password");
   };
 

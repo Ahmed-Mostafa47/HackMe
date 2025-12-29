@@ -37,6 +37,12 @@ if (!isset($conn) || !$conn) {
 $user_id = isset($input['user_id']) ? intval($input['user_id']) : 0;
 $password = isset($input['password']) ? $input['password'] : '';
 
+// PROTECTED USER: Cannot delete user with ID 9
+if ($user_id === 9) {
+    echo json_encode(['success' => false, 'message' => 'This account is protected and cannot be deleted.']);
+    exit;
+}
+
 // Validation
 if (!$user_id || !$password) {
     echo json_encode(['success' => false, 'message' => 'User ID and password are required']);

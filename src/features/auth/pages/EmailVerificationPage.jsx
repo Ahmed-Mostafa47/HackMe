@@ -18,7 +18,20 @@ const EmailVerificationPage = ({
 }) => {
   const savedEmail = sessionStorage.getItem("verificationEmail");
   const [code, setCode] = useState(["", "", "", "", "", ""]);
-  const [timeLeft, setTimeLeft] = useState(300); // 5 minutes
+  
+  // Calculate initial time left from stored expiration timestamp
+  const getInitialTimeLeft = () => {
+    const expirationTime = localStorage.getItem("verificationCodeExpiresAt");
+    if (expirationTime) {
+      const now = Date.now();
+      const expiresAt = parseInt(expirationTime, 10);
+      const remaining = Math.max(0, Math.floor((expiresAt - now) / 1000));
+      return remaining;
+    }
+    return 300; // Default 5 minutes if no stored time
+  };
+  
+  const [timeLeft, setTimeLeft] = useState(getInitialTimeLeft());
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
@@ -31,6 +44,9 @@ const EmailVerificationPage = ({
     if (timeLeft > 0) {
       const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
       return () => clearTimeout(timer);
+    } else {
+      // Clear expiration time when timer reaches 0
+      localStorage.removeItem("verificationCodeExpiresAt");
     }
   }, [timeLeft]);
 
@@ -97,6 +113,8 @@ const EmailVerificationPage = ({
 
       if (data.success) {
         setIsLoading(false);
+        // Clear expiration time on successful verification
+        localStorage.removeItem("verificationCodeExpiresAt");
         onVerificationComplete();
       } else {
         setIsLoading(false);
@@ -109,6 +127,7 @@ const EmailVerificationPage = ({
   };
 
   const handleResendCode = async () => {
+    // Allow resending only when time is up (timeLeft === 0)
     if (timeLeft > 0) return;
 
     setIsLoading(true);
@@ -144,6 +163,10 @@ const EmailVerificationPage = ({
       const data = response.data;
 
       if (data.success) {
+        // Set new expiration time (5 minutes from now)
+        const expirationTime = Date.now() + (5 * 60 * 1000); // 5 minutes in milliseconds
+        localStorage.setItem("verificationCodeExpiresAt", expirationTime.toString());
+        
         setTimeLeft(300);
         setCode(["", "", "", "", "", ""]);
         setError("");
@@ -263,10 +286,10 @@ const EmailVerificationPage = ({
               <button
                 onClick={handleResendCode}
                 disabled={timeLeft > 0 || isLoading}
-                className={`flex items-center justify-center gap-2 mx-auto font-mono text-sm transition-all duration-200 ${
+                className={`flex items-center justify-center gap-2 mx-auto font-mono text-sm transition-all duration-200 px-4 py-2 rounded-lg border ${
                   timeLeft > 0 || isLoading
-                    ? "text-gray-500 cursor-not-allowed"
-                    : "text-green-400 hover:text-green-300"
+                    ? "text-gray-500 border-gray-600/30 bg-gray-700/20 cursor-not-allowed"
+                    : "text-green-400 border-green-500/30 bg-green-500/10 hover:bg-green-500/20 hover:border-green-500/50 hover:text-green-300"
                 }`}
               >
                 <RotateCcw className="w-4 h-4" />

@@ -222,26 +222,28 @@ const ProfilePage = ({
                   CHANGE_PASSWORD
                 </button>
                 
-                {/* Delete Account Button - Enhanced Design */}
-                <div className="relative mt-2">
-                  <div className="absolute inset-0 bg-red-500/20 blur-xl rounded-lg opacity-50 group-hover:opacity-75 transition-opacity duration-300"></div>
-                  <button
-                    onClick={() => setShowDeleteModal(true)}
-                    className="relative w-full group flex items-center justify-center gap-2 bg-gradient-to-r from-red-600 via-red-700 to-red-800 text-white py-3 rounded-lg font-semibold border-2 border-red-500/50 hover:border-red-400/70 shadow-lg hover:shadow-red-500/40 hover:shadow-2xl transform hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 font-mono overflow-hidden"
-                  >
-                    {/* Animated background effect */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
-                    
-                    {/* Icon with animation */}
-                    <Trash2 className="relative w-4 h-4 group-hover:rotate-12 group-hover:scale-110 transition-transform duration-300" />
-                    
-                    {/* Text */}
-                    <span className="relative text-sm">DELETE_ACCOUNT</span>
-                    
-                    {/* Warning pulse effect */}
-                    <div className="absolute top-1 right-1 w-2 h-2 bg-red-300 rounded-full animate-pulse"></div>
-                  </button>
-                </div>
+                {/* Delete Account Button - Only show if not protected user (ID 9) */}
+                {currentUser?.user_id !== 9 && (
+                  <div className="relative mt-2">
+                    <div className="absolute inset-0 bg-red-500/20 blur-xl rounded-lg opacity-50 group-hover:opacity-75 transition-opacity duration-300"></div>
+                    <button
+                      onClick={() => setShowDeleteModal(true)}
+                      className="relative w-full group flex items-center justify-center gap-2 bg-gradient-to-r from-red-600 via-red-700 to-red-800 text-white py-3 rounded-lg font-semibold border-2 border-red-500/50 hover:border-red-400/70 shadow-lg hover:shadow-red-500/40 hover:shadow-2xl transform hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 font-mono overflow-hidden"
+                    >
+                      {/* Animated background effect */}
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
+                      
+                      {/* Icon with animation */}
+                      <Trash2 className="relative w-4 h-4 group-hover:rotate-12 group-hover:scale-110 transition-transform duration-300" />
+                      
+                      {/* Text */}
+                      <span className="relative text-sm">DELETE_ACCOUNT</span>
+                      
+                      {/* Warning pulse effect */}
+                      <div className="absolute top-1 right-1 w-2 h-2 bg-red-300 rounded-full animate-pulse"></div>
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>

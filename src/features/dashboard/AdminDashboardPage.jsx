@@ -366,6 +366,8 @@ const AdminDashboardPage = ({
                     const userRoles = user.roles || [];
                     // Only SuperAdmin can manage roles (assign/remove)
                     const canManage = isSuperAdmin;
+                    // Protected user (ID = 9) cannot be modified
+                    const isProtectedUser = user.user_id === 9;
                     
                     return (
                       <div
@@ -420,55 +422,63 @@ const AdminDashboardPage = ({
                           {/* Role Management */}
                           {canManage && (
                             <div className="bg-gray-900/40 border border-gray-700 rounded-lg p-4">
-                              <p className="text-xs text-gray-500 font-mono mb-3">
-                                ASSIGN_ROLE
-                              </p>
-                              
-                              {processingUserId === user.user_id ? (
-                                <div className="text-center py-3">
-                                  <p className="text-xs text-gray-400 font-mono">
-                                    PROCESSING...
-                                  </p>
+                              {isProtectedUser ? (
+                                <div className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg border border-yellow-500/30 bg-yellow-500/5 text-yellow-400/70 font-mono text-xs">
+                                  <Shield className="w-4 h-4" />
+                                  PROTECTED_ACCOUNT_CANNOT_BE_MODIFIED
                                 </div>
                               ) : (
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                  {availableRoles.map((role) => {
-                                    const hasRole = userRoles.includes(role.name.toLowerCase());
-                                    
-                                    return (
-                                      <button
-                                        key={role.role_id}
-                                        onClick={() => {
-                                          // Always allow clicking to change role (single role system)
-                                          handleAssignRole(user.user_id, role.name);
-                                        }}
-                                        disabled={processingUserId === user.user_id}
-                                        className={`px-3 py-2 rounded-lg border font-mono text-xs font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-                                          hasRole
-                                            ? "bg-blue-500/20 border-blue-500/50 text-blue-300"
-                                            : "bg-gray-800/50 border-gray-600 text-gray-300 hover:bg-gray-700/50 hover:border-gray-500"
-                                        }`}
-                                      >
-                                        {role.name.toUpperCase()}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              )}
-                              
-                              <p className="text-xs text-gray-500 font-mono mt-3 text-center italic mb-3">
-                                ASSIGNING_NEW_ROLE_WILL_REMOVE_CURRENT_ROLE
-                              </p>
+                                <>
+                                  <p className="text-xs text-gray-500 font-mono mb-3">
+                                    ASSIGN_ROLE
+                                  </p>
+                                  
+                                  {processingUserId === user.user_id ? (
+                                    <div className="text-center py-3">
+                                      <p className="text-xs text-gray-400 font-mono">
+                                        PROCESSING...
+                                      </p>
+                                    </div>
+                                  ) : (
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                      {availableRoles.map((role) => {
+                                        const hasRole = userRoles.includes(role.name.toLowerCase());
+                                        
+                                        return (
+                                          <button
+                                            key={role.role_id}
+                                            onClick={() => {
+                                              handleAssignRole(user.user_id, role.name);
+                                            }}
+                                            disabled={processingUserId === user.user_id}
+                                            className={`px-3 py-2 rounded-lg border font-mono text-xs font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                                              hasRole
+                                                ? "bg-blue-500/20 border-blue-500/50 text-blue-300"
+                                                : "bg-gray-800/50 border-gray-600 text-gray-300 hover:bg-gray-700/50 hover:border-gray-500"
+                                            }`}
+                                          >
+                                            {role.name.toUpperCase()}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                  
+                                  <p className="text-xs text-gray-500 font-mono mt-3 text-center italic mb-3">
+                                    ASSIGNING_NEW_ROLE_WILL_REMOVE_CURRENT_ROLE
+                                  </p>
 
-                              {/* Delete User Button */}
-                              <button
-                                onClick={() => setDeleteConfirmUserId(user.user_id)}
-                                disabled={processingUserId === user.user_id || deletingUserId === user.user_id}
-                                className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-red-500/50 bg-red-500/10 text-red-400 font-mono text-xs font-semibold hover:bg-red-500/20 hover:border-red-500/70 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                                DELETE_USER
-                              </button>
+                                  {/* Delete User Button */}
+                                  <button
+                                    onClick={() => setDeleteConfirmUserId(user.user_id)}
+                                    disabled={processingUserId === user.user_id || deletingUserId === user.user_id}
+                                    className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-red-500/50 bg-red-500/10 text-red-400 font-mono text-xs font-semibold hover:bg-red-500/20 hover:border-red-500/70 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                    DELETE_USER
+                                  </button>
+                                </>
+                              )}
                             </div>
                           )}
 
