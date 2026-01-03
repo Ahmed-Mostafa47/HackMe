@@ -27,7 +27,7 @@ const handleSubmit = async (e) => {
 
   try {
     const response = await axios.post(
-      'http://localhost/graduatoin_project/server/auth/send_verification.php',
+      'http://localhost/HackMe/server/auth/send_verification.php',
       formData,
       { headers: { 'Content-Type': 'application/json' } }
     );
@@ -38,7 +38,12 @@ const handleSubmit = async (e) => {
       alert("✅ Verification code sent to your email.");
       localStorage.setItem('userEmail', formData.email);
       localStorage.setItem('username', formData.username);
-      localStorage.setItem('fullName', formData.fullName); 
+      localStorage.setItem('fullName', formData.fullName);
+      
+      // Store expiration time (5 minutes from now)
+      const expirationTime = Date.now() + (5 * 60 * 1000); // 5 minutes in milliseconds
+      localStorage.setItem("verificationCodeExpiresAt", expirationTime.toString());
+      
       navigate("/verify");
     } else {
       const errorMessage = data?.message || response.data || "❌ Registration failed.";

@@ -18,6 +18,6 @@
 - Reused the existing `password_resets` table for token verification; no schema change required there.
 
 ## Integration Notes
-- All new API calls originate from `http://localhost/graduatoin_project/server/api/*` and use Axios for consistent error handling.
+- All new API calls originate from `http://localhost/HackeMe/server/api/*` and use Axios for consistent error handling.
 - Responsive layouts were verified on mobile, tablet, and desktop breakpoints for auth, profile, labs, and admin dashboards (Tailwind’s utility classes already covered most adjustments).
 

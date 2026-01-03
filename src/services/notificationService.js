@@ -6,7 +6,7 @@
 import { io } from 'socket.io-client';
 import axios from 'axios';
 
-const API_BASE = 'http://localhost/graduatoin_project/server/api';
+const API_BASE = 'http://localhost/HackMe/server/api';
 const SOCKET_URL = 'http://localhost:3001';
 
 class NotificationService {

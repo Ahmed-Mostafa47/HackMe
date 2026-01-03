@@ -145,6 +145,18 @@ function handle_post_request(mysqli $conn)
     $targetUserId = (int)$data['target_user_id'];
     $roleName = strtolower(trim($data['role_name']));
     
+    // PROTECTED USER: Cannot modify user with ID 9
+    if ($targetUserId === 9) {
+        ob_clean();
+        http_response_code(403);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Access denied. This user account is protected and cannot be modified.'
+        ]);
+        ob_end_flush();
+        return;
+    }
+    
     // Check if current user is superadmin (only superadmin can assign roles)
     if (!isSuperAdmin($conn, $currentUserId)) {
         ob_clean();
@@ -259,6 +271,18 @@ function handle_put_request(mysqli $conn)
     $targetUserId = (int)$data['target_user_id'];
     $roleName = strtolower(trim($data['role_name']));
     
+    // PROTECTED USER: Cannot modify user with ID 9
+    if ($targetUserId === 9) {
+        ob_clean();
+        http_response_code(403);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Access denied. This user account is protected and cannot be modified.'
+        ]);
+        ob_end_flush();
+        return;
+    }
+    
     // Check if current user is superadmin
     if (!isSuperAdmin($conn, $currentUserId)) {
         ob_clean();
@@ -332,6 +356,18 @@ function handle_delete_request(mysqli $conn)
     $currentUserId = (int)$data['current_user_id'];
     $targetUserId = (int)$data['target_user_id'];
     
+    // PROTECTED USER: Cannot delete user with ID 9
+    if ($targetUserId === 9) {
+        ob_clean();
+        http_response_code(403);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Access denied. This user account is protected and cannot be deleted.'
+        ]);
+        ob_end_flush();
+        return;
+    }
+    
     // Check if current user is superadmin
     if (!isSuperAdmin($conn, $currentUserId)) {
         ob_clean();
@@ -356,17 +392,20 @@ function handle_delete_request(mysqli $conn)
         return;
     }
     
-    // Prevent superadmin from deleting other superadmins
+    // Prevent deleting the last superadmin
     $targetUserRoles = getUserRoles($conn, $targetUserId);
     if (in_array('superadmin', $targetUserRoles)) {
-        ob_clean();
-        http_response_code(400);
-        echo json_encode([
-            'success' => false,
-            'message' => 'Cannot delete another superadmin account.'
-        ]);
-        ob_end_flush();
-        return;
+        $superAdminCount = countSuperAdmins($conn, $targetUserId);
+        if ($superAdminCount <= 1) {
+            ob_clean();
+            http_response_code(400);
+            echo json_encode([
+                'success' => false,
+                'message' => 'Cannot delete the last superadmin.'
+            ]);
+            ob_end_flush();
+            return;
+        }
     }
     
     // Start transaction
