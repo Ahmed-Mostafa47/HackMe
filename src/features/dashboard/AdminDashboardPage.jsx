@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Shield, Users, Database, Activity, ChevronDown, ChevronUp, UserPlus, UserMinus, Trash2, AlertTriangle } from "lucide-react";
+import { Shield, Users, Database, Activity, ChevronDown, ChevronUp, UserPlus, UserMinus, Trash2, AlertTriangle, Search } from "lucide-react";
 import axios from "axios";
 
 const API_BASE = "http://localhost/HackMe/server/api";
@@ -29,6 +29,7 @@ const AdminDashboardPage = ({
   const [processingUserId, setProcessingUserId] = useState(null);
   const [deleteConfirmUserId, setDeleteConfirmUserId] = useState(null);
   const [deletingUserId, setDeletingUserId] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     setRequests(pendingRoleRequests);
@@ -352,17 +353,43 @@ const AdminDashboardPage = ({
 
           {showUsers && (
             <div className="mt-6 border-t border-gray-700 pt-6">
+              {/* Search Bar */}
+              <div className="mb-6">
+                <div className="relative group">
+                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-blue-400 transition-colors" />
+                  <input
+                    type="text"
+                    placeholder="SEARCH_USER_BY_USERNAME_EMAIL_OR_NAME"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-12 pr-4 py-3 bg-gradient-to-r from-gray-800/70 to-gray-800/50 border border-gray-700/80 rounded-lg text-white placeholder-gray-500 outline-none focus:border-blue-500/60 focus:bg-gray-800/90 focus:shadow-lg focus:shadow-blue-500/10 transition-all duration-300 font-mono text-sm backdrop-blur-sm"
+                  />
+                </div>
+              </div>
+
               {loadingUsers ? (
                 <div className="text-center py-10 text-gray-500 font-mono">
                   LOADING_USERS...
                 </div>
-              ) : users.length === 0 ? (
-                <div className="text-center py-10 text-gray-500 font-mono">
-                  NO_USERS_FOUND
-                </div>
-              ) : (
-                <div className="space-y-4 max-h-[600px] overflow-y-auto">
-                  {users.map((user) => {
+              ) : (() => {
+                // Filter users based on search query
+                const filteredUsers = users.filter((user) => {
+                  if (!searchQuery.trim()) return true;
+                  const query = searchQuery.toLowerCase();
+                  return (
+                    user.username?.toLowerCase().includes(query) ||
+                    user.email?.toLowerCase().includes(query) ||
+                    user.full_name?.toLowerCase().includes(query)
+                  );
+                });
+
+                return filteredUsers.length === 0 ? (
+                  <div className="text-center py-10 text-gray-500 font-mono">
+                    {searchQuery.trim() ? "NO_USERS_FOUND_MATCHING_SEARCH" : "NO_USERS_FOUND"}
+                  </div>
+                ) : (
+                  <div className="space-y-4 max-h-[600px] overflow-y-auto custom-scrollbar pr-2">
+                    {filteredUsers.map((user) => {
                     const userRoles = user.roles || [];
                     // Only SuperAdmin can manage roles (assign/remove)
                     const canManage = isSuperAdmin;
@@ -372,7 +399,7 @@ const AdminDashboardPage = ({
                     return (
                       <div
                         key={user.user_id}
-                        className="bg-gray-800/60 border border-gray-700 rounded-xl p-5 hover:border-blue-500/50 transition-all"
+                        className="bg-gradient-to-br from-gray-800/70 to-gray-800/50 border border-gray-700/80 rounded-xl p-5 hover:border-blue-500/50 hover:shadow-lg hover:shadow-blue-500/10 transition-all duration-300 backdrop-blur-sm"
                       >
                         <div className="flex flex-col gap-4">
                           {/* User Header */}
@@ -509,8 +536,9 @@ const AdminDashboardPage = ({
                       </div>
                     );
                   })}
-                </div>
-              )}
+                  </div>
+                );
+              })()}
             </div>
           )}
         </div>
