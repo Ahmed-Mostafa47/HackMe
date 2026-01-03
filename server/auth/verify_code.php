@@ -22,7 +22,8 @@ $email = isset($input['email']) ? trim($input['email']) : '';
 $code = isset($input['code']) ? trim($input['code']) : '';
 
 if (!$email || !$code) {
-    echo json_encode(['success' => false, 'message' => 'Missing email or code']);
+    $errorMessage = htmlspecialchars('Missing email or code', ENT_QUOTES, 'UTF-8');
+    echo json_encode(['success' => false, 'message' => $errorMessage]);
     exit;
 }
 
@@ -34,7 +35,8 @@ $row = $res->fetch_assoc();
 
 if (!$row) {
     $stmt->close();
-    echo json_encode(['success' => false, 'message' => 'Invalid, expired, or already used verification code']);
+    $errorMessage = htmlspecialchars('Invalid, expired, or already used verification code', ENT_QUOTES, 'UTF-8');
+    echo json_encode(['success' => false, 'message' => $errorMessage]);
     exit;
 }
 
@@ -45,10 +47,11 @@ $update_stmt = $conn->prepare('UPDATE email_verifications SET is_verified = 1 WH
 $update_stmt->bind_param('i', $id);
 
 if ($update_stmt->execute()) {
-    echo json_encode(['success' => true, 'message' => 'Email successfully verified']);
+    $successMessage = htmlspecialchars('Email successfully verified', ENT_QUOTES, 'UTF-8');
+    echo json_encode(['success' => true, 'message' => $successMessage]);
 } else {
-
-    echo json_encode(['success' => false, 'message' => 'Verification update failed: ' . $update_stmt->error]);
+    $errorMessage = htmlspecialchars('Verification update failed: ' . $update_stmt->error, ENT_QUOTES, 'UTF-8');
+    echo json_encode(['success' => false, 'message' => $errorMessage]);
 }
 
 $update_stmt->close();

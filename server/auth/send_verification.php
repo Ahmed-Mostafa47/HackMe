@@ -61,9 +61,16 @@ else if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         exit;
     }
 
+// Sanitize inputs to prevent HTML injection (after validation)
+$usernameSanitized = htmlspecialchars($username, ENT_QUOTES, 'UTF-8');
+$emailSanitized = htmlspecialchars($email, ENT_QUOTES, 'UTF-8');
+$fullNameSanitized = htmlspecialchars($fullName, ENT_QUOTES, 'UTF-8');
+
 
 // Generate 6-digit numeric code
 $code = str_pad(strval(rand(0, 999999)), 6, '0', STR_PAD_LEFT);
+// Sanitize code for HTML output
+$codeSanitized = htmlspecialchars($code, ENT_QUOTES, 'UTF-8');
 
 // Delete previous verifications
 $stmt = $conn->prepare('DELETE FROM email_verifications WHERE email = ?');
@@ -134,13 +141,13 @@ try {
                                         <span style='font-size: 32px;'>🔐</span>
                                     </div>
                                     <h2 style='margin: 0 0 15px 0; font-size: 24px; font-weight: 600; color: #f9fafb; font-family: \"Courier New\", monospace;'>IDENTITY_VERIFICATION</h2>
-                                    <p style='margin: 0; font-size: 14px; color: #9ca3af; line-height: 1.6; font-family: \"Courier New\", monospace;'>Hello <strong style='color: #22c55e;'>$username</strong>,</p>
+                                    <p style='margin: 0; font-size: 14px; color: #9ca3af; line-height: 1.6; font-family: \"Courier New\", monospace;'>Hello <strong style='color: #22c55e;'>$usernameSanitized</strong>,</p>
                                 </div>
                                 
                                 <div style='background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(16, 185, 129, 0.1) 100%); border: 2px solid #22c55e; border-radius: 12px; padding: 30px; margin: 30px 0;'>
                                     <p style='margin: 0 0 15px 0; font-size: 13px; color: #d1d5db; text-transform: uppercase; letter-spacing: 1px; font-family: \"Courier New\", monospace; text-align: center;'>YOUR_VERIFICATION_CODE</p>
                                     <div style='background: #111827; border: 2px dashed #22c55e; border-radius: 8px; padding: 20px; margin: 20px 0;'>
-                                        <div style='font-size: 42px; font-weight: bold; color: #22c55e; letter-spacing: 8px; text-align: center; font-family: \"Courier New\", monospace; text-shadow: 0 0 20px rgba(34, 197, 94, 0.5);'>$code</div>
+                                        <div style='font-size: 42px; font-weight: bold; color: #22c55e; letter-spacing: 8px; text-align: center; font-family: \"Courier New\", monospace; text-shadow: 0 0 20px rgba(34, 197, 94, 0.5);'>$codeSanitized</div>
                                     </div>
                                     <p style='margin: 15px 0 0 0; font-size: 12px; color: #9ca3af; text-align: center; font-family: \"Courier New\", monospace;'>⚠️ This code expires in <strong style='color: #fbbf24;'>5 minutes</strong></p>
                                 </div>
@@ -178,8 +185,8 @@ try {
     
     $mail->Body = $emailBody;
     
-    // Plain text fallback
-    $mail->AltBody = "HACK_ME Platform\n\nHello $username,\n\nYour verification code is: $code\n\nThis code expires in 5 minutes.\n\nIf you didn't request this code, please ignore this email.\n\n© 2025 HACK_ME Platform";
+    // Plain text fallback (sanitized)
+    $mail->AltBody = "HACK_ME Platform\n\nHello $usernameSanitized,\n\nYour verification code is: $codeSanitized\n\nThis code expires in 5 minutes.\n\nIf you didn't request this code, please ignore this email.\n\n© 2025 HACK_ME Platform";
 
     $mail->send();
     echo json_encode(['success'=>true, 'message'=>'Verification code sent successfully']);

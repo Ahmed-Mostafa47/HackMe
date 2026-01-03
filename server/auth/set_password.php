@@ -88,7 +88,7 @@ $chk->close();
 
 // hash password and insert
 $hash = password_hash($password, PASSWORD_BCRYPT);
-$profile_meta = json_encode(['avatar'=>'🆕','rank'=>'RECRUIT','specialization'=>'TRAINING','join_date'=>date('c')]);
+$profile_meta = json_encode(['avatar'=>'🆕','rank'=>'USER','specialization'=>'TRAINING','join_date'=>date('c')]);
 
 $ins = $conn->prepare('INSERT INTO users (username, email, password_hash, full_name, profile_meta) VALUES (?, ?, ?, ?, ?)');
 if (!$ins) {

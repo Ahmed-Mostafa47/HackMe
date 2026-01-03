@@ -16,8 +16,10 @@ const ProfilePage = ({
   const profile = currentUser?.profile_meta || {};
   const userRoles = currentUser?.roles || [];
   const isSuperAdmin = userRoles.includes('superadmin');
-  const canRequestRole = !isAdmin && !isInstructor && !isSuperAdmin;
-  const [desiredRole, setDesiredRole] = useState("admin");
+  // Allow regular users and instructors to request roles (instructors can request admin)
+  const canRequestRole = !isAdmin && !isSuperAdmin;
+  // If instructor, default to admin role request, otherwise allow choosing
+  const [desiredRole, setDesiredRole] = useState(isInstructor ? "admin" : "admin");
   const [comment, setComment] = useState("");
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -185,7 +187,7 @@ const ProfilePage = ({
                     )}
                   </>
                 )}
-                {canRequestRole && (
+                {canRequestRole && !isInstructor && (
                   <div className="flex gap-3 text-xs font-mono text-gray-400 justify-center">
                     {["admin", "instructor"].map((role) => (
                       <button
@@ -201,6 +203,11 @@ const ProfilePage = ({
                         {role.toUpperCase()}
                       </button>
                     ))}
+                  </div>
+                )}
+                {canRequestRole && isInstructor && (
+                  <div className="text-xs font-mono text-gray-400 text-center">
+                    REQUESTING_ADMIN_ROLE
                   </div>
                 )}
                 {roleRequestMessage && (

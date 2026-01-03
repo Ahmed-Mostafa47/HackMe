@@ -235,7 +235,7 @@ const EmailVerificationPage = ({
                 CODE_SENT_TO:
               </p>
               <p className="text-green-400 font-mono font-semibold text-lg break-all text-center">
-                {email}
+                {email ? email.replace(/[<>]/g, '') : ''}
               </p>
             </div>
 
@@ -270,14 +270,14 @@ const EmailVerificationPage = ({
               {successMessage && (
                 <div className="flex items-center justify-center gap-2 text-green-400 font-mono text-sm mb-4 bg-green-500/10 border border-green-500/30 rounded-lg p-3">
                   <Check className="w-4 h-4 flex-shrink-0" />
-                  <span className="text-center">{successMessage}</span>
+                  <span className="text-center">{successMessage.replace(/[<>]/g, '')}</span>
                 </div>
               )}
 
               {error && (
                 <div className="flex items-center justify-center gap-2 text-red-400 font-mono text-sm mb-4">
                   <X className="w-4 h-4" />
-                  {error}
+                  <span>{error.replace(/[<>]/g, '')}</span>
                 </div>
               )}
             </div>

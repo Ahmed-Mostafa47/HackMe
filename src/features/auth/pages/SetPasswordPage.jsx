@@ -114,7 +114,7 @@ const SetPasswordPage = ({ email, onPasswordSet, onBackToVerification }) => {
         total_points: 0,
         profile_meta: {
           avatar: "🆕",
-          rank: "RECRUIT",
+          rank: "USER",
           specialization: "TRAINING",
           join_date: new Date().toISOString()
         }
