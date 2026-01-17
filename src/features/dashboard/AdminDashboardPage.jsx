@@ -201,6 +201,7 @@ const AdminDashboardPage = ({
   };
 
   const isSuperAdmin = currentUser?.roles?.includes('superadmin') || currentUser?.permissions?.includes('manage_permissions');
+  const isOwner = currentUser?.user_id === 9; // Owner is user_id = 9
 
   const handleApprove = async (requestId, userId) => {
     setProcessingId(requestId);
@@ -395,6 +396,10 @@ const AdminDashboardPage = ({
                     const canManage = isSuperAdmin;
                     // Protected user (ID = 9) cannot be modified
                     const isProtectedUser = user.user_id === 9;
+                    // Check if target user is superadmin
+                    const targetIsSuperAdmin = userRoles.includes('superadmin');
+                    // Only owner can modify superadmins (except themselves)
+                    const canModifySuperAdmin = isOwner || !targetIsSuperAdmin;
                     
                     return (
                       <div
@@ -454,6 +459,11 @@ const AdminDashboardPage = ({
                                   <Shield className="w-4 h-4" />
                                   PROTECTED_ACCOUNT_CANNOT_BE_MODIFIED
                                 </div>
+                              ) : !canModifySuperAdmin ? (
+                                <div className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg border border-red-500/30 bg-red-500/5 text-red-400/70 font-mono text-xs">
+                                  <Shield className="w-4 h-4" />
+                                  ONLY_OWNER_CAN_MODIFY_SUPERADMIN
+                                </div>
                               ) : (
                                 <>
                                   <p className="text-xs text-gray-500 font-mono mb-3">
@@ -470,6 +480,10 @@ const AdminDashboardPage = ({
                                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                                       {availableRoles.map((role) => {
                                         const hasRole = userRoles.includes(role.name.toLowerCase());
+                                        // Disable superadmin role assignment if target is superadmin and current user is not owner
+                                        const isSuperAdminRole = role.name.toLowerCase() === 'superadmin';
+                                        const isDisabled = processingUserId === user.user_id || 
+                                                          (targetIsSuperAdmin && isSuperAdminRole && !isOwner);
                                         
                                         return (
                                           <button
@@ -477,12 +491,13 @@ const AdminDashboardPage = ({
                                             onClick={() => {
                                               handleAssignRole(user.user_id, role.name);
                                             }}
-                                            disabled={processingUserId === user.user_id}
+                                            disabled={isDisabled}
                                             className={`px-3 py-2 rounded-lg border font-mono text-xs font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                                               hasRole
                                                 ? "bg-blue-500/20 border-blue-500/50 text-blue-300"
                                                 : "bg-gray-800/50 border-gray-600 text-gray-300 hover:bg-gray-700/50 hover:border-gray-500"
                                             }`}
+                                            title={isDisabled && targetIsSuperAdmin && isSuperAdminRole && !isOwner ? "Only owner can modify SuperAdmin roles" : ""}
                                           >
                                             {role.name.toUpperCase()}
                                           </button>
@@ -495,15 +510,17 @@ const AdminDashboardPage = ({
                                     ASSIGNING_NEW_ROLE_WILL_REMOVE_CURRENT_ROLE
                                   </p>
 
-                                  {/* Delete User Button */}
-                                  <button
-                                    onClick={() => setDeleteConfirmUserId(user.user_id)}
-                                    disabled={processingUserId === user.user_id || deletingUserId === user.user_id}
-                                    className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-red-500/50 bg-red-500/10 text-red-400 font-mono text-xs font-semibold hover:bg-red-500/20 hover:border-red-500/70 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                    DELETE_USER
-                                  </button>
+                                  {/* Delete User Button - Only show if can modify superadmin */}
+                                  {canModifySuperAdmin && (
+                                    <button
+                                      onClick={() => setDeleteConfirmUserId(user.user_id)}
+                                      disabled={processingUserId === user.user_id || deletingUserId === user.user_id}
+                                      className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-red-500/50 bg-red-500/10 text-red-400 font-mono text-xs font-semibold hover:bg-red-500/20 hover:border-red-500/70 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                      DELETE_USER
+                                    </button>
+                                  )}
                                 </>
                               )}
                             </div>

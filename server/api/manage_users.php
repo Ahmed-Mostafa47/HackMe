@@ -169,6 +169,22 @@ function handle_post_request(mysqli $conn)
         return;
     }
     
+    // Check if target user is superadmin
+    $targetUserRoles = getUserRoles($conn, $targetUserId);
+    $targetIsSuperAdmin = in_array('superadmin', $targetUserRoles);
+    
+    // Only owner can modify superadmins
+    if ($targetIsSuperAdmin && !isOwner($conn, $currentUserId)) {
+        ob_clean();
+        http_response_code(403);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Access denied. Only the owner can modify SuperAdmin accounts.'
+        ]);
+        ob_end_flush();
+        return;
+    }
+    
     // Prevent removing superadmin role from the last superadmin
     if ($roleName !== 'superadmin') {
         $currentUserRoles = getUserRoles($conn, $currentUserId);
@@ -295,6 +311,22 @@ function handle_put_request(mysqli $conn)
         return;
     }
     
+    // Check if target user is superadmin
+    $targetUserRoles = getUserRoles($conn, $targetUserId);
+    $targetIsSuperAdmin = in_array('superadmin', $targetUserRoles);
+    
+    // Only owner can modify superadmins
+    if ($targetIsSuperAdmin && !isOwner($conn, $currentUserId)) {
+        ob_clean();
+        http_response_code(403);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Access denied. Only the owner can modify SuperAdmin accounts.'
+        ]);
+        ob_end_flush();
+        return;
+    }
+    
     // Prevent removing superadmin role from the last superadmin
     if ($roleName === 'superadmin') {
         $superAdminCount = countSuperAdmins($conn, $targetUserId);
@@ -392,9 +424,24 @@ function handle_delete_request(mysqli $conn)
         return;
     }
     
-    // Prevent deleting the last superadmin
+    // Check if target user is superadmin
     $targetUserRoles = getUserRoles($conn, $targetUserId);
-    if (in_array('superadmin', $targetUserRoles)) {
+    $targetIsSuperAdmin = in_array('superadmin', $targetUserRoles);
+    
+    // Only owner can delete superadmins
+    if ($targetIsSuperAdmin && !isOwner($conn, $currentUserId)) {
+        ob_clean();
+        http_response_code(403);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Access denied. Only the owner can delete SuperAdmin accounts.'
+        ]);
+        ob_end_flush();
+        return;
+    }
+    
+    // Prevent deleting the last superadmin (only owner can do this)
+    if ($targetIsSuperAdmin) {
         $superAdminCount = countSuperAdmins($conn, $targetUserId);
         if ($superAdminCount <= 1) {
             ob_clean();
@@ -617,6 +664,16 @@ function getUserDetails(mysqli $conn, int $userId): ?array
         'roles' => $roles,
         'permissions' => $permissions
     ];
+}
+
+/**
+ * Check if user is the owner (only owner can modify superadmins)
+ * Owner is defined as user_id = 9 (protected user)
+ */
+function isOwner(mysqli $conn, int $userId): bool
+{
+    // Owner is user_id = 9 (the protected user)
+    return $userId === 9;
 }
 
 /**
