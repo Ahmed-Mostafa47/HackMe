@@ -16,9 +16,11 @@ import HomePage from "./features/home/HomePage";
 import LandingPage from "./features/home/LandingPage";
 import LeaderboardPage from "./features/dashboard/LeaderboardPage";
 import TrainingSelectionPage from "./features/dashboard/TrainingSelectionPage";
-import LabsPage from "./features/labs/LabsPage";
-import LabDetailPage from "./features/labs/LabDetailPage";
-import ChallengePage from "./features/labs/ChallengePage";
+import LabsListModern from "./features/labs/LabsListModern";
+import LabDetailsModern from "./features/labs/LabDetailsModern";
+import InstructorLabsDashboard from "./features/labs/InstructorLabsDashboard";
+import AdminLabsDashboard from "./features/labs/AdminLabsDashboard";
+import SandboxLabApp from "./features/labs/SandboxLabApp";
 import CommentsPage from "./features/network/CommentsPage";
 import ProfilePage from "./features/profile/ProfilePage";
 import AdminDashboardPage from "./features/dashboard/AdminDashboardPage";
@@ -339,6 +341,11 @@ function AppContent() {
     }
   }, [isAdmin]);
 
+  // Special-case: sandbox lab app (isolated, no auth / navbar)
+  if (location.pathname === "/lab-sandbox") {
+    return <SandboxLabApp />;
+  }
+
   const renderAuthPage = () => {
     switch (authMode) {
       case "landing":
@@ -421,6 +428,7 @@ function AppContent() {
     const params = new URLSearchParams(location.search);
     const routeToken = params.get("token");
     const resetMode = params.get("mode");
+    const labId = params.get("labId");
     switch (path) {
       case "/home":
       case "/":
@@ -435,20 +443,22 @@ function AppContent() {
           />
         );
       case "/labs":
+        // Use the modern list as the primary labs UI
         return (
-          <LabsPage
-            setCurrentPage={(p) => navigate(`/${p}`)}
-            selectedLabType={selectedLabType}
+          <LabsListModern
             isAdmin={isAdmin}
             isInstructor={isInstructor}
             onEditLab={() => {}}
             onRemoveLab={() => {}}
           />
         );
-      case "/lab-detail":
-        return <LabDetailPage setCurrentPage={(p) => navigate(`/${p}`)} />;
-      case "/challenge":
-        return <ChallengePage setCurrentPage={(p) => navigate(`/${p}`)} />;
+      case "/lab-modern":
+        return (
+          <LabDetailsModern
+            labId={labId}
+            onBack={() => navigate("/labs")}
+          />
+        );
       case "/comments":
         return <CommentsPage currentUser={currentUser} isAdmin={isAdmin} />;
       case "/notifications":
@@ -468,6 +478,18 @@ function AppContent() {
             roleRequestAlert={roleRequestAlert}
           />
         );
+      case "/instructor-labs":
+        if (!isInstructor && !isAdmin) {
+          return (
+            <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black pt-32 text-center text-white font-mono">
+              <p className="text-sm text-gray-500">ACCESS_RESTRICTED</p>
+              <h1 className="text-4xl font-bold text-red-400 mt-4">
+                INSTRUCTOR_PRIVILEGES_REQUIRED
+              </h1>
+            </div>
+          );
+        }
+        return <InstructorLabsDashboard />;
       case "/admin":
         if (!isAdmin && !isSuperAdmin) {
           return (
@@ -486,6 +508,18 @@ function AppContent() {
             currentUser={currentUser}
           />
         );
+      case "/admin-labs":
+        if (!isAdmin && !isSuperAdmin) {
+          return (
+            <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black pt-32 text-center text-white font-mono">
+              <p className="text-sm text-gray-500">ACCESS_RESTRICTED</p>
+              <h1 className="text-4xl font-bold text-red-400 mt-4">
+                ADMIN_PRIVILEGES_REQUIRED
+              </h1>
+            </div>
+          );
+        }
+        return <AdminLabsDashboard />;
       case "/reset-password":
         return (
           <ResetPasswordPage
