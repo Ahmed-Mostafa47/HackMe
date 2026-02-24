@@ -28,7 +28,7 @@ const LabDetailsModern = ({ labId, onBack }) => {
 
   const handleStartLab = () => {
     // Open isolated sandbox lab application in a NEW window (UI only)
-    const url = `/lab-sandbox?labId=${lab.lab_id}`;
+    const url = `http://localhost:4000/?labId=${lab.lab_id}`;
     window.open(url, "_blank", "noopener,noreferrer");
   };
 
