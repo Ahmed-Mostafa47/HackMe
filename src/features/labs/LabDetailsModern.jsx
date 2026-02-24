@@ -27,12 +27,8 @@ const LabDetailsModern = ({ labId, onBack }) => {
   const [solutionConfirm, setSolutionConfirm] = useState(false);
 
   const handleStartLab = () => {
-    // Pass user/lab context so the vulnerable lab can report solve status.
-    const params = new URLSearchParams();
-    if (resolvedUserId) params.set("userId", String(resolvedUserId));
-    if (lab?.lab_id) params.set("labId", String(lab.lab_id));
-    const query = params.toString();
-    const url = `http://localhost:4000${query ? `?${query}` : ""}`;
+    // Open isolated sandbox lab application in a NEW window (UI only)
+    const url = `/lab-sandbox?labId=${lab.lab_id}`;
     window.open(url, "_blank", "noopener,noreferrer");
   };
 
