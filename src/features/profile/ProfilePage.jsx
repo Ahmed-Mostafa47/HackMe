@@ -1,5 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { ShieldCheck, KeyRound, Award, Users, Trash2, Eye, EyeOff, AlertTriangle } from "lucide-react";
+
+const API_BASE = import.meta.env.DEV ? "/api" : "http://localhost/HackMe/server/api";
 
 const ProfilePage = ({
   currentUser,
@@ -26,6 +28,23 @@ const ProfilePage = ({
   const [deletePassword, setDeletePassword] = useState("");
   const [showDeletePassword, setShowDeletePassword] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [points, setPoints] = useState(currentUser?.total_points ?? 0);
+
+  useEffect(() => {
+    if (!currentUser?.user_id) return;
+    let cancelled = false;
+    const fetchPoints = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/get_user_points.php?user_id=${currentUser.user_id}`);
+        const data = await res.json();
+        if (!cancelled && data.success && data.total_points != null) {
+          setPoints(data.total_points);
+        }
+      } catch (_) {}
+    };
+    fetchPoints();
+    return () => { cancelled = true; };
+  }, [currentUser?.user_id]);
 
   const getStatusBadge = (status) => {
     if (!status) return null;
@@ -92,7 +111,7 @@ const ProfilePage = ({
             <div className="text-center">
               <p className="text-xs text-gray-500 font-mono">TOTAL_POINTS</p>
               <p className="text-3xl font-bold text-green-400 font-mono">
-                {currentUser?.total_points || 0}
+                {points}
               </p>
             </div>
           </div>

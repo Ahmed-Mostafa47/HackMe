@@ -40,6 +40,7 @@ function AppContent() {
     handleLogin,
     handleLogout,
     checkExistingSession,
+    updateUserPoints,
   } = useAuth();
   const { selectedLabType, setSelectedLabType } = useLabs();
 
@@ -434,7 +435,7 @@ function AppContent() {
       case "/":
         return <HomePage setCurrentPage={(p) => navigate(`/${p}`)} />;
       case "/dashboard":
-        return <LeaderboardPage />;
+        return <LeaderboardPage currentUser={currentUser} />;
       case "/training":
         return (
           <TrainingSelectionPage
@@ -450,6 +451,7 @@ function AppContent() {
             isInstructor={isInstructor}
             onEditLab={() => {}}
             onRemoveLab={() => {}}
+            onLabClick={(lab) => navigate(`/lab-modern?labId=${lab.lab_id}`)}
           />
         );
       case "/lab-modern":
@@ -457,6 +459,17 @@ function AppContent() {
           <LabDetailsModern
             labId={labId}
             onBack={() => navigate("/labs")}
+            currentUser={currentUser}
+            onFlagSuccess={async () => {
+              if (!currentUser?.user_id) return;
+              try {
+                const res = await fetch(`${API_BASE}/get_user_points.php?user_id=${currentUser.user_id}`);
+                const data = await res.json();
+                if (data.success && data.total_points != null) {
+                  updateUserPoints(data.total_points);
+                }
+              } catch (_) {}
+            }}
           />
         );
       case "/comments":
