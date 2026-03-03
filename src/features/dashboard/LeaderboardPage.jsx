@@ -1,8 +1,42 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Trophy, Target, Award, Bug, Clock } from 'lucide-react';
-import { statsData, leaderboardData, activityData } from '../../data/statsData';
+import { statsData, activityData } from '../../data/statsData';
 
-const LeaderboardPage = () => {
+const API_BASE = import.meta.env.DEV ? "/api" : "http://localhost/HackMe/server/api";
+
+const LeaderboardPage = ({ currentUser }) => {
+  const [leaderboardData, setLeaderboardData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchLeaderboard = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/get_leaderboard.php?limit=20`);
+        const data = await res.json();
+        if (!cancelled && data.success) {
+          const list = (data.leaderboard || []).map((p, i) => ({
+            rank: p.rank ?? i + 1,
+            user_id: p.user_id,
+            name: p.name || p.username,
+            points: p.points,
+            avatar: ['👻', '👁️', '⚡', '🎯', '💀'][i % 5],
+            isYou: currentUser?.user_id === p.user_id,
+          }));
+          setLeaderboardData(list);
+        } else if (!cancelled) {
+          setError(data.message || 'Failed to load leaderboard');
+        }
+      } catch (e) {
+        if (!cancelled) setError('Cannot reach server');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    fetchLeaderboard();
+    return () => { cancelled = true; };
+  }, [currentUser?.user_id]);
   const getIcon = (iconName) => {
     const icons = {
       Trophy: Trophy,
@@ -65,32 +99,40 @@ const LeaderboardPage = () => {
               </h2>
             </div>
             <div className="space-y-3">
-              {leaderboardData.map((player, index) => (
-                <div
-                  key={index}
-                  className={`flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 p-4 rounded-xl transition-all duration-300 ${
-                    player.name === 'YOU'
-                      ? 'bg-green-500/20 border-2 border-green-500/40 shadow-lg'
-                      : 'bg-gray-700/50 hover:bg-gray-700/80 border border-gray-600'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">{player.avatar}</span>
-                    <div>
-                      <span className={`font-bold font-mono ${player.name === 'YOU' ? 'text-green-400 text-lg' : 'text-gray-300'}`}>
-                        {player.name}
-                      </span>
-                      {player.name === 'YOU' && (
-                        <span className="ml-2 text-xs bg-green-500 text-white px-2 py-1 rounded font-mono">ACTIVE</span>
-                      )}
+              {loading ? (
+                <div className="text-center py-8 text-gray-400 font-mono">Loading leaderboard...</div>
+              ) : error ? (
+                <div className="text-center py-8 text-red-400 font-mono">{error}</div>
+              ) : leaderboardData.length === 0 ? (
+                <div className="text-center py-8 text-gray-400 font-mono">No data yet</div>
+              ) : (
+                leaderboardData.map((player, index) => (
+                  <div
+                    key={player.rank}
+                    className={`flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 p-4 rounded-xl transition-all duration-300 ${
+                      player.isYou
+                        ? 'bg-green-500/20 border-2 border-green-500/40 shadow-lg'
+                        : 'bg-gray-700/50 hover:bg-gray-700/80 border border-gray-600'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">{player.avatar}</span>
+                      <div>
+                        <span className={`font-bold font-mono ${player.isYou ? 'text-green-400 text-lg' : 'text-gray-300'}`}>
+                          {player.name}
+                        </span>
+                        {player.isYou && (
+                          <span className="ml-2 text-xs bg-green-500 text-white px-2 py-1 rounded font-mono">YOU</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-left sm:text-right">
+                      <div className="font-bold text-green-400 text-lg font-mono">{player.points}</div>
+                      <div className="text-gray-400 text-xs font-mono tracking-wide">POINTS</div>
                     </div>
                   </div>
-                  <div className="text-left sm:text-right">
-                    <div className="font-bold text-green-400 text-lg font-mono">{player.points}</div>
-                    <div className="text-gray-400 text-xs font-mono tracking-wide">POINTS</div>
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
 

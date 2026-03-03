@@ -38,6 +38,13 @@ export const useAuth = () => {
     }
   };
 
+  const updateUserPoints = (totalPoints) => {
+    if (!currentUser) return;
+    const updated = { ...currentUser, total_points: totalPoints };
+    setCurrentUser(updated);
+    localStorage.setItem("cyberops_user", JSON.stringify(updated));
+  };
+
   return {
     isLoggedIn,
     currentUser,
@@ -45,5 +52,6 @@ export const useAuth = () => {
     handleRegister,
     handleLogout,
     checkExistingSession,
+    updateUserPoints,
   };
 };

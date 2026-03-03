@@ -163,13 +163,26 @@ if (!empty($profile_meta['rank']) && empty($userRoles)) {
     }
 }
 
+// Get total_points from leaderboard
+$points = 0;
+$lb = $conn->prepare('SELECT total_points FROM leaderboard WHERE user_id = ? LIMIT 1');
+if ($lb) {
+    $lb->bind_param('i', $user['user_id']);
+    $lb->execute();
+    $lbRes = $lb->get_result();
+    if ($lbRes && $row = $lbRes->fetch_assoc()) {
+        $points = (int)$row['total_points'];
+    }
+    $lb->close();
+}
+
 // Return user data (without password_hash)
 $userData = [
     'user_id' => (int)$user['user_id'],
     'username' => $user['username'],
     'email' => $user['email'],
     'full_name' => $user['full_name'],
-    'total_points' => (int)($user['total_points'] ?? 0),
+    'total_points' => $points,
     'profile_meta' => $profile_meta,
     'roles' => $userRoles,
     'permissions' => $userPermissions

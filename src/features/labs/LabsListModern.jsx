@@ -20,10 +20,15 @@ const LabsListModern = ({
   isInstructor = false,
   onEditLab,
   onRemoveLab,
+  onLabClick,
 }) => {
   const handleOpenLab = (lab) => {
-    const url = `/lab-modern?labId=${lab.lab_id}`;
-    window.open(url, "_blank", "noopener,noreferrer");
+    if (onLabClick) {
+      onLabClick(lab);
+    } else {
+      // fallback: same tab navigation
+      window.location.href = `/lab-modern?labId=${lab.lab_id}`;
+    }
   };
 
   return (

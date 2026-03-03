@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   ArrowLeft,
   Shield,
@@ -8,8 +8,14 @@ import {
   ChevronUp,
   AlertTriangle,
   PlayCircle,
+  Flag,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import { mockLabs } from "../../data/mockData";
+
+// Use relative path when proxy exists (dev), else full URL (production)
+const API_BASE = import.meta.env.DEV ? "/api" : "http://localhost/HackMe/server/api";
 
 const diffBadgeClasses = {
   easy: "bg-emerald-500/10 text-emerald-300 border-emerald-400/50",
@@ -17,7 +23,7 @@ const diffBadgeClasses = {
   hard: "bg-rose-500/10 text-rose-300 border-rose-400/50",
 };
 
-const LabDetailsModern = ({ labId, onBack }) => {
+const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
   const lab =
     mockLabs.find((l) => String(l.lab_id) === String(labId)) || mockLabs[0];
 
@@ -25,6 +31,60 @@ const LabDetailsModern = ({ labId, onBack }) => {
   const [hintsOpen, setHintsOpen] = useState(true);
   const [solutionOpen, setSolutionOpen] = useState(false);
   const [solutionConfirm, setSolutionConfirm] = useState(false);
+
+  const [flagValue, setFlagValue] = useState("");
+  const [flagLoading, setFlagLoading] = useState(false);
+  const [flagResult, setFlagResult] = useState(null); // { success, message, points }
+  const [successPopupVisible, setSuccessPopupVisible] = useState(false);
+
+  // Auto-hide success popup after 3 seconds
+  useEffect(() => {
+    if (!successPopupVisible) return;
+    const t = setTimeout(() => setSuccessPopupVisible(false), 3000);
+    return () => clearTimeout(t);
+  }, [successPopupVisible]);
+
+  const handleSubmitFlag = async (e) => {
+    e.preventDefault();
+    if (!flagValue.trim() || !currentUser?.user_id) return;
+    setFlagLoading(true);
+    setFlagResult(null);
+    try {
+      const res = await fetch(`${API_BASE}/submit_flag.php`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lab_id: lab.lab_id,
+          flag: flagValue.trim(),
+          user_id: currentUser.user_id ?? currentUser.id,
+        }),
+      });
+      const text = await res.text();
+      let data;
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        const errPreview = (text || "empty response").slice(0, 200);
+        setFlagResult({ success: false, message: `خطأ من الخادم (${res.status}): ${errPreview}` });
+        return;
+      }
+      const errMsg = data.message || data.error || (res.status >= 400 ? `Error ${res.status}` : null);
+      if (errMsg) {
+        data.message = res.status === 500 ? `خطأ 500: ${errMsg}` : errMsg;
+      }
+      setFlagResult(data);
+      if (data.success) {
+        setFlagValue("");
+        setSuccessPopupVisible(true);
+        onFlagSuccess?.();
+      }
+    } catch (err) {
+      const msg = err.message || "Network error";
+      setFlagResult({ success: false, message: msg === "Failed to fetch" ? "Cannot reach server. Check XAMPP Apache and URL." : msg });
+    } finally {
+      setFlagLoading(false);
+    }
+  };
 
   const handleStartLab = () => {
     // Open isolated sandbox lab application in a NEW window (UI only)
@@ -42,6 +102,24 @@ const LabDetailsModern = ({ labId, onBack }) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black py-12 px-4 sm:px-6 lg:px-10">
+      {/* Success toast - slides down from below navbar, then fades out after 3s */}
+      {successPopupVisible && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 w-full max-w-md px-4 animate-slide-down">
+          <div className="flex items-center gap-3 rounded-xl border border-emerald-500/50 bg-slate-900/95 backdrop-blur-sm px-5 py-4 shadow-2xl shadow-emerald-500/20">
+            <div className="rounded-full bg-emerald-500/20 p-2 flex-shrink-0">
+              <CheckCircle2 className="w-8 h-8 text-emerald-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-base font-mono font-semibold text-emerald-200">
+                Lab solved successfully
+              </h3>
+              <p className="text-sm text-slate-300">
+                {flagResult?.points != null ? `Submission saved. +${flagResult.points} pts` : "Submission saved."}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="max-w-6xl mx-auto">
         <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div className="space-y-4">
@@ -147,6 +225,57 @@ const LabDetailsModern = ({ labId, onBack }) => {
               <p className="text-sm sm:text-base text-slate-200 leading-relaxed">
                 {lab.description}
               </p>
+            </section>
+
+            <section className="rounded-2xl border border-slate-700 bg-slate-900/70 p-5 shadow-lg shadow-black/40">
+              <h2 className="text-sm font-mono text-slate-300 mb-2 flex items-center gap-2">
+                <Flag className="w-4 h-4 text-amber-400" />
+                // SUBMIT_FLAG
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-400 mb-4">
+                Enter the flag you captured from the lab environment (port 4000).
+              </p>
+              {currentUser?.user_id ? (
+                <form onSubmit={handleSubmitFlag} className="flex flex-col sm:flex-row gap-3">
+                  <input
+                    type="text"
+                    value={flagValue}
+                    onChange={(e) => setFlagValue(e.target.value)}
+                    placeholder="FLAG{...}"
+                    className="flex-1 rounded-lg bg-slate-900 border border-slate-600 px-4 py-2.5 text-sm font-mono text-slate-100 placeholder-slate-500 outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-500 transition-all"
+                    disabled={flagLoading}
+                  />
+                  <button
+                    type="submit"
+                    disabled={flagLoading || !flagValue.trim()}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 px-5 py-2.5 text-sm font-mono font-semibold text-slate-950 shadow-lg shadow-amber-500/30 hover:from-amber-400 hover:to-amber-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  >
+                    <Flag className="w-4 h-4" />
+                    {flagLoading ? "Submitting..." : "Submit Flag"}
+                  </button>
+                </form>
+              ) : (
+                <p className="text-sm text-slate-500 font-mono">Log in to submit flags.</p>
+              )}
+              {flagResult && (
+                <div
+                  className={`mt-3 flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-mono ${
+                    flagResult.success
+                      ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-200"
+                      : "border-rose-500/50 bg-rose-500/10 text-rose-200"
+                  }`}
+                >
+                  {flagResult.success ? (
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  ) : (
+                    <XCircle className="w-4 h-4 shrink-0" />
+                  )}
+                  <span>{flagResult.message}</span>
+                  {flagResult.points != null && (
+                    <span className="text-emerald-300">+{flagResult.points} pts</span>
+                  )}
+                </div>
+              )}
             </section>
           </div>
 
