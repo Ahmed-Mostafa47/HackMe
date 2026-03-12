@@ -86,10 +86,33 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
     }
   };
 
-  const handleStartLab = () => {
-    // Open isolated sandbox lab application in a NEW window (UI only)
-    const url = `http://localhost:4000/?labId=${lab.lab_id}`;
-    window.open(url, "_blank", "noopener,noreferrer");
+  const [startLabLoading, setStartLabLoading] = useState(false);
+  const [startLabError, setStartLabError] = useState(null);
+
+  const handleStartLab = async () => {
+    setStartLabLoading(true);
+    setStartLabError(null);
+    try {
+      const res = await fetch(`${API_BASE}/generate_lab_token.php`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lab_id: lab.lab_id,
+          user_id: currentUser?.user_id ?? currentUser?.id ?? 0,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!data.success || !data.token) {
+        setStartLabError(data.message || "Failed to generate lab access token");
+        return;
+      }
+      const url = `http://localhost:4000/?labId=${lab.lab_id}&token=${encodeURIComponent(data.token)}`;
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      setStartLabError(err.message || "Network error");
+    } finally {
+      setStartLabLoading(false);
+    }
   };
 
   const derivedHints = [
@@ -208,11 +231,15 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
 
             <button
               onClick={handleStartLab}
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-5 py-2.5 text-xs sm:text-sm font-mono font-semibold text-slate-950 shadow-lg shadow-emerald-500/40 hover:from-emerald-400 hover:to-emerald-500 hover:shadow-emerald-400/50 transition-all"
+              disabled={startLabLoading}
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-5 py-2.5 text-xs sm:text-sm font-mono font-semibold text-slate-950 shadow-lg shadow-emerald-500/40 hover:from-emerald-400 hover:to-emerald-500 hover:shadow-emerald-400/50 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
             >
               <PlayCircle className="w-4 h-4" />
-              Start Lab
+              {startLabLoading ? "Opening..." : "Start Lab"}
             </button>
+            {startLabError && (
+              <p className="text-xs font-mono text-rose-400">{startLabError}</p>
+            )}
           </div>
         </div>
 
