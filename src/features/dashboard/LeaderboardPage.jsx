@@ -9,33 +9,46 @@ const LeaderboardPage = ({ currentUser }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const fetchLeaderboard = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/get_leaderboard.php?limit=20`);
+      const data = await res.json();
+      if (data.success) {
+        const list = (data.leaderboard || []).map((p, i) => ({
+          rank: p.rank ?? i + 1,
+          user_id: p.user_id,
+          name: p.name || p.username,
+          points: p.points,
+          avatar: ['👻', '👁️', '⚡', '🎯', '💀'][i % 5],
+          isYou: currentUser?.user_id === p.user_id,
+        }));
+        setLeaderboardData(list);
+      } else {
+        setError(data.message || 'Failed to load leaderboard');
+      }
+    } catch (e) {
+      setError('Cannot reach server');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
-    const fetchLeaderboard = async () => {
-      try {
-        const res = await fetch(`${API_BASE}/get_leaderboard.php?limit=20`);
-        const data = await res.json();
-        if (!cancelled && data.success) {
-          const list = (data.leaderboard || []).map((p, i) => ({
-            rank: p.rank ?? i + 1,
-            user_id: p.user_id,
-            name: p.name || p.username,
-            points: p.points,
-            avatar: ['👻', '👁️', '⚡', '🎯', '💀'][i % 5],
-            isYou: currentUser?.user_id === p.user_id,
-          }));
-          setLeaderboardData(list);
-        } else if (!cancelled) {
-          setError(data.message || 'Failed to load leaderboard');
-        }
-      } catch (e) {
-        if (!cancelled) setError('Cannot reach server');
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-    fetchLeaderboard();
+    (async () => {
+      await fetchLeaderboard();
+    })();
     return () => { cancelled = true; };
+  }, [currentUser?.user_id]);
+
+  // Refetch when tab becomes visible (e.g. user returns from lab tab after solving)
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') fetchLeaderboard();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
   }, [currentUser?.user_id]);
   const getIcon = (iconName) => {
     const icons = {

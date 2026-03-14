@@ -46,6 +46,9 @@ const ProfilePage = ({
     return () => { cancelled = true; };
   }, [currentUser?.user_id]);
 
+  // Use currentUser.total_points when updated (e.g. from lab solved in another tab)
+  const displayPoints = currentUser?.total_points ?? points;
+
   const getStatusBadge = (status) => {
     if (!status) return null;
     const colors = {
@@ -111,7 +114,7 @@ const ProfilePage = ({
             <div className="text-center">
               <p className="text-xs text-gray-500 font-mono">TOTAL_POINTS</p>
               <p className="text-3xl font-bold text-green-400 font-mono">
-                {points}
+                {displayPoints}
               </p>
             </div>
           </div>

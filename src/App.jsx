@@ -105,6 +105,39 @@ function AppContent() {
     return () => clearTimeout(timer);
   }, [roleRequestMessage]);
 
+  // When lab is solved (e.g. SQL lab in new tab), refresh points from DB
+  useEffect(() => {
+    const handler = async (e) => {
+      if (e?.data?.type !== "LAB_SOLVED" || !currentUser?.user_id) return;
+      try {
+        const res = await fetch(`${API_BASE}/get_user_points.php?user_id=${currentUser.user_id}`);
+        const data = await res.json();
+        if (data.success && data.total_points != null) {
+          updateUserPoints(data.total_points);
+        }
+      } catch (_) {}
+    };
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, [currentUser?.user_id, updateUserPoints]);
+
+  // Refresh points when user returns to tab (e.g. after solving lab in another tab)
+  useEffect(() => {
+    const refetchPoints = async () => {
+      if (!currentUser?.user_id || document.visibilityState !== "visible") return;
+      try {
+        const res = await fetch(`${API_BASE}/get_user_points.php?user_id=${currentUser.user_id}`);
+        const data = await res.json();
+        if (data.success && data.total_points != null) {
+          updateUserPoints(data.total_points);
+        }
+      } catch (_) {}
+    };
+    const onVisible = () => refetchPoints();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [currentUser?.user_id, updateUserPoints]);
+
   const handleRegisterStart = async (userData) => {
     try {
       const response = await fetch(
