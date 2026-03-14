@@ -17,6 +17,7 @@ import LandingPage from "./features/home/LandingPage";
 import LeaderboardPage from "./features/dashboard/LeaderboardPage";
 import TrainingSelectionPage from "./features/dashboard/TrainingSelectionPage";
 import LabsListModern from "./features/labs/LabsListModern";
+import LabsCategoriesPage from "./features/labs/LabsCategoriesPage";
 import LabDetailsModern from "./features/labs/LabDetailsModern";
 import InstructorLabsDashboard from "./features/labs/InstructorLabsDashboard";
 import AdminLabsDashboard from "./features/labs/AdminLabsDashboard";
@@ -476,22 +477,66 @@ function AppContent() {
             setSelectedLabType={setSelectedLabType}
           />
         );
-      case "/labs":
+      case "/labs": {
+        const labTypeParam = params.get("labType");
+        const categoryParam = params.get("category");
+        const backToCategories = () =>
+          navigate(`/labs?labType=${labTypeParam || "white_box"}`);
+        const backToTraining = () => navigate("/training");
+
+        if (!labTypeParam) {
+          return (
+            <LabsListModern
+              selectedLabType={selectedLabType}
+              isAdmin={isAdmin}
+              isInstructor={isInstructor}
+              onEditLab={() => {}}
+              onRemoveLab={() => {}}
+              onLabClick={(lab) => navigate(`/lab-modern?labId=${lab.lab_id}`)}
+            />
+          );
+        }
+
+        if (!categoryParam) {
+          return (
+            <LabsCategoriesPage
+              labType={labTypeParam}
+              onBack={backToTraining}
+              onSelectCategory={(cat) =>
+                navigate(`/labs?labType=${labTypeParam}&category=${cat}`)
+              }
+            />
+          );
+        }
+
         return (
           <LabsListModern
             selectedLabType={selectedLabType}
             isAdmin={isAdmin}
             isInstructor={isInstructor}
+            labType={labTypeParam}
+            category={categoryParam}
             onEditLab={() => {}}
             onRemoveLab={() => {}}
-            onLabClick={(lab) => navigate(`/lab-modern?labId=${lab.lab_id}`)}
+            onBack={backToCategories}
+            onLabClick={(lab) =>
+              navigate(`/lab-modern?labId=${lab.lab_id}&fromCategory=${categoryParam}&labType=${labTypeParam}`)
+            }
           />
         );
-      case "/lab-modern":
+      }
+      case "/lab-modern": {
+        const fromCat = params.get("fromCategory");
+        const fromType = params.get("labType");
+        const labBack =
+          fromCat && fromType
+            ? `/labs?labType=${fromType}&category=${fromCat}`
+            : "/labs";
         return (
           <LabDetailsModern
+            key={labId}
             labId={labId}
-            onBack={() => navigate("/labs")}
+            onBack={() => navigate(labBack)}
             currentUser={currentUser}
             onFlagSuccess={async () => {
               if (!currentUser?.user_id) return;
@@ -505,6 +550,7 @@ function AppContent() {
             }}
           />
         );
+      }
       case "/comments":
         return <CommentsPage currentUser={currentUser} isAdmin={isAdmin} />;
       case "/notifications":
