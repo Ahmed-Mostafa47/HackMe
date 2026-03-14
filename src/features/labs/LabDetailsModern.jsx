@@ -120,10 +120,10 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
         return;
       }
       let url;
-      if (lab.lab_id === 5) {
-        url = `http://localhost:4001/lab/1?token=${encodeURIComponent(data.token)}&labId=${lab.lab_id}`;
-      } else if (lab.lab_id === 6) {
-        url = `http://localhost:4001/lab/2?token=${encodeURIComponent(data.token)}&labId=${lab.lab_id}`;
+      if (lab.lab_id === 8) {
+        url = `http://localhost:4003/lab/1?token=${encodeURIComponent(data.token)}&labId=${lab.lab_id}`;
+      } else if (lab.lab_id === 9) {
+        url = `http://localhost:4003/lab/2?token=${encodeURIComponent(data.token)}&labId=${lab.lab_id}`;
       } else {
         const port = 4000;
         url = `http://localhost:${port}/?labId=${lab.lab_id}&token=${encodeURIComponent(data.token)}`;
@@ -281,7 +281,7 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
                 // SUBMIT_FLAG
               </h2>
               <p className="text-xs sm:text-sm text-slate-400 mb-4">
-                Enter the flag you captured from the lab environment (port {lab.lab_id === 5 || lab.lab_id === 6 ? 4001 : 4000}).
+                Enter the flag you captured from the lab environment (port {lab.lab_id === 8 || lab.lab_id === 9 ? 4003 : 4000}).
               </p>
               {labSolved ? (
                 <div className="flex items-center gap-2 rounded-lg border border-emerald-500/50 bg-emerald-500/10 px-4 py-3 text-sm font-mono text-emerald-200">
