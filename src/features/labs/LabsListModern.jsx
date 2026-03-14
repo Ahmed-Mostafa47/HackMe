@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import {
   FlaskConical,
   Shield,
@@ -8,6 +8,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { mockLabs } from "../../data/mockData";
+import { LAB_TYPES } from "../../data/labTypes";
 
 const difficultyColors = {
   easy: "bg-emerald-500/10 text-emerald-300 border-emerald-500/40",
@@ -15,13 +16,32 @@ const difficultyColors = {
   hard: "bg-rose-500/10 text-rose-300 border-rose-500/40",
 };
 
+const labTypeLabel = {
+  1: "WHITE_BOX",
+  2: "BLACK_BOX",
+  3: "ACCESS_CONTROL",
+};
+
 const LabsListModern = ({
+  selectedLabType,
   isAdmin = false,
   isInstructor = false,
   onEditLab,
   onRemoveLab,
   onLabClick,
 }) => {
+  const displayedLabs = useMemo(() => {
+    if (!selectedLabType) return mockLabs;
+    const isWhite = selectedLabType === LAB_TYPES.WHITE_BOX;
+    const isBlack = selectedLabType === LAB_TYPES.BLACK_BOX;
+    return mockLabs.filter(
+      (lab) =>
+        (lab.labtype_id === 1 && isWhite) ||
+        (lab.labtype_id === 2 && isBlack) ||
+        lab.labtype_id === 3
+    );
+  }, [selectedLabType]);
+
   const handleOpenLab = (lab) => {
     if (onLabClick) {
       onLabClick(lab);
@@ -68,7 +88,7 @@ const LabsListModern = ({
 
         {/* GRID */}
         <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-          {mockLabs.map((lab) => (
+          {displayedLabs.map((lab) => (
             <article
               key={lab.lab_id}
               onClick={() => handleOpenLab(lab)}
@@ -93,7 +113,7 @@ const LabsListModern = ({
                     </h2>
 
                     <p className="mt-0.5 text-[11px] sm:text-xs text-slate-400 uppercase tracking-[0.18em] font-mono">
-                      {lab.labtype_id === 1 ? "WHITE_BOX" : "BLACK_BOX"}
+                      {labTypeLabel[lab.labtype_id] ?? "LAB"}
                     </p>
                   </div>
                 </div>

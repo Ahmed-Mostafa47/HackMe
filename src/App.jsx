@@ -477,9 +477,9 @@ function AppContent() {
           />
         );
       case "/labs":
-        // Use the modern list as the primary labs UI
         return (
           <LabsListModern
+            selectedLabType={selectedLabType}
             isAdmin={isAdmin}
             isInstructor={isInstructor}
             onEditLab={() => {}}

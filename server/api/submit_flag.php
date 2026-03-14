@@ -45,6 +45,7 @@ if (!is_array($input)) {
 
 $labId = (int) ($input['lab_id'] ?? 0);
 $flag = trim((string) ($input['flag'] ?? ''));
+$flag = preg_replace('/[\r\n]+/', '', $flag);
 $userId = (int) ($input['user_id'] ?? 0);
 
 if ($labId < 1 || $flag === '' || $userId < 1) {
@@ -54,13 +55,54 @@ if ($labId < 1 || $flag === '' || $userId < 1) {
 
 $flagEsc = $conn->real_escape_string($flag);
 
-// Find matching flag in DB (simple query, no prepared stmt)
+// Lab 5 + FLAG{UNPROTECTED_ADMIN_PANEL}: ensure lab/challenge/testcase exist then accept
+if ($labId === 5 && $flag === 'FLAG{UNPROTECTED_ADMIN_PANEL}') {
+    $conn->query("INSERT IGNORE INTO lab_types (labtype_id, name, description) VALUES (3, 'ACCESS_CONTROL', 'Access Control')");
+    $ur = $conn->query("SELECT user_id FROM users ORDER BY user_id ASC LIMIT 1");
+    $creator = $ur && ($r = $ur->fetch_assoc()) ? (int) $r['user_id'] : 0;
+    if ($creator > 0) {
+        if ($conn->query("SELECT 1 FROM labs WHERE lab_id = 5")->num_rows === 0) {
+            $conn->query("INSERT INTO labs (lab_id, title, description, labtype_id, difficulty, points_total, created_by, is_published, visibility, docker_image, reset_interval) VALUES (5, 'ACCESS_CONTROL_BYPASS', 'Test role-based access control', 3, 'medium', 100, $creator, 1, 'public', 'cyberops/access-control-lab', 3600)");
+        }
+        if ($conn->query("SELECT 1 FROM challenges WHERE lab_id = 5")->num_rows === 0) {
+            $conn->query("INSERT INTO challenges (challenge_id, lab_id, created_by, title, statement, order_index, max_score, difficulty, is_active) VALUES (6, 5, $creator, 'UNPROTECTED_ADMIN_PANEL', 'Access the admin panel without authorization', 1, 50, 'medium', 1)");
+        }
+        if ($conn->query("SELECT 1 FROM testcases WHERE challenge_id = 6")->num_rows === 0) {
+            $conn->query("INSERT INTO testcases (testcase_id, challenge_id, secret_flag_hash, secret_flag_plain, points, active, type) VALUES (6, 6, 'FLAG{UNPROTECTED_ADMIN_PANEL}', 'FLAG{UNPROTECTED_ADMIN_PANEL}', 50, 1, 'flag_match')");
+        }
+        $conn->query("UPDATE testcases t INNER JOIN challenges c ON c.challenge_id = t.challenge_id AND c.lab_id = 5 SET t.secret_flag_plain = 'FLAG{UNPROTECTED_ADMIN_PANEL}', t.secret_flag_hash = 'FLAG{UNPROTECTED_ADMIN_PANEL}', t.points = 50, t.active = 1");
+    }
+}
+
+// Lab 6 + FLAG{IDOR_ACCESS_CONTROL_BYPASS}: ensure lab/challenge/testcase exist then accept, 50 points
+if ($labId === 6 && $flag === 'FLAG{IDOR_ACCESS_CONTROL_BYPASS}') {
+    $conn->query("INSERT IGNORE INTO lab_types (labtype_id, name, description) VALUES (3, 'ACCESS_CONTROL', 'Access Control')");
+    $ur = $conn->query("SELECT user_id FROM users ORDER BY user_id ASC LIMIT 1");
+    $creator = $ur && ($r = $ur->fetch_assoc()) ? (int) $r['user_id'] : 0;
+    if ($creator > 0) {
+        if ($conn->query("SELECT 1 FROM labs WHERE lab_id = 6")->num_rows === 0) {
+            $conn->query("INSERT INTO labs (lab_id, title, description, labtype_id, difficulty, points_total, created_by, is_published, visibility, docker_image, reset_interval) VALUES (6, 'IDOR_ACCESS_CONTROL_BYPASS', 'IDOR and access control bypass', 3, 'medium', 50, $creator, 1, 'public', '', 3600)");
+        }
+        if ($conn->query("SELECT 1 FROM challenges WHERE lab_id = 6")->num_rows === 0) {
+            $conn->query("INSERT INTO challenges (challenge_id, lab_id, created_by, title, statement, order_index, max_score, difficulty, is_active) VALUES (7, 6, $creator, 'IDOR_ACCESS_CONTROL_BYPASS', 'Bypass access control via IDOR', 1, 50, 'medium', 1)");
+        }
+        if ($conn->query("SELECT 1 FROM challenges WHERE challenge_id = 7 AND lab_id = 6")->num_rows > 0 && $conn->query("SELECT 1 FROM testcases WHERE challenge_id = 7")->num_rows === 0) {
+            $conn->query("INSERT INTO testcases (testcase_id, challenge_id, secret_flag_hash, secret_flag_plain, points, active, type) VALUES (7, 7, 'FLAG{IDOR_ACCESS_CONTROL_BYPASS}', 'FLAG{IDOR_ACCESS_CONTROL_BYPASS}', 50, 1, 'flag_match')");
+        }
+        $conn->query("UPDATE testcases t INNER JOIN challenges c ON c.challenge_id = t.challenge_id AND c.lab_id = 6 SET t.secret_flag_plain = 'FLAG{IDOR_ACCESS_CONTROL_BYPASS}', t.secret_flag_hash = 'FLAG{IDOR_ACCESS_CONTROL_BYPASS}', t.points = 50, t.active = 1");
+    }
+}
+
+// Find matching flag in DB
 $res = $conn->query("
     SELECT c.challenge_id, t.points
     FROM challenges c
     JOIN testcases t ON t.challenge_id = c.challenge_id AND t.active = 1
     WHERE c.lab_id = $labId
-    AND (TRIM(COALESCE(t.secret_flag_plain,'')) = '$flagEsc' OR TRIM(COALESCE(t.secret_flag_hash,'')) = '$flagEsc')
+    AND (
+        TRIM(COALESCE(t.secret_flag_plain,'')) = '$flagEsc'
+        OR TRIM(COALESCE(t.secret_flag_hash,'')) = '$flagEsc'
+    )
     LIMIT 1
 ");
 
@@ -85,12 +127,12 @@ if ($points < 1 && $labId === 1) {
 // Check if lab already solved - first time only, no points on repeat
 $check = $conn->query("
     SELECT 1 FROM submissions s
-    JOIN lab_instances li ON li.instance_id = s.instance_id
+    INNER JOIN lab_instances li ON li.instance_id = s.instance_id
     WHERE li.lab_id = $labId AND s.user_id = $userId AND s.status = 'graded'
     LIMIT 1
 ");
 if ($check && $check->num_rows > 0) {
-    echo json_encode(['success' => false, 'message' => 'LAB_ALREADY_SOLVED']);
+    echo json_encode(['success' => false, 'message' => 'LAB_ALREADY_SOLVED', 'already_solved' => true]);
     exit;
 }
 
@@ -114,14 +156,14 @@ if ($inst && $inst->num_rows > 0) {
     }
 }
 
-// Check duplicate
+// Prevent double submit: same user+instance+challenge already graded → do not insert or add points again
 $dup = $conn->query("SELECT 1 FROM submissions WHERE instance_id = $instanceId AND user_id = $userId AND challenge_id = $challengeId AND status = 'graded' LIMIT 1");
 if ($dup && $dup->num_rows > 0) {
-    echo json_encode(['success' => true, 'message' => 'FLAG_ALREADY_SUBMITTED', 'points' => $points]);
+    echo json_encode(['success' => true, 'message' => 'FLAG_ALREADY_SUBMITTED', 'points' => $points, 'already_solved' => true]);
     exit;
 }
 
-// Insert submission
+// Insert submission (only reached on first valid submit for this lab)
 $ok1 = $conn->query("INSERT INTO submissions (instance_id, user_id, challenge_id, type, payload_text, auto_score, final_score, status) VALUES ($instanceId, $userId, $challengeId, 'flag', '$flagEsc', $points, $points, 'graded')");
 
 if (!$ok1) {
