@@ -28,6 +28,11 @@ export const mockLabTypes = [
     name: LAB_TYPES.BLACK_BOX,
     description: "Black Box Testing Labs",
   },
+  {
+    labtype_id: 3,
+    name: LAB_TYPES.ACCESS_CONTROL,
+    description: "Access Control & Privilege Escalation",
+  },
 ];
 
 export const mockLabs = [
@@ -105,6 +110,38 @@ export const mockLabs = [
     progress: 0,
     status: "NOT_STARTED",
     icon: "⚡",
+  },
+  {
+    lab_id: 5,
+    title: "ACCESS_CONTROL_BYPASS",
+    description:
+      "Test role-based access control: bypass restrictions and escalate privileges",
+    labtype_id: 3,
+    difficulty: "medium",
+    points_total: 100,
+    is_published: true,
+    visibility: "public",
+    docker_image: "cyberops/access-control-lab",
+    created_by: 1,
+    progress: 0,
+    status: "NOT_STARTED",
+    icon: "🔐",
+  },
+  {
+    lab_id: 6,
+    title: "IDOR_AND_HORIZONTAL_ACCESS",
+    description:
+      "Find and exploit Insecure Direct Object Reference and horizontal access control flaws",
+    labtype_id: 3,
+    difficulty: "medium",
+    points_total: 120,
+    is_published: true,
+    visibility: "public",
+    docker_image: "cyberops/idor-lab",
+    created_by: 1,
+    progress: 0,
+    status: "NOT_STARTED",
+    icon: "🔐",
   },
 ];
 
