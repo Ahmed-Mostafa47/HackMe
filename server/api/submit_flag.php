@@ -77,8 +77,12 @@ if ($res->num_rows === 0) {
 $row = $res->fetch_assoc();
 $challengeId = (int) $row['challenge_id'];
 $points = (int) $row['points'];
+// SQL Lab (lab_id=1): ensure 50 points if testcases has 0
+if ($points < 1 && $labId === 1) {
+    $points = 50;
+}
 
-// Check if lab already solved
+// Check if lab already solved - first time only, no points on repeat
 $check = $conn->query("
     SELECT 1 FROM submissions s
     JOIN lab_instances li ON li.instance_id = s.instance_id

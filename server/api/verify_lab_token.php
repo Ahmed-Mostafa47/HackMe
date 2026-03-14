@@ -43,7 +43,7 @@ $tokenEsc = $conn->real_escape_string($token);
 $labIdEsc = (int) $labId;
 
 $res = $conn->query("
-  SELECT token FROM lab_access_tokens
+  SELECT token, COALESCE(user_id, 0) AS user_id FROM lab_access_tokens
   WHERE token = '$tokenEsc'
     AND lab_id = $labIdEsc
     AND used_at IS NULL
@@ -56,5 +56,8 @@ if (!$res || $res->num_rows === 0) {
     exit;
 }
 
+$row = $res->fetch_assoc();
+$userId = (int) ($row['user_id'] ?? 0);
+
 // Token valid - allow access (no mark-as-used so refresh works during token lifetime)
-echo json_encode(['success' => true, 'valid' => true]);
+echo json_encode(['success' => true, 'valid' => true, 'user_id' => $userId]);
