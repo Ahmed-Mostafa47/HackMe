@@ -145,6 +145,22 @@ export const mockLabs = [
     icon: "⚡",
   },
   {
+    lab_id: 8,
+    title: "ACCESS_CONTROL_BYPASS",
+    description:
+      "Test role-based access control: bypass restrictions and escalate privileges",
+    labtype_id: 3,
+    difficulty: "medium",
+    points_total: 100,
+    is_published: true,
+    visibility: "public",
+    docker_image: "cyberops/access-control-lab",
+    created_by: 1,
+    progress: 0,
+    status: "NOT_STARTED",
+    icon: "🔐",
+  },
+  {
     lab_id: 6,
     title: "IDOR_AND_HORIZONTAL_ACCESS",
     description:

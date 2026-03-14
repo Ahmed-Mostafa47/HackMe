@@ -1,7 +1,7 @@
 <?php
 /**
- * يشغّل مرة واحدة: يضمن وجود اللاب 5 وتحديه وفلاج FLAG{UNPROTECTED_ADMIN_PANEL}
- * بعدها Submit Flag للاب 5 هيقبل الفلاج ويديك 50 نقطة ويحدّث الـ leaderboard.
+ * يشغّل مرة واحدة: يضمن وجود اللاب 8 وتحديه وفلاج FLAG{UNPROTECTED_ADMIN_PANEL}
+ * بعدها Submit Flag للاب 8 هيقبل الفلاج ويديك 50 نقطة ويحدّث الـ leaderboard.
  * افتح: http://localhost/HackMe/server/api/ensure_lab5_flag.php
  */
 header("Content-Type: application/json; charset=utf-8");
@@ -31,13 +31,13 @@ $done = [];
 
 $conn->query("INSERT IGNORE INTO lab_types (labtype_id, name, description) VALUES (3, 'ACCESS_CONTROL', 'Access Control & Privilege Escalation')");
 
-if ($conn->query("SELECT 1 FROM labs WHERE lab_id = 5")->num_rows === 0) {
-    $conn->query("INSERT INTO labs (lab_id, title, description, labtype_id, difficulty, points_total, created_by, is_published, visibility, docker_image, reset_interval) VALUES (5, 'ACCESS_CONTROL_BYPASS', 'Test role-based access control', 3, 'medium', 100, $creator, 1, 'public', 'cyberops/access-control-lab', 3600)");
-    $done[] = 'lab 5 inserted';
+if ($conn->query("SELECT 1 FROM labs WHERE lab_id = 8")->num_rows === 0) {
+    $conn->query("INSERT INTO labs (lab_id, title, description, labtype_id, difficulty, points_total, created_by, is_published, visibility, docker_image, reset_interval) VALUES (8, 'ACCESS_CONTROL_BYPASS', 'Test role-based access control', 3, 'medium', 100, $creator, 1, 'public', 'cyberops/access-control-lab', 3600)");
+    $done[] = 'lab 8 inserted';
 }
 
-if ($conn->query("SELECT 1 FROM challenges WHERE lab_id = 5")->num_rows === 0) {
-    $conn->query("INSERT INTO challenges (challenge_id, lab_id, created_by, title, statement, order_index, max_score, difficulty, is_active) VALUES (6, 5, $creator, 'UNPROTECTED_ADMIN_PANEL', 'Access the admin panel without authorization', 1, 50, 'medium', 1)");
+if ($conn->query("SELECT 1 FROM challenges WHERE lab_id = 8")->num_rows === 0) {
+    $conn->query("INSERT INTO challenges (challenge_id, lab_id, created_by, title, statement, order_index, max_score, difficulty, is_active) VALUES (6, 8, $creator, 'UNPROTECTED_ADMIN_PANEL', 'Access the admin panel without authorization', 1, 50, 'medium', 1)");
     $done[] = 'challenge 6 inserted';
 }
 
@@ -48,13 +48,13 @@ if ($conn->query("SELECT 1 FROM testcases WHERE challenge_id = 6")->num_rows ===
 
 $conn->query("
     UPDATE testcases t
-    INNER JOIN challenges c ON c.challenge_id = t.challenge_id AND c.lab_id = 5
+    INNER JOIN challenges c ON c.challenge_id = t.challenge_id AND c.lab_id = 8
     SET t.secret_flag_plain = 'FLAG{UNPROTECTED_ADMIN_PANEL}', t.secret_flag_hash = 'FLAG{UNPROTECTED_ADMIN_PANEL}', t.points = 50, t.active = 1
 ");
 $done[] = 'testcase updated';
 
 echo json_encode([
     'success' => true,
-    'message' => 'Lab 5 and flag FLAG{UNPROTECTED_ADMIN_PANEL} are ready. Submit the flag on Lab 5 page to get +50 pts and leaderboard update.',
+    'message' => 'Lab 8 and flag FLAG{UNPROTECTED_ADMIN_PANEL} are ready. Submit the flag on Lab 8 page to get +50 pts and leaderboard update.',
     'done' => $done,
 ]);
