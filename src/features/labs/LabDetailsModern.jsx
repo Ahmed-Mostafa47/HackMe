@@ -145,12 +145,10 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
         return;
       }
       let url;
-      if (lab.lab_id === 5 || lab.lab_id === 7) {
-        // XSS labs: root URL with labId and token for postMessage
-        const port = lab.port ?? (lab.lab_id === 7 ? 4002 : 4001);
-        url = `http://localhost:${port}/?labId=${lab.lab_id}&token=${encodeURIComponent(data.token)}`;
-      } else if (lab.lab_id === 6) {
-        url = `http://localhost:4001/lab/2?token=${encodeURIComponent(data.token)}&labId=${lab.lab_id}`;
+      if (lab.lab_id === 8) {
+        url = `http://localhost:4003/lab/1?token=${encodeURIComponent(data.token)}&labId=${lab.lab_id}`;
+      } else if (lab.lab_id === 9) {
+        url = `http://localhost:4003/lab/2?token=${encodeURIComponent(data.token)}&labId=${lab.lab_id}`;
       } else {
         const port = lab.port ?? 4000;
         url = `http://localhost:${port}/?labId=${lab.lab_id}&token=${encodeURIComponent(data.token)}`;
@@ -313,6 +311,64 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
               <p className="text-sm sm:text-base text-slate-200 leading-relaxed">
                 {lab.description}
               </p>
+            </section>
+
+            <section className="rounded-2xl border border-slate-700 bg-slate-900/70 p-5 shadow-lg shadow-black/40">
+              <h2 className="text-sm font-mono text-slate-300 mb-2 flex items-center gap-2">
+                <Flag className="w-4 h-4 text-amber-400" />
+                // SUBMIT_FLAG
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-400 mb-4">
+                Enter the flag you captured from the lab environment (port {lab.lab_id === 8 || lab.lab_id === 9 ? 4003 : 4000}).
+              </p>
+              {labSolved ? (
+                <div className="flex items-center gap-2 rounded-lg border border-emerald-500/50 bg-emerald-500/10 px-4 py-3 text-sm font-mono text-emerald-200">
+                  <CheckCircle2 className="w-5 h-5 shrink-0" />
+                  <span>Lab solved. No need to submit again.</span>
+                </div>
+              ) : currentUser?.user_id ? (
+                <>
+                  <form onSubmit={handleSubmitFlag} className="flex flex-col sm:flex-row gap-3">
+                    <input
+                      type="text"
+                      value={flagValue}
+                      onChange={(e) => setFlagValue(e.target.value)}
+                      placeholder="FLAG{...}"
+                      className="flex-1 rounded-lg bg-slate-900 border border-slate-600 px-4 py-2.5 text-sm font-mono text-slate-100 placeholder-slate-500 outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-500 transition-all"
+                      disabled={flagLoading}
+                    />
+                    <button
+                      type="submit"
+                      disabled={flagLoading || !flagValue.trim()}
+                      className="inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 px-5 py-2.5 text-sm font-mono font-semibold text-slate-950 shadow-lg shadow-amber-500/30 hover:from-amber-400 hover:to-amber-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                      <Flag className="w-4 h-4" />
+                      {flagLoading ? "Submitting..." : "Submit Flag"}
+                    </button>
+                  </form>
+                  {flagResult && (
+                    <div
+                      className={`mt-3 flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-mono ${
+                        flagResult.success || flagResult.message?.includes("already solved")
+                          ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-200"
+                          : "border-rose-500/50 bg-rose-500/10 text-rose-200"
+                      }`}
+                    >
+                      {flagResult.success || flagResult.message?.includes("already solved") ? (
+                        <CheckCircle2 className="w-4 h-4 shrink-0" />
+                      ) : (
+                        <XCircle className="w-4 h-4 shrink-0" />
+                      )}
+                      <span>{flagResult.message}</span>
+                      {flagResult.points != null && (
+                        <span className="text-emerald-300">+{flagResult.points} pts</span>
+                      )}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-slate-500 font-mono">Log in to submit flags.</p>
+              )}
             </section>
           </div>
 

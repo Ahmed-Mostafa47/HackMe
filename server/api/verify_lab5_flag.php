@@ -1,6 +1,6 @@
 <?php
 /**
- * تحقق من وجود اللاب 5 والفلاج في قاعدة البيانات
+ * تحقق من وجود اللاب 8 والفلاج في قاعدة البيانات
  * افتح: http://localhost/HackMe/server/api/verify_lab5_flag.php
  */
 header("Content-Type: application/json; charset=utf-8");
@@ -19,7 +19,7 @@ if (!isset($conn) || !$conn) {
 
 $conn->set_charset('utf8mb4');
 
-$labId = 5;
+$labId = 8;
 $expectedFlag = 'FLAG{UNPROTECTED_ADMIN_PANEL}';
 
 $out = ['lab_id' => $labId, 'expected_flag' => $expectedFlag];
@@ -63,10 +63,10 @@ $allTestcases = $conn->query("
     JOIN challenges c ON c.challenge_id = t.challenge_id
     WHERE c.lab_id = $labId
 ");
-$out['testcases_for_lab5'] = [];
+$out['testcases_for_lab8'] = [];
 if ($allTestcases) {
     while ($r = $allTestcases->fetch_assoc()) {
-        $out['testcases_for_lab5'][] = $r;
+        $out['testcases_for_lab8'][] = $r;
     }
 }
 
