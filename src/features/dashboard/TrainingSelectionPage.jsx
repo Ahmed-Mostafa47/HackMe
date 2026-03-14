@@ -5,7 +5,7 @@ import { LAB_TYPES, LAB_TYPE_DETAILS } from '../../data/labTypes';
 const TrainingSelectionPage = ({ setCurrentPage, setSelectedLabType }) => {
   const handleLabTypeSelect = (labType) => {
     setSelectedLabType(labType);
-    setCurrentPage('labs');
+    setCurrentPage(`labs?labType=${labType}`);
   };
 
   const labTypes = [

@@ -1,4 +1,7 @@
 -- Lab access tokens: one-time tokens to allow lab sandbox access only via Start Lab button
+-- Run: mysql -u user -p ctf_platform < add_lab_access_tokens_table.sql
+USE ctf_platform;
+
 CREATE TABLE IF NOT EXISTS lab_access_tokens (
   token VARCHAR(64) PRIMARY KEY,
   lab_id INT NOT NULL,

@@ -119,8 +119,12 @@ if ($res->num_rows === 0) {
 $row = $res->fetch_assoc();
 $challengeId = (int) $row['challenge_id'];
 $points = (int) $row['points'];
+// SQL Lab (lab_id=1): ensure 50 points if testcases has 0
+if ($points < 1 && $labId === 1) {
+    $points = 50;
+}
 
-// Block repeat submissions: if this user already has a graded submission for this lab, reject (no extra points)
+// Check if lab already solved - first time only, no points on repeat
 $check = $conn->query("
     SELECT 1 FROM submissions s
     INNER JOIN lab_instances li ON li.instance_id = s.instance_id
