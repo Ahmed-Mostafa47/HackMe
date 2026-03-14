@@ -36,6 +36,7 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
   const [flagLoading, setFlagLoading] = useState(false);
   const [flagResult, setFlagResult] = useState(null); // { success, message, points }
   const [successPopupVisible, setSuccessPopupVisible] = useState(false);
+  const [labSolved, setLabSolved] = useState(false); // hide form after solve so user can't resubmit
 
   // Auto-hide success popup after 3 seconds
   useEffect(() => {
@@ -72,7 +73,19 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
       if (errMsg) {
         data.message = res.status === 500 ? `خطأ 500: ${errMsg}` : errMsg;
       }
-      setFlagResult(data);
+      const alreadySolved = data.already_solved || data.message === "LAB_ALREADY_SOLVED";
+      if (data.success || alreadySolved) setLabSolved(true);
+
+      setFlagResult({
+        ...data,
+        message: data.success
+          ? (data.message === "FLAG_CAPTURED" || data.message === "FLAG_ALREADY_SUBMITTED"
+            ? "Lab solved successfully"
+            : data.message)
+          : data.message === "LAB_ALREADY_SOLVED"
+            ? "Lab already solved. No need to submit again."
+            : data.message,
+      });
       if (data.success) {
         setFlagValue("");
         setSuccessPopupVisible(true);
@@ -106,7 +119,15 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
         setStartLabError(data.message || "Failed to generate lab access token");
         return;
       }
-      const url = `http://localhost:4000/?labId=${lab.lab_id}&token=${encodeURIComponent(data.token)}`;
+      let url;
+      if (lab.lab_id === 5) {
+        url = `http://localhost:4001/lab/1?token=${encodeURIComponent(data.token)}&labId=${lab.lab_id}`;
+      } else if (lab.lab_id === 6) {
+        url = `http://localhost:4001/lab/2?token=${encodeURIComponent(data.token)}&labId=${lab.lab_id}`;
+      } else {
+        const port = 4000;
+        url = `http://localhost:${port}/?labId=${lab.lab_id}&token=${encodeURIComponent(data.token)}`;
+      }
       window.open(url, "_blank", "noopener,noreferrer");
     } catch (err) {
       setStartLabError(err.message || "Network error");
@@ -260,48 +281,55 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
                 // SUBMIT_FLAG
               </h2>
               <p className="text-xs sm:text-sm text-slate-400 mb-4">
-                Enter the flag you captured from the lab environment (port 4000).
+                Enter the flag you captured from the lab environment (port {lab.lab_id === 5 || lab.lab_id === 6 ? 4001 : 4000}).
               </p>
-              {currentUser?.user_id ? (
-                <form onSubmit={handleSubmitFlag} className="flex flex-col sm:flex-row gap-3">
-                  <input
-                    type="text"
-                    value={flagValue}
-                    onChange={(e) => setFlagValue(e.target.value)}
-                    placeholder="FLAG{...}"
-                    className="flex-1 rounded-lg bg-slate-900 border border-slate-600 px-4 py-2.5 text-sm font-mono text-slate-100 placeholder-slate-500 outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-500 transition-all"
-                    disabled={flagLoading}
-                  />
-                  <button
-                    type="submit"
-                    disabled={flagLoading || !flagValue.trim()}
-                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 px-5 py-2.5 text-sm font-mono font-semibold text-slate-950 shadow-lg shadow-amber-500/30 hover:from-amber-400 hover:to-amber-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                  >
-                    <Flag className="w-4 h-4" />
-                    {flagLoading ? "Submitting..." : "Submit Flag"}
-                  </button>
-                </form>
+              {labSolved ? (
+                <div className="flex items-center gap-2 rounded-lg border border-emerald-500/50 bg-emerald-500/10 px-4 py-3 text-sm font-mono text-emerald-200">
+                  <CheckCircle2 className="w-5 h-5 shrink-0" />
+                  <span>Lab solved. No need to submit again.</span>
+                </div>
+              ) : currentUser?.user_id ? (
+                <>
+                  <form onSubmit={handleSubmitFlag} className="flex flex-col sm:flex-row gap-3">
+                    <input
+                      type="text"
+                      value={flagValue}
+                      onChange={(e) => setFlagValue(e.target.value)}
+                      placeholder="FLAG{...}"
+                      className="flex-1 rounded-lg bg-slate-900 border border-slate-600 px-4 py-2.5 text-sm font-mono text-slate-100 placeholder-slate-500 outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-500 transition-all"
+                      disabled={flagLoading}
+                    />
+                    <button
+                      type="submit"
+                      disabled={flagLoading || !flagValue.trim()}
+                      className="inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 px-5 py-2.5 text-sm font-mono font-semibold text-slate-950 shadow-lg shadow-amber-500/30 hover:from-amber-400 hover:to-amber-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                      <Flag className="w-4 h-4" />
+                      {flagLoading ? "Submitting..." : "Submit Flag"}
+                    </button>
+                  </form>
+                  {flagResult && (
+                    <div
+                      className={`mt-3 flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-mono ${
+                        flagResult.success || flagResult.message?.includes("already solved")
+                          ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-200"
+                          : "border-rose-500/50 bg-rose-500/10 text-rose-200"
+                      }`}
+                    >
+                      {flagResult.success || flagResult.message?.includes("already solved") ? (
+                        <CheckCircle2 className="w-4 h-4 shrink-0" />
+                      ) : (
+                        <XCircle className="w-4 h-4 shrink-0" />
+                      )}
+                      <span>{flagResult.message}</span>
+                      {flagResult.points != null && (
+                        <span className="text-emerald-300">+{flagResult.points} pts</span>
+                      )}
+                    </div>
+                  )}
+                </>
               ) : (
                 <p className="text-sm text-slate-500 font-mono">Log in to submit flags.</p>
-              )}
-              {flagResult && (
-                <div
-                  className={`mt-3 flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-mono ${
-                    flagResult.success
-                      ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-200"
-                      : "border-rose-500/50 bg-rose-500/10 text-rose-200"
-                  }`}
-                >
-                  {flagResult.success ? (
-                    <CheckCircle2 className="w-4 h-4 shrink-0" />
-                  ) : (
-                    <XCircle className="w-4 h-4 shrink-0" />
-                  )}
-                  <span>{flagResult.message}</span>
-                  {flagResult.points != null && (
-                    <span className="text-emerald-300">+{flagResult.points} pts</span>
-                  )}
-                </div>
               )}
             </section>
           </div>
