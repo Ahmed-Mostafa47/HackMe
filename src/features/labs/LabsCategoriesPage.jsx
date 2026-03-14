@@ -1,0 +1,108 @@
+import React, { useState, useEffect } from "react";
+import {
+  Folder,
+  FolderOpen,
+  ChevronRight,
+  ArrowLeft,
+  Loader2,
+  Shield,
+} from "lucide-react";
+import { labService } from "../../services/labService";
+import { LAB_TYPES } from "../../data/labTypes";
+import {
+  LAB_CATEGORIES,
+  getCategoryFromLabTitle,
+  getCategoriesWithLabs,
+} from "../../utils/labCategories";
+
+const LabsCategoriesPage = ({ labType, onSelectCategory, onBack }) => {
+  const [labs, setLabs] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    labService.getLabs().then((res) => {
+      setLoading(false);
+      if (res.success && res.data?.labs) {
+        const all = res.data.labs;
+        const labTypeId = labType === LAB_TYPES.WHITE_BOX ? 1 : 2;
+        const filtered = all.filter((lab) => lab.labtype_id === labTypeId);
+        setLabs(filtered);
+      }
+    });
+  }, [labType]);
+
+  const categories = getCategoriesWithLabs(labs);
+  const labTypeLabel =
+    labType === LAB_TYPES.WHITE_BOX ? "WHITE_BOX" : "BLACK_BOX";
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black py-16 px-4 sm:px-6 lg:px-10">
+      <div className="max-w-4xl mx-auto">
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="inline-flex items-center gap-2 text-sm font-mono text-slate-400 hover:text-emerald-400 transition-colors mb-8"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            BACK
+          </button>
+        )}
+
+        <header className="mb-12">
+          <p className="text-xs sm:text-sm text-emerald-400 font-mono tracking-[0.2em] uppercase">
+            // VULNERABILITY_CATEGORIES
+          </p>
+          <h1 className="mt-3 text-3xl sm:text-4xl font-bold text-slate-50 font-mono">
+            Select Category
+          </h1>
+          <p className="mt-2 text-sm text-slate-400 font-mono">
+            {labTypeLabel} labs organized by vulnerability type
+          </p>
+        </header>
+
+        {loading ? (
+          <div className="flex justify-center py-16">
+            <Loader2 className="w-8 h-8 text-emerald-400 animate-spin" />
+          </div>
+        ) : categories.length === 0 ? (
+          <div className="rounded-2xl border border-slate-700 bg-slate-900/50 p-8 text-center">
+            <Folder className="w-12 h-12 text-slate-500 mx-auto mb-4" />
+            <p className="text-slate-400 font-mono">No labs available for this mode.</p>
+            <p className="text-slate-500 text-sm font-mono mt-2">
+              Try selecting a different training mode.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {categories.map((cat) => (
+              <button
+                key={cat.key}
+                onClick={() => onSelectCategory && onSelectCategory(cat.key)}
+                className="group w-full flex items-center gap-4 p-4 sm:p-5 rounded-xl border border-slate-700/70
+                  bg-gradient-to-br from-slate-900/80 to-slate-950/90
+                  hover:border-emerald-400/60 hover:bg-slate-800/50
+                  transition-all duration-300 cursor-pointer text-left"
+              >
+                <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-slate-800/80 border border-slate-600 
+                  flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
+                  {cat.icon}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-lg font-semibold text-slate-50 font-mono group-hover:text-emerald-300">
+                    {cat.label}
+                  </h2>
+                  <p className="text-xs text-slate-400 font-mono mt-0.5">
+                    {cat.labCount} lab{cat.labCount !== 1 ? "s" : ""}
+                  </p>
+                </div>
+                <ChevronRight className="w-5 h-5 text-slate-500 group-hover:text-emerald-400 group-hover:translate-x-1 transition-all flex-shrink-0" />
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default LabsCategoriesPage;

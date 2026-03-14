@@ -39,6 +39,7 @@ export const mockLabs = [
   // White Box Labs
   {
     lab_id: 1,
+    port: 4000,
     title: "SQL_INJECTION_SOURCE_ANALYSIS",
     description:
       "Analyze vulnerable PHP source code to identify and exploit SQL injection points with full code access",
@@ -113,19 +114,35 @@ export const mockLabs = [
   },
   {
     lab_id: 5,
-    title: "ACCESS_CONTROL_BYPASS",
+    port: 4001,
+    title: "REFLECTED_XSS_BLOG_LAB",
+    display_name: "Reflected XSS Blog Lab",
     description:
-      "Test role-based access control: bypass restrictions and escalate privileges",
-    labtype_id: 3,
+      "Exploit a Reflected XSS vulnerability in a blog search feature. Execute a script payload to trigger alert().",
+    labtype_id: 1,
     difficulty: "medium",
     points_total: 100,
     is_published: true,
     visibility: "public",
-    docker_image: "cyberops/access-control-lab",
-    created_by: 1,
     progress: 0,
     status: "NOT_STARTED",
-    icon: "🔐",
+    icon: "⚡",
+  },
+  {
+    lab_id: 7,
+    port: 4002,
+    title: "DOM_XSS_DOCUMENT_WRITE_LAB",
+    display_name: "DOM XSS in innerHTML sink using source location.search",
+    description:
+      "This lab contains a DOM-based XSS vulnerability in the watch store search bar. The search value from the URL is written into the page via innerHTML (not echoed by the server). Hint: innerHTML does not execute script tags—use an event handler payload. To solve this lab, perform a cross-site scripting attack that calls the alert function.",
+    labtype_id: 1,
+    difficulty: "easy",
+    points_total: 100,
+    is_published: true,
+    visibility: "public",
+    progress: 0,
+    status: "NOT_STARTED",
+    icon: "⚡",
   },
   {
     lab_id: 6,

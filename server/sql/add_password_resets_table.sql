@@ -1,4 +1,7 @@
 -- Add password_resets table to ctf_platform database
+-- Run: mysql -u user -p ctf_platform < add_password_resets_table.sql
+USE ctf_platform;
+
 CREATE TABLE IF NOT EXISTS password_resets (
   reset_id INT PRIMARY KEY AUTO_INCREMENT,
   user_id INT NOT NULL,

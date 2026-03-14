@@ -1,4 +1,7 @@
 -- Adds the role_requests table for storing admin/instructor promotion requests
+-- Run: mysql -u user -p ctf_platform < add_role_requests_table.sql
+USE ctf_platform;
+
 CREATE TABLE IF NOT EXISTS role_requests (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,

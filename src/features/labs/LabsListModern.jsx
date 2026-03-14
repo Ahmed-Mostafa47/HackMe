@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import {
   FlaskConical,
   Shield,
@@ -6,9 +6,13 @@ import {
   ArrowUpRight,
   Pencil,
   Trash2,
+  ArrowLeft,
+  Loader2,
 } from "lucide-react";
 import { mockLabs } from "../../data/mockData";
+import { labService } from "../../services/labService";
 import { LAB_TYPES } from "../../data/labTypes";
+import { getCategoryFromLabTitle } from "../../utils/labCategories";
 
 const difficultyColors = {
   easy: "bg-emerald-500/10 text-emerald-300 border-emerald-500/40",
@@ -29,25 +33,48 @@ const LabsListModern = ({
   onEditLab,
   onRemoveLab,
   onLabClick,
+  labType,
+  category,
+  onBack,
 }) => {
-  const displayedLabs = useMemo(() => {
-    if (!selectedLabType) return mockLabs;
-    const isWhite = selectedLabType === LAB_TYPES.WHITE_BOX;
-    const isBlack = selectedLabType === LAB_TYPES.BLACK_BOX;
-    return mockLabs.filter(
-      (lab) =>
-        (lab.labtype_id === 1 && isWhite) ||
-        (lab.labtype_id === 2 && isBlack) ||
-        lab.labtype_id === 3
-    );
-  }, [selectedLabType]);
+  const [labs, setLabs] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    labService.getLabs().then((res) => {
+      setLoading(false);
+      if (res.success && res.data?.labs?.length) {
+        setLabs(res.data.labs);
+      } else {
+        const registered = mockLabs.filter((l) => l.lab_id === 1 || l.lab_id === 5 || l.lab_id === 6 || l.lab_id === 7);
+        setLabs(registered.length ? registered : mockLabs);
+      }
+    }).catch(() => {
+      setLoading(false);
+      const registered = mockLabs.filter((l) => l.lab_id === 1 || l.lab_id === 5 || l.lab_id === 6 || l.lab_id === 7);
+      setLabs(registered.length ? registered : mockLabs);
+    });
+  }, []);
+
+  const labTypeId = labType === LAB_TYPES.WHITE_BOX ? 1 : labType === LAB_TYPES.BLACK_BOX ? 2 : labType === LAB_TYPES.ACCESS_CONTROL ? 3 : null;
+  const filteredLabs = labs.filter((lab) => {
+    if (labTypeId != null && lab.labtype_id !== labTypeId) return false;
+    if (category) {
+      const labCat = getCategoryFromLabTitle(lab.title || lab.display_name);
+      if (labCat !== category) return false;
+    }
+    return true;
+  });
+  const displayedLabs = labType != null || category != null ? filteredLabs : labs;
 
   const handleOpenLab = (lab) => {
     if (onLabClick) {
       onLabClick(lab);
     } else {
-      // fallback: same tab navigation
-      window.location.href = `/lab-modern?labId=${lab.lab_id}`;
+      const q = new URLSearchParams({ labId: lab.lab_id });
+      if (category) q.set("fromCategory", category);
+      if (labType) q.set("labType", labType);
+      window.location.href = `/lab-modern?${q.toString()}`;
     }
   };
 
@@ -86,9 +113,27 @@ const LabsListModern = ({
           </div>
         </header>
 
-        {/* GRID */}
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="inline-flex items-center gap-2 text-sm font-mono text-slate-400 hover:text-emerald-400 transition-colors mb-8"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            BACK TO CATEGORIES
+          </button>
+        )}
+
+        {loading ? (
+          <div className="flex justify-center py-16">
+            <Loader2 className="w-8 h-8 text-emerald-400 animate-spin" />
+          </div>
+        ) : filteredLabs.length === 0 ? (
+          <div className="rounded-2xl border border-slate-700 bg-slate-900/50 p-8 text-center">
+            <p className="text-slate-400 font-mono">No labs in this category.</p>
+          </div>
+        ) : (
         <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-          {displayedLabs.map((lab) => (
+          {(labType != null || category != null ? filteredLabs : labs).map((lab) => (
             <article
               key={lab.lab_id}
               onClick={() => handleOpenLab(lab)}
@@ -187,6 +232,7 @@ const LabsListModern = ({
             </article>
           ))}
         </div>
+        )}
       </div>
     </div>
   );

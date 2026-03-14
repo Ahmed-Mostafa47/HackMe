@@ -8,11 +8,10 @@ import {
   ChevronUp,
   AlertTriangle,
   PlayCircle,
-  Flag,
   CheckCircle2,
-  XCircle,
 } from "lucide-react";
 import { mockLabs } from "../../data/mockData";
+import { labService } from "../../services/labService";
 
 // Use relative path when proxy exists (dev), else full URL (production)
 const API_BASE = import.meta.env.DEV ? "/api" : "http://localhost/HackMe/server/api";
@@ -24,19 +23,87 @@ const diffBadgeClasses = {
 };
 
 const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
+  const [labs, setLabs] = useState(mockLabs);
+
+  useEffect(() => {
+    labService
+      .getLabs()
+      .then((res) => {
+        if (res?.data?.labs?.length) setLabs(res.data.labs);
+      })
+      .catch(() => {});
+  }, []);
+
   const lab =
-    mockLabs.find((l) => String(l.lab_id) === String(labId)) || mockLabs[0];
+    labs.find((l) => String(l.lab_id) === String(labId)) || labs[0];
 
   const [resourcesOpen, setResourcesOpen] = useState(false);
   const [hintsOpen, setHintsOpen] = useState(true);
   const [solutionOpen, setSolutionOpen] = useState(false);
   const [solutionConfirm, setSolutionConfirm] = useState(false);
 
-  const [flagValue, setFlagValue] = useState("");
-  const [flagLoading, setFlagLoading] = useState(false);
-  const [flagResult, setFlagResult] = useState(null); // { success, message, points }
+  const [flagResult, setFlagResult] = useState(null); // { success, message, points } - for toast
   const [successPopupVisible, setSuccessPopupVisible] = useState(false);
-  const [labSolved, setLabSolved] = useState(false); // hide form after solve so user can't resubmit
+  const [labSolved, setLabSolved] = useState(false);
+
+  // Reset labSolved when switching to a different lab (prevents stale state from previous lab)
+  useEffect(() => {
+    setLabSolved(false);
+  }, [labId]);
+
+  // Listen for lab solved from Training Labs (postMessage)
+  // Only accept from lab origins (localhost:4001, 4002) to prevent false solves from extensions/other tabs.
+  const labOrigins = ["http://localhost:4001", "http://localhost:4002", "http://127.0.0.1:4001", "http://127.0.0.1:4002"];
+  useEffect(() => {
+    const handler = (e) => {
+      if (!labOrigins.includes(e?.origin ?? "")) return;
+      const d = e?.data;
+      if (!d || d?.type !== "HACKME_LAB_SOLVED") return;
+      const msgLabId = d.labId ?? d.lab_id;
+      if (String(msgLabId) !== String(labId)) return;
+      const pts = d.points ?? 0;
+      setLabSolved(true);
+      onFlagSuccess?.();
+      // Only show toast with points when first solve (pts > 0). Re-solve = 0 pts, no toast.
+      if (pts > 0) {
+        setFlagResult({ success: true, message: "Lab solved", points: pts });
+        setSuccessPopupVisible(true);
+      }
+    };
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, [labId, onFlagSuccess]);
+
+  // Check solved status on mount, on focus (when user returns to HackMe tab), and via manual refresh
+  // Do NOT show success toast here - only show toast on first solve (postMessage with points)
+  // Use AbortController so in-flight fetches are cancelled when lab changes (prevents stale result overwriting current lab)
+  useEffect(() => {
+    const abort = new AbortController();
+    const checkSolved = async () => {
+      if (!lab.lab_id || (!currentUser?.user_id && !currentUser?.id)) return;
+      try {
+        const uid = currentUser?.user_id ?? currentUser?.id;
+        const url = `${API_BASE}/labs/check_lab_solved.php?lab_id=${lab.lab_id}&user_id=${uid}`;
+        const r = await fetch(url, { cache: "no-store", signal: abort.signal });
+        const d = await r.json().catch(() => ({}));
+        if (d?.solved) {
+          setLabSolved(true);
+          setFlagResult({ success: true, message: "Lab solved", points: 100 });
+        }
+      } catch (_) {
+        // Ignore AbortError (lab switched) and network errors
+      }
+    };
+    checkSolved();
+    const onFocus = () => checkSolved();
+    window.addEventListener("focus", onFocus);
+    const interval = setInterval(checkSolved, 8000);
+    return () => {
+      abort.abort();
+      window.removeEventListener("focus", onFocus);
+      clearInterval(interval);
+    };
+  }, [lab.lab_id, currentUser?.user_id, currentUser?.id]);
 
   // Auto-hide success popup after 3 seconds
   useEffect(() => {
@@ -45,60 +112,6 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
     return () => clearTimeout(t);
   }, [successPopupVisible]);
 
-  const handleSubmitFlag = async (e) => {
-    e.preventDefault();
-    if (!flagValue.trim() || !currentUser?.user_id) return;
-    setFlagLoading(true);
-    setFlagResult(null);
-    try {
-      const res = await fetch(`${API_BASE}/submit_flag.php`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          lab_id: lab.lab_id,
-          flag: flagValue.trim(),
-          user_id: currentUser.user_id ?? currentUser.id,
-        }),
-      });
-      const text = await res.text();
-      let data;
-      try {
-        data = text ? JSON.parse(text) : {};
-      } catch {
-        const errPreview = (text || "empty response").slice(0, 200);
-        setFlagResult({ success: false, message: `خطأ من الخادم (${res.status}): ${errPreview}` });
-        return;
-      }
-      const errMsg = data.message || data.error || (res.status >= 400 ? `Error ${res.status}` : null);
-      if (errMsg) {
-        data.message = res.status === 500 ? `خطأ 500: ${errMsg}` : errMsg;
-      }
-      const alreadySolved = data.already_solved || data.message === "LAB_ALREADY_SOLVED";
-      if (data.success || alreadySolved) setLabSolved(true);
-
-      setFlagResult({
-        ...data,
-        message: data.success
-          ? (data.message === "FLAG_CAPTURED" || data.message === "FLAG_ALREADY_SUBMITTED"
-            ? "Lab solved successfully"
-            : data.message)
-          : data.message === "LAB_ALREADY_SOLVED"
-            ? "Lab already solved. No need to submit again."
-            : data.message,
-      });
-      if (data.success) {
-        setFlagValue("");
-        setSuccessPopupVisible(true);
-        onFlagSuccess?.();
-      }
-    } catch (err) {
-      const msg = err.message || "Network error";
-      setFlagResult({ success: false, message: msg === "Failed to fetch" ? "Cannot reach server. Check XAMPP Apache and URL." : msg });
-    } finally {
-      setFlagLoading(false);
-    }
-  };
-
   const [startLabLoading, setStartLabLoading] = useState(false);
   const [startLabError, setStartLabError] = useState(null);
 
@@ -106,6 +119,18 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
     setStartLabLoading(true);
     setStartLabError(null);
     try {
+      // Start lab container before opening (runs docker-compose up -d)
+      const startRes = await fetch(`${API_BASE}/labs/start_lab_container.php`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lab_id: lab.lab_id }),
+      });
+      const startData = await startRes.json().catch(() => ({}));
+      // Continue even if container start fails (might already be running)
+      if (!startData.success && startData.message) {
+        console.warn("Lab container start:", startData.message);
+      }
+
       const res = await fetch(`${API_BASE}/generate_lab_token.php`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -120,15 +145,18 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
         return;
       }
       let url;
-      if (lab.lab_id === 5) {
-        url = `http://localhost:4001/lab/1?token=${encodeURIComponent(data.token)}&labId=${lab.lab_id}`;
+      if (lab.lab_id === 5 || lab.lab_id === 7) {
+        // XSS labs: root URL with labId and token for postMessage
+        const port = lab.port ?? (lab.lab_id === 7 ? 4002 : 4001);
+        url = `http://localhost:${port}/?labId=${lab.lab_id}&token=${encodeURIComponent(data.token)}`;
       } else if (lab.lab_id === 6) {
         url = `http://localhost:4001/lab/2?token=${encodeURIComponent(data.token)}&labId=${lab.lab_id}`;
       } else {
-        const port = 4000;
+        const port = lab.port ?? 4000;
         url = `http://localhost:${port}/?labId=${lab.lab_id}&token=${encodeURIComponent(data.token)}`;
       }
-      window.open(url, "_blank", "noopener,noreferrer");
+      // Use named window so lab tab keeps window.opener for postMessage to HackMe (lab 5)
+      window.open(url, "hackme_lab_" + lab.lab_id);
     } catch (err) {
       setStartLabError(err.message || "Network error");
     } finally {
@@ -186,6 +214,12 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
                 {lab.title}
               </h1>
               <div className="mt-3 flex flex-wrap items-center gap-3 text-[11px] sm:text-xs font-mono text-slate-300">
+                {labSolved && (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/50 bg-emerald-500/20 px-3 py-1 text-emerald-300">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Solved
+                  </span>
+                )}
                 <span
                   className={[
                     "inline-flex items-center gap-1 rounded-full border px-3 py-1",
@@ -202,6 +236,12 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
                   <BookOpen className="w-3.5 h-3.5" />
                   {lab.labtype_id === 1 ? "WHITE_BOX" : "BLACK_BOX"}
                 </span>
+                {labSolved && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 border border-emerald-400/50 px-3 py-1 text-emerald-200">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    SOLVED
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -256,7 +296,7 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
               className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-5 py-2.5 text-xs sm:text-sm font-mono font-semibold text-slate-950 shadow-lg shadow-emerald-500/40 hover:from-emerald-400 hover:to-emerald-500 hover:shadow-emerald-400/50 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
             >
               <PlayCircle className="w-4 h-4" />
-              {startLabLoading ? "Opening..." : "Start Lab"}
+              {startLabLoading ? "Opening..." : labSolved ? "Start Lab (re-solve)" : "Start Lab"}
             </button>
             {startLabError && (
               <p className="text-xs font-mono text-rose-400">{startLabError}</p>
@@ -273,64 +313,6 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
               <p className="text-sm sm:text-base text-slate-200 leading-relaxed">
                 {lab.description}
               </p>
-            </section>
-
-            <section className="rounded-2xl border border-slate-700 bg-slate-900/70 p-5 shadow-lg shadow-black/40">
-              <h2 className="text-sm font-mono text-slate-300 mb-2 flex items-center gap-2">
-                <Flag className="w-4 h-4 text-amber-400" />
-                // SUBMIT_FLAG
-              </h2>
-              <p className="text-xs sm:text-sm text-slate-400 mb-4">
-                Enter the flag you captured from the lab environment (port {lab.lab_id === 5 || lab.lab_id === 6 ? 4001 : 4000}).
-              </p>
-              {labSolved ? (
-                <div className="flex items-center gap-2 rounded-lg border border-emerald-500/50 bg-emerald-500/10 px-4 py-3 text-sm font-mono text-emerald-200">
-                  <CheckCircle2 className="w-5 h-5 shrink-0" />
-                  <span>Lab solved. No need to submit again.</span>
-                </div>
-              ) : currentUser?.user_id ? (
-                <>
-                  <form onSubmit={handleSubmitFlag} className="flex flex-col sm:flex-row gap-3">
-                    <input
-                      type="text"
-                      value={flagValue}
-                      onChange={(e) => setFlagValue(e.target.value)}
-                      placeholder="FLAG{...}"
-                      className="flex-1 rounded-lg bg-slate-900 border border-slate-600 px-4 py-2.5 text-sm font-mono text-slate-100 placeholder-slate-500 outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-500 transition-all"
-                      disabled={flagLoading}
-                    />
-                    <button
-                      type="submit"
-                      disabled={flagLoading || !flagValue.trim()}
-                      className="inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 px-5 py-2.5 text-sm font-mono font-semibold text-slate-950 shadow-lg shadow-amber-500/30 hover:from-amber-400 hover:to-amber-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                    >
-                      <Flag className="w-4 h-4" />
-                      {flagLoading ? "Submitting..." : "Submit Flag"}
-                    </button>
-                  </form>
-                  {flagResult && (
-                    <div
-                      className={`mt-3 flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-mono ${
-                        flagResult.success || flagResult.message?.includes("already solved")
-                          ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-200"
-                          : "border-rose-500/50 bg-rose-500/10 text-rose-200"
-                      }`}
-                    >
-                      {flagResult.success || flagResult.message?.includes("already solved") ? (
-                        <CheckCircle2 className="w-4 h-4 shrink-0" />
-                      ) : (
-                        <XCircle className="w-4 h-4 shrink-0" />
-                      )}
-                      <span>{flagResult.message}</span>
-                      {flagResult.points != null && (
-                        <span className="text-emerald-300">+{flagResult.points} pts</span>
-                      )}
-                    </div>
-                  )}
-                </>
-              ) : (
-                <p className="text-sm text-slate-500 font-mono">Log in to submit flags.</p>
-              )}
             </section>
           </div>
 
