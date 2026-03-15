@@ -9,6 +9,8 @@ import {
   AlertTriangle,
   PlayCircle,
   CheckCircle2,
+  Flag,
+  XCircle,
 } from "lucide-react";
 import { mockLabs } from "../../data/mockData";
 import { labService } from "../../services/labService";
@@ -35,13 +37,18 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
   }, []);
 
   const lab =
-    labs.find((l) => String(l.lab_id) === String(labId)) || labs[0];
+    labs.find((l) => String(l.lab_id) === String(labId)) ||
+    labs[0] ||
+    mockLabs.find((l) => String(l.lab_id) === String(labId)) ||
+    mockLabs[0];
 
   const [resourcesOpen, setResourcesOpen] = useState(false);
   const [hintsOpen, setHintsOpen] = useState(true);
   const [solutionOpen, setSolutionOpen] = useState(false);
   const [solutionConfirm, setSolutionConfirm] = useState(false);
 
+  const [flagValue, setFlagValue] = useState("");
+  const [flagLoading, setFlagLoading] = useState(false);
   const [flagResult, setFlagResult] = useState(null); // { success, message, points } - for toast
   const [successPopupVisible, setSuccessPopupVisible] = useState(false);
   const [labSolved, setLabSolved] = useState(false);
@@ -115,6 +122,53 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
   const [startLabLoading, setStartLabLoading] = useState(false);
   const [startLabError, setStartLabError] = useState(null);
 
+  const handleSubmitFlag = async (e) => {
+    e.preventDefault();
+    if (!flagValue.trim() || (!currentUser?.user_id && !currentUser?.id)) return;
+    setFlagLoading(true);
+    setFlagResult(null);
+    try {
+      const submitUrl = import.meta.env.DEV ? "/api/submit_flag.php" : `${API_BASE}/submit_flag.php`;
+      const res = await fetch(submitUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lab_id: lab.lab_id,
+          flag: flagValue.trim(),
+          user_id: currentUser?.user_id ?? currentUser?.id ?? 0,
+        }),
+      });
+      const text = await res.text();
+      let data;
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        setFlagResult({ success: false, message: `خطأ من الخادم (${res.status})` });
+        return;
+      }
+      const errMsg = data.message || data.error;
+      const alreadySolved = data.already_solved || data.message === "LAB_ALREADY_SOLVED";
+      if (data.success || alreadySolved) setLabSolved(true);
+      setFlagResult({
+        ...data,
+        message: data.success
+          ? (data.message === "FLAG_CAPTURED" || data.message === "FLAG_ALREADY_SUBMITTED" ? "Lab solved successfully" : data.message)
+          : data.message === "LAB_ALREADY_SOLVED"
+            ? "Lab already solved. No need to submit again."
+            : errMsg || "Invalid flag",
+      });
+      if (data.success) {
+        setFlagValue("");
+        setSuccessPopupVisible(true);
+        onFlagSuccess?.();
+      }
+    } catch (err) {
+      setFlagResult({ success: false, message: err?.message || "Network error" });
+    } finally {
+      setFlagLoading(false);
+    }
+  };
+
   const handleStartLab = async () => {
     setStartLabLoading(true);
     setStartLabError(null);
@@ -169,6 +223,14 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
 
   const derivedSolution =
     "This is a placeholder solution. Replace this text with the real walkthrough for your lab scenario.";
+
+  if (!lab) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black flex items-center justify-center">
+        <p className="text-slate-400 font-mono text-sm">Loading lab...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black py-12 px-4 sm:px-6 lg:px-10">
