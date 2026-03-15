@@ -24,8 +24,11 @@ const LabsCategoriesPage = ({ labType, onSelectCategory, onBack }) => {
       setLoading(false);
       if (res.success && res.data?.labs) {
         const all = res.data.labs;
-        const labTypeId = labType === LAB_TYPES.WHITE_BOX ? 1 : 2;
-        const filtered = all.filter((lab) => lab.labtype_id === labTypeId);
+        const labTypeId = labType === LAB_TYPES.WHITE_BOX ? 1 : labType === LAB_TYPES.ACCESS_CONTROL ? 3 : 2;
+        const filtered = all.filter((lab) => {
+          if (labType === LAB_TYPES.BLACK_BOX) return lab.labtype_id === 2 || lab.labtype_id === 3;
+          return lab.labtype_id === labTypeId;
+        });
         setLabs(filtered);
       }
     });
@@ -33,7 +36,7 @@ const LabsCategoriesPage = ({ labType, onSelectCategory, onBack }) => {
 
   const categories = getCategoriesWithLabs(labs);
   const labTypeLabel =
-    labType === LAB_TYPES.WHITE_BOX ? "WHITE_BOX" : "BLACK_BOX";
+    labType === LAB_TYPES.WHITE_BOX ? "WHITE_BOX" : labType === LAB_TYPES.ACCESS_CONTROL ? "BROKEN_ACCESS" : "BLACK_BOX";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black py-16 px-4 sm:px-6 lg:px-10">

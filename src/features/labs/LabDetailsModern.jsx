@@ -60,7 +60,7 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
 
   // Listen for lab solved from Training Labs (postMessage)
   // Only accept from lab origins (localhost:4001, 4002) to prevent false solves from extensions/other tabs.
-  const labOrigins = ["http://localhost:4001", "http://localhost:4002", "http://127.0.0.1:4001", "http://127.0.0.1:4002"];
+  const labOrigins = ["http://localhost:4001", "http://localhost:4002", "http://localhost:4003", "http://127.0.0.1:4001", "http://127.0.0.1:4002", "http://127.0.0.1:4003"];
   useEffect(() => {
     const handler = (e) => {
       if (!labOrigins.includes(e?.origin ?? "")) return;
@@ -143,7 +143,7 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
       try {
         data = text ? JSON.parse(text) : {};
       } catch {
-        setFlagResult({ success: false, message: `خطأ من الخادم (${res.status})` });
+        setFlagResult({ success: false, message: `Server error (${res.status})` });
         return;
       }
       const errMsg = data.message || data.error;
@@ -243,10 +243,10 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
             </div>
             <div className="flex-1 min-w-0">
               <h3 className="text-base font-mono font-semibold text-emerald-200">
-                Lab solved successfully
+                Lab solved
               </h3>
               <p className="text-sm text-slate-300">
-                {flagResult?.points != null ? `Submission saved. +${flagResult.points} pts` : "Submission saved."}
+                The lab has been solved successfully. {flagResult?.points != null ? `+${flagResult.points} pts` : ""}
               </p>
             </div>
           </div>
@@ -375,6 +375,7 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
               </p>
             </section>
 
+            {![1, 5, 7].includes(lab.lab_id) && (
             <section className="rounded-2xl border border-slate-700 bg-slate-900/70 p-5 shadow-lg shadow-black/40">
               <h2 className="text-sm font-mono text-slate-300 mb-2 flex items-center gap-2">
                 <Flag className="w-4 h-4 text-amber-400" />
@@ -388,7 +389,7 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
                   <CheckCircle2 className="w-5 h-5 shrink-0" />
                   <span>Lab solved. No need to submit again.</span>
                 </div>
-              ) : currentUser?.user_id ? (
+              ) : (currentUser?.user_id || currentUser?.id) ? (
                 <>
                   <form onSubmit={handleSubmitFlag} className="flex flex-col sm:flex-row gap-3">
                     <input
@@ -432,6 +433,7 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
                 <p className="text-sm text-slate-500 font-mono">Log in to submit flags.</p>
               )}
             </section>
+            )}
           </div>
 
           <aside className="space-y-4 lg:sticky lg:top-20">

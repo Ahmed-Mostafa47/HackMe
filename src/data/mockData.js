@@ -161,7 +161,7 @@ export const mockLabs = [
     icon: "🔐",
   },
   {
-    lab_id: 6,
+    lab_id: 9,
     title: "IDOR_AND_HORIZONTAL_ACCESS",
     description:
       "Find and exploit Insecure Direct Object Reference and horizontal access control flaws",
