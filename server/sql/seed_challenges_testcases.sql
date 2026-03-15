@@ -22,12 +22,12 @@ INSERT IGNORE INTO lab_types (labtype_id, name, description) VALUES
 SET @creator = (SELECT user_id FROM users ORDER BY user_id ASC LIMIT 1);
 
 INSERT INTO labs (lab_id, title, description, labtype_id, difficulty, points_total, created_by, is_published, visibility, docker_image, reset_interval)
-SELECT 1, 'SQL_INJECTION_SOURCE_ANALYSIS', 'Analyze vulnerable PHP source code to identify and exploit SQL injection points with full code access', 1, 'medium', 150, @creator, 1, 'public', 'cyberops/sql-injection-whitebox', 3600
-UNION ALL SELECT 2, 'BUFFER_OVERFLOW_CODE_REVIEW', 'Review C source code to identify buffer overflow vulnerabilities and develop exploits', 1, 'hard', 250, @creator, 1, 'public', 'cyberops/buffer-overflow-whitebox', 3600
+SELECT 1, 'SQL_INJECTION_SOURCE_ANALYSIS', 'Analyze vulnerable PHP source code to identify and exploit SQL injection points with full code access', 2, 'medium', 150, @creator, 1, 'public', 'cyberops/sql-injection-whitebox', 3600
+UNION ALL SELECT 2, 'BUFFER_OVERFLOW_CODE_REVIEW', 'Review C source code to identify buffer overflow vulnerabilities and develop exploits', 2, 'hard', 250, @creator, 1, 'public', 'cyberops/buffer-overflow-whitebox', 3600
 UNION ALL SELECT 3, 'BLIND_SQL_INJECTION', 'Exploit SQL injection vulnerabilities without source code access using blind techniques', 2, 'medium', 200, @creator, 1, 'public', 'cyberops/blind-sql-blackbox', 3600
 UNION ALL SELECT 4, 'XSS_BLACK_BOX_DETECTION', 'Discover and exploit Cross-Site Scripting vulnerabilities through external testing', 2, 'easy', 100, @creator, 1, 'public', 'cyberops/xss-blackbox', 3600
 UNION ALL SELECT 5, 'ACCESS_CONTROL_BYPASS', 'Test role-based access control: bypass restrictions and escalate privileges', 3, 'medium', 100, @creator, 1, 'public', 'cyberops/access-control-lab', 3600
-ON DUPLICATE KEY UPDATE title = VALUES(title), description = VALUES(description), difficulty = VALUES(difficulty), points_total = VALUES(points_total);
+ON DUPLICATE KEY UPDATE title = VALUES(title), description = VALUES(description), labtype_id = VALUES(labtype_id), difficulty = VALUES(difficulty), points_total = VALUES(points_total);
 
 -- 4. Challenges (linked to labs)
 INSERT IGNORE INTO challenges (challenge_id, lab_id, created_by, title, statement, order_index, max_score, difficulty, is_active)

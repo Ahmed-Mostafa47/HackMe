@@ -3,7 +3,7 @@
  * Labs configuration - paths and registry for Training Labs integration.
  * LABS_BASE_PATH: Root folder containing all Training Labs (e.g. D:\Graduation_project\Training Labs)
  */
-define('LABS_BASE_PATH', 'D:\\Graduation_project\\Training Labs');
+define('LABS_BASE_PATH', 'E:\\Level 4\\Semeser1\\graduation\\Labs');
 
 $GLOBALS['LABS_REGISTRY'] = [
     [
@@ -23,5 +23,12 @@ $GLOBALS['LABS_REGISTRY'] = [
         'folder' => 'XSS/dom-xss-select-lab',
         'port' => 4002,
         'points' => 100,
+    ],
+    [
+        'lab_id' => 8,
+        'folder' => 'BA',
+        'port' => 4003,
+        'points' => 100,
+        'compose_file' => 'docker-compose.access-control.yml',
     ],
 ];

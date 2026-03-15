@@ -46,19 +46,23 @@ const LabsListModern = ({
       if (res.success && res.data?.labs?.length) {
         setLabs(res.data.labs);
       } else {
-        const registered = mockLabs.filter((l) => l.lab_id === 1 || l.lab_id === 5 || l.lab_id === 6 || l.lab_id === 7);
+        const registered = mockLabs.filter((l) => l.lab_id === 1 || l.lab_id === 5 || l.lab_id === 7 || l.lab_id === 8 || l.lab_id === 9);
         setLabs(registered.length ? registered : mockLabs);
       }
     }).catch(() => {
       setLoading(false);
-      const registered = mockLabs.filter((l) => l.lab_id === 1 || l.lab_id === 5 || l.lab_id === 6 || l.lab_id === 7);
+      const registered = mockLabs.filter((l) => l.lab_id === 1 || l.lab_id === 5 || l.lab_id === 7 || l.lab_id === 8 || l.lab_id === 9);
       setLabs(registered.length ? registered : mockLabs);
     });
   }, []);
 
   const labTypeId = labType === LAB_TYPES.WHITE_BOX ? 1 : labType === LAB_TYPES.BLACK_BOX ? 2 : labType === LAB_TYPES.ACCESS_CONTROL ? 3 : null;
   const filteredLabs = labs.filter((lab) => {
-    if (labTypeId != null && lab.labtype_id !== labTypeId) return false;
+    if (labTypeId != null) {
+      if (labTypeId === 2) {
+        if (lab.labtype_id !== 2 && lab.labtype_id !== 3) return false;
+      } else if (lab.labtype_id !== labTypeId) return false;
+    }
     if (category) {
       const labCat = getCategoryFromLabTitle(lab.title || lab.display_name);
       if (labCat !== category) return false;

@@ -111,7 +111,7 @@ const TrainingSelectionPage = ({ setCurrentPage, setSelectedLabType }) => {
             <div>
               <h4 className="text-green-400 mb-2 font-semibold">BLACK_BOX_APPROACH</h4>
               <p className="leading-relaxed">
-                External penetration testing simulation. No internal knowledge provided - discover and exploit vulnerabilities from the outside.
+                External penetration testing simulation. No internal knowledge provided - discover and exploit vulnerabilities from the outside. Includes SQL, XSS, and Broken Access Control labs.
               </p>
             </div>
           </div>

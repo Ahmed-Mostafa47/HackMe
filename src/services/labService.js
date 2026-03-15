@@ -31,12 +31,12 @@ export const labService = {
       }
       // API error or empty - merge with registered labs from mockData (lab 1, 5 with correct ports)
       const { mockLabs } = await import("../data/mockData");
-      const registered = mockLabs.filter((l) => l.lab_id === 1 || l.lab_id === 5 || l.lab_id === 6 || l.lab_id === 7);
+      const registered = mockLabs.filter((l) => l.lab_id === 1 || l.lab_id === 5 || l.lab_id === 7 || l.lab_id === 8 || l.lab_id === 9);
       return { success: true, data: { labs: registered.length ? registered : mockLabs } };
     } catch (error) {
       console.warn("LabService: API unavailable, using mock data:", error?.message);
       const { mockLabs } = await import("../data/mockData");
-      const registered = mockLabs.filter((l) => l.lab_id === 1 || l.lab_id === 5 || l.lab_id === 6 || l.lab_id === 7);
+      const registered = mockLabs.filter((l) => l.lab_id === 1 || l.lab_id === 5 || l.lab_id === 7 || l.lab_id === 8 || l.lab_id === 9);
       return { success: true, data: { labs: registered.length ? registered : mockLabs } };
     }
   },

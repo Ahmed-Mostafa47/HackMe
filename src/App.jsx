@@ -657,7 +657,9 @@ function AppContent() {
               }
             }}
           />
-          {renderPage()}
+          <div key={location.pathname + location.search}>
+            {renderPage()}
+          </div>
         </>
       )}
     </div>

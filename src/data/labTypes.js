@@ -1,6 +1,7 @@
 export const LAB_TYPES = {
   WHITE_BOX: "white_box",
   BLACK_BOX: "black_box",
+  ACCESS_CONTROL: "access_control",
 };
 
 export const LAB_TYPE_DETAILS = {
@@ -17,5 +18,12 @@ export const LAB_TYPE_DETAILS = {
     icon: "🔍",
     color: "from-purple-600 to-pink-600",
     subtitle: "EXTERNAL_PENETRATION",
+  },
+  [LAB_TYPES.ACCESS_CONTROL]: {
+    name: "BROKEN_ACCESS_CONTROL",
+    description: "Bypass authorization, exploit IDOR and privilege escalation",
+    icon: "🔓",
+    color: "from-amber-600 to-orange-600",
+    subtitle: "AUTHORIZATION_BYPASS",
   },
 };
