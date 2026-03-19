@@ -8,6 +8,7 @@ const AdminDashboardPage = ({
   pendingRoleRequests = [],
   overviewStats = {},
   currentUser = null,
+  onOpenAdminLabs,
 }) => {
   const [requests, setRequests] = useState(pendingRoleRequests);
   const [processingId, setProcessingId] = useState(null);
@@ -301,6 +302,12 @@ const AdminDashboardPage = ({
             <p className="text-gray-400 font-mono text-xs sm:text-sm text-center sm:text-left">
               SYSTEM_OVERVIEW_AND_ROLE_GOVERNANCE
             </p>
+            <button
+              onClick={() => onOpenAdminLabs && onOpenAdminLabs()}
+              className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg border border-emerald-500/50 text-emerald-200 font-mono text-[10px] sm:text-xs hover:bg-emerald-500/10 transition"
+            >
+              OPEN_LABS_QUEUE
+            </button>
             <button
               onClick={fetchLatestRequests}
               disabled={isRefreshing}

@@ -12,7 +12,6 @@ import {
   Flag,
   XCircle,
 } from "lucide-react";
-import { mockLabs } from "../../data/mockData";
 import { labService } from "../../services/labService";
 
 // Use relative path when proxy exists (dev), else full URL (production)
@@ -25,22 +24,9 @@ const diffBadgeClasses = {
 };
 
 const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
-  const [labs, setLabs] = useState(mockLabs);
-
-  useEffect(() => {
-    labService
-      .getLabs()
-      .then((res) => {
-        if (res?.data?.labs?.length) setLabs(res.data.labs);
-      })
-      .catch(() => {});
-  }, []);
-
-  const lab =
-    labs.find((l) => String(l.lab_id) === String(labId)) ||
-    labs[0] ||
-    mockLabs.find((l) => String(l.lab_id) === String(labId)) ||
-    mockLabs[0];
+  const [lab, setLab] = useState(null);
+  const [labLoading, setLabLoading] = useState(true);
+  const [labError, setLabError] = useState("");
 
   const [resourcesOpen, setResourcesOpen] = useState(false);
   const [hintsOpen, setHintsOpen] = useState(false);
@@ -48,6 +34,9 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
   const [solutionConfirm, setSolutionConfirm] = useState(false);
   const [hintViewed, setHintViewed] = useState(false);
   const [solutionViewed, setSolutionViewed] = useState(false);
+  const [solutionText, setSolutionText] = useState("");
+  const [solutionLoading, setSolutionLoading] = useState(false);
+  const [solutionError, setSolutionError] = useState("");
 
   const [flagValue, setFlagValue] = useState("");
   const [flagLoading, setFlagLoading] = useState(false);
@@ -57,12 +46,37 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
 
   // Reset labSolved when switching to a different lab (prevents stale state from previous lab)
   useEffect(() => {
+    let mounted = true;
+    setLabLoading(true);
+    setLabError("");
+    setLab(null);
+    labService
+      .getLabDetails(labId)
+      .then((res) => {
+        if (!mounted) return;
+        setLab(res?.data?.lab || null);
+      })
+      .catch((err) => {
+        if (!mounted) return;
+        setLabError(err?.message || "Failed to load lab details.");
+      })
+      .finally(() => {
+        if (mounted) setLabLoading(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [labId]);
+
+  useEffect(() => {
     setLabSolved(false);
     setHintsOpen(false);
     setSolutionOpen(false);
     setSolutionConfirm(false);
     setHintViewed(false);
     setSolutionViewed(false);
+    setSolutionText("");
+    setSolutionError("");
   }, [labId]);
 
   const penaltyPercent = Math.min(
@@ -104,7 +118,7 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
   useEffect(() => {
     const abort = new AbortController();
     const checkSolved = async () => {
-      if (!lab.lab_id || (!currentUser?.user_id && !currentUser?.id)) return;
+      if (!lab?.lab_id || (!currentUser?.user_id && !currentUser?.id)) return;
       try {
         const uid = currentUser?.user_id ?? currentUser?.id;
         const url = `${API_BASE}/labs/check_lab_solved.php?lab_id=${lab.lab_id}&user_id=${uid}`;
@@ -127,7 +141,7 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
       window.removeEventListener("focus", onFocus);
       clearInterval(interval);
     };
-  }, [lab.lab_id, currentUser?.user_id, currentUser?.id]);
+  }, [lab?.lab_id, currentUser?.user_id, currentUser?.id]);
 
   // Auto-hide success popup after 3 seconds
   useEffect(() => {
@@ -246,15 +260,11 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
         setStartLabError(data.message || "Failed to generate lab access token");
         return;
       }
-      let url;
-      if (lab.lab_id === 8) {
-        url = `http://localhost:4003/lab/1?token=${encodeURIComponent(data.token)}&labId=${lab.lab_id}`;
-      } else if (lab.lab_id === 9) {
-        url = `http://localhost:4003/lab/2?token=${encodeURIComponent(data.token)}&labId=${lab.lab_id}`;
-      } else {
-        const port = lab.port ?? 4000;
-        url = `http://localhost:${port}/?labId=${lab.lab_id}&token=${encodeURIComponent(data.token)}`;
-      }
+      const port = lab.port ?? 4000;
+      const launchPath = (lab.launch_path || "/").trim();
+      const normalizedPath = launchPath.startsWith("/") ? launchPath : `/${launchPath}`;
+      const separator = normalizedPath.includes("?") ? "&" : "?";
+      const url = `http://localhost:${port}${normalizedPath}${separator}labId=${lab.lab_id}&token=${encodeURIComponent(data.token)}`;
       // Use named window so lab tab keeps window.opener for postMessage to HackMe (lab 5)
       window.open(url, "hackme_lab_" + lab.lab_id);
     } catch (err) {
@@ -264,34 +274,47 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
     }
   };
 
-  const fallbackHints = [
-    "Start by mapping all user-controlled inputs.",
-    "Compare normal vs malformed requests and watch for behavior changes.",
-  ];
-
-  const fallbackSolution =
-    "Use a methodical workflow: identify the vulnerable input, craft a safe proof-of-concept payload, then escalate the payload until you trigger the target condition for the lab.";
-
-  const labMeta =
-    mockLabs.find((m) => String(m.lab_id) === String(lab?.lab_id)) || null;
-
   const derivedHints =
     Array.isArray(lab?.hints) && lab.hints.length > 0
       ? lab.hints
-      : Array.isArray(labMeta?.hints) && labMeta.hints.length > 0
-        ? labMeta.hints
-        : fallbackHints;
-  const derivedSolution =
-    typeof lab?.solution === "string" && lab.solution.trim()
-      ? lab.solution
-      : typeof labMeta?.solution === "string" && labMeta.solution.trim()
-        ? labMeta.solution
-        : fallbackSolution;
+      : ["No hints available for this lab yet."];
 
-  if (!lab) {
+  const handleRevealSolution = async () => {
+    const uid = currentUser?.user_id ?? currentUser?.id;
+    if (!uid || !lab?.lab_id) {
+      setSolutionError("You must be logged in to view the solution.");
+      return;
+    }
+    setSolutionLoading(true);
+    setSolutionError("");
+    try {
+      const res = await labService.getLabSolution({ labId: lab.lab_id, userId: uid });
+      setSolutionText(res?.data?.solution || "");
+      setSolutionConfirm(true);
+      if (!solutionViewed) {
+        setSolutionViewed(true);
+      }
+    } catch (err) {
+      setSolutionError(err?.message || "Failed to load solution.");
+    } finally {
+      setSolutionLoading(false);
+    }
+  };
+
+  if (labLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black flex items-center justify-center">
         <p className="text-slate-400 font-mono text-sm">Loading lab...</p>
+      </div>
+    );
+  }
+
+  if (!lab || labError) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black flex items-center justify-center px-6">
+        <p className="text-rose-300 font-mono text-sm">
+          {labError || "Lab not found."}
+        </p>
       </div>
     );
   }
@@ -358,7 +381,11 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
                 </span>
                 <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 border border-sky-500/50 px-3 py-1 text-sky-200">
                   <BookOpen className="w-3.5 h-3.5" />
-                  {lab.labtype_id === 1 ? "WHITE_BOX" : "BLACK_BOX"}
+                  {lab.labtype_id === 1
+                    ? "WHITE_BOX"
+                    : lab.labtype_id === 3
+                      ? "ACCESS_CONTROL"
+                      : "BLACK_BOX"}
                 </span>
                 {labSolved && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 border border-emerald-400/50 px-3 py-1 text-emerald-200">
@@ -458,7 +485,7 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
                 // SUBMIT_FLAG
               </h2>
               <p className="text-xs sm:text-sm text-slate-400 mb-4">
-                Enter the flag you captured from the lab environment (port {lab.lab_id === 8 || lab.lab_id === 9 ? 4003 : 4000}).
+                Enter the flag you captured from the lab environment (port {lab.port ?? 4000}).
               </p>
               {labSolved ? (
                 <div className="flex items-center gap-2 rounded-lg border border-emerald-500/50 bg-emerald-500/10 px-4 py-3 text-sm font-mono text-emerald-200">
@@ -579,24 +606,22 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
                         reduce your awarded score by 75%.
                       </p>
                       <button
-                        onClick={() => {
-                          setSolutionConfirm(true);
-                          if (!solutionViewed) {
-                            setSolutionViewed(true);
-                            markResourceViewed("solution");
-                          }
-                        }}
+                        onClick={handleRevealSolution}
+                        disabled={solutionLoading}
                         className="mt-2 inline-flex items-center gap-1 rounded-lg border border-rose-400/60 bg-rose-500/20 px-3 py-1.5 text-[11px] text-rose-100 hover:bg-rose-500/30 transition-colors"
                       >
-                        Reveal Solution
+                        {solutionLoading ? "Loading..." : "Reveal Solution"}
                       </button>
+                      {solutionError && (
+                        <p className="mt-2 text-[11px] text-rose-200">{solutionError}</p>
+                      )}
                     </div>
                   )}
 
                   {solutionConfirm && (
                     <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-3">
                       <p className="text-emerald-50 text-[11px] whitespace-pre-wrap">
-                        {derivedSolution}
+                        {solutionText || "No solution text returned."}
                       </p>
                     </div>
                   )}

@@ -501,7 +501,10 @@ function AppContent() {
           return (
             <LabsCategoriesPage
               labType={labTypeParam}
+              isAdmin={isAdmin}
+              isInstructor={isInstructor}
               onBack={backToTraining}
+              onAddLab={() => navigate("/instructor-labs")}
               onSelectCategory={(cat) =>
                 navigate(`/labs?labType=${labTypeParam}&category=${cat}`)
               }
@@ -519,6 +522,7 @@ function AppContent() {
             onEditLab={() => {}}
             onRemoveLab={() => {}}
             onBack={backToCategories}
+            onAddLab={() => navigate("/instructor-labs")}
             onLabClick={(lab) =>
               navigate(`/lab-modern?labId=${lab.lab_id}&fromCategory=${categoryParam}&labType=${labTypeParam}`)
             }
@@ -598,6 +602,7 @@ function AppContent() {
             pendingRoleRequests={pendingRoleRequests}
             overviewStats={adminStats}
             currentUser={currentUser}
+            onOpenAdminLabs={() => navigate("/admin-labs")}
           />
         );
       case "/admin-labs":

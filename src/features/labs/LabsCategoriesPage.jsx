@@ -1,57 +1,68 @@
 import React, { useState, useEffect } from "react";
 import {
   Folder,
-  FolderOpen,
   ChevronRight,
   ArrowLeft,
   Loader2,
-  Shield,
+  Plus,
 } from "lucide-react";
 import { labService } from "../../services/labService";
 import { LAB_TYPES } from "../../data/labTypes";
 import {
-  LAB_CATEGORIES,
-  getCategoryFromLabTitle,
   getCategoriesWithLabs,
 } from "../../utils/labCategories";
 
-const LabsCategoriesPage = ({ labType, onSelectCategory, onBack }) => {
+const LabsCategoriesPage = ({
+  labType,
+  onSelectCategory,
+  onBack,
+  onAddLab,
+  isAdmin = false,
+  isInstructor = false,
+}) => {
   const [labs, setLabs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    labService.getLabs().then((res) => {
-      setLoading(false);
-      if (res.success && res.data?.labs) {
-        const all = res.data.labs;
+    let mounted = true;
+    labService
+      .getLabs()
+      .then((res) => {
+        if (!mounted) return;
+        const all = res?.data?.labs || [];
         const labTypeId = labType === LAB_TYPES.WHITE_BOX ? 1 : labType === LAB_TYPES.ACCESS_CONTROL ? 3 : 2;
         const filtered = all.filter((lab) => {
           if (labType === LAB_TYPES.BLACK_BOX) return lab.labtype_id === 2 || lab.labtype_id === 3;
           return lab.labtype_id === labTypeId;
         });
         setLabs(filtered);
-      }
-    });
+        setError("");
+      })
+      .catch((err) => {
+        if (!mounted) return;
+        setLabs([]);
+        setError(err?.message || "Failed to load labs from server.");
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+    return () => {
+      mounted = false;
+    };
   }, [labType]);
 
   const categories = getCategoriesWithLabs(labs);
   const labTypeLabel =
     labType === LAB_TYPES.WHITE_BOX ? "WHITE_BOX" : labType === LAB_TYPES.ACCESS_CONTROL ? "BROKEN_ACCESS" : "BLACK_BOX";
+  const canAddLab =
+    (labType === LAB_TYPES.WHITE_BOX || labType === LAB_TYPES.BLACK_BOX) &&
+    (isAdmin || isInstructor);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black py-16 px-4 sm:px-6 lg:px-10">
       <div className="max-w-4xl mx-auto">
-        {onBack && (
-          <button
-            onClick={onBack}
-            className="inline-flex items-center gap-2 text-sm font-mono text-slate-400 hover:text-emerald-400 transition-colors mb-8"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            BACK
-          </button>
-        )}
-
-        <header className="mb-12">
+        <header className="mb-12 pt-6">
           <p className="text-xs sm:text-sm text-emerald-400 font-mono tracking-[0.2em] uppercase">
             // VULNERABILITY_CATEGORIES
           </p>
@@ -63,9 +74,39 @@ const LabsCategoriesPage = ({ labType, onSelectCategory, onBack }) => {
           </p>
         </header>
 
+        {(onBack || canAddLab) && (
+          <div className="mb-8 flex items-center justify-between gap-4">
+            {onBack ? (
+              <button
+                onClick={onBack}
+                className="inline-flex items-center gap-2 text-sm font-mono text-slate-400 hover:text-emerald-400 transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                BACK
+              </button>
+            ) : (
+              <span />
+            )}
+            {canAddLab && (
+              <button
+                type="button"
+                onClick={() => onAddLab && onAddLab()}
+                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-4 py-2 text-xs sm:text-sm font-mono font-semibold text-slate-950 shadow-lg shadow-emerald-500/40 hover:from-emerald-400 hover:to-emerald-500 transition-all"
+              >
+                <Plus className="w-4 h-4" />
+                Add Lab
+              </button>
+            )}
+          </div>
+        )}
+
         {loading ? (
           <div className="flex justify-center py-16">
             <Loader2 className="w-8 h-8 text-emerald-400 animate-spin" />
+          </div>
+        ) : error ? (
+          <div className="rounded-2xl border border-rose-700 bg-rose-950/30 p-8 text-center">
+            <p className="text-rose-300 font-mono">{error}</p>
           </div>
         ) : categories.length === 0 ? (
           <div className="rounded-2xl border border-slate-700 bg-slate-900/50 p-8 text-center">

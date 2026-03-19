@@ -31,18 +31,6 @@ if (!isset($conn) || !$conn) {
 
 $conn->set_charset('utf8mb4');
 
-$createSql = "
-CREATE TABLE IF NOT EXISTS lab_resource_usage (
-    usage_id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    lab_id INT NOT NULL,
-    hint_viewed TINYINT(1) NOT NULL DEFAULT 0,
-    solution_viewed TINYINT(1) NOT NULL DEFAULT 0,
-    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    UNIQUE KEY uniq_user_lab (user_id, lab_id)
-)";
-$conn->query($createSql);
-
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $labId = (int)($_GET['lab_id'] ?? 0);
     $userId = (int)($_GET['user_id'] ?? 0);
