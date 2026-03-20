@@ -36,6 +36,19 @@ if (!isset($conn) || !$conn) {
 
 $conn->set_charset('utf8mb4');
 
+// Ensure table for hint/solution usage exists.
+$conn->query("
+    CREATE TABLE IF NOT EXISTS lab_resource_usage (
+        usage_id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        lab_id INT NOT NULL,
+        hint_viewed TINYINT(1) NOT NULL DEFAULT 0,
+        solution_viewed TINYINT(1) NOT NULL DEFAULT 0,
+        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_user_lab (user_id, lab_id)
+    )
+");
+
 $raw = file_get_contents('php://input');
 $input = json_decode($raw, true);
 if (!is_array($input)) {
@@ -152,6 +165,31 @@ $points = (int) $row['points'];
 // SQL Lab (lab_id=1): ensure 50 points if testcases has 0
 if ($points < 1 && $labId === 1) {
     $points = 50;
+}
+
+// Apply score penalties based on viewed resources in this lab.
+// Hint viewed: -25%, Solution viewed: -75% (cumulative, capped at 100%).
+$penaltyRes = $conn->query("
+    SELECT hint_viewed, solution_viewed
+    FROM lab_resource_usage
+    WHERE user_id = $userId AND lab_id = $labId
+    LIMIT 1
+");
+if ($penaltyRes && $penaltyRes->num_rows > 0) {
+    $penaltyRow = $penaltyRes->fetch_assoc();
+    $hintViewed = ((int)($penaltyRow['hint_viewed'] ?? 0) === 1);
+    $solutionViewed = ((int)($penaltyRow['solution_viewed'] ?? 0) === 1);
+    $penaltyPercent = 0;
+    if ($hintViewed) {
+        $penaltyPercent += 25;
+    }
+    if ($solutionViewed) {
+        $penaltyPercent += 75;
+    }
+    if ($penaltyPercent > 100) {
+        $penaltyPercent = 100;
+    }
+    $points = (int) floor($points * (1 - ($penaltyPercent / 100)));
 }
 
 // Check if lab already solved - first time only, no points on repeat

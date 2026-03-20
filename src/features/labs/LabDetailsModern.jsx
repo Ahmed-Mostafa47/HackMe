@@ -43,9 +43,11 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
     mockLabs[0];
 
   const [resourcesOpen, setResourcesOpen] = useState(false);
-  const [hintsOpen, setHintsOpen] = useState(true);
+  const [hintsOpen, setHintsOpen] = useState(false);
   const [solutionOpen, setSolutionOpen] = useState(false);
   const [solutionConfirm, setSolutionConfirm] = useState(false);
+  const [hintViewed, setHintViewed] = useState(false);
+  const [solutionViewed, setSolutionViewed] = useState(false);
 
   const [flagValue, setFlagValue] = useState("");
   const [flagLoading, setFlagLoading] = useState(false);
@@ -56,7 +58,22 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
   // Reset labSolved when switching to a different lab (prevents stale state from previous lab)
   useEffect(() => {
     setLabSolved(false);
+    setHintsOpen(false);
+    setSolutionOpen(false);
+    setSolutionConfirm(false);
+    setHintViewed(false);
+    setSolutionViewed(false);
   }, [labId]);
+
+  const penaltyPercent = Math.min(
+    100,
+    (hintViewed ? 25 : 0) + (solutionViewed ? 75 : 0)
+  );
+  const maxPoints = Number(lab?.points_total ?? 0) || 0;
+  const possiblePoints = Math.max(
+    0,
+    Math.floor(maxPoints * (1 - penaltyPercent / 100))
+  );
 
   // Listen for lab solved from Training Labs (postMessage)
   // Only accept from lab origins (localhost:4001, 4002) to prevent false solves from extensions/other tabs.
@@ -118,6 +135,37 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
     const t = setTimeout(() => setSuccessPopupVisible(false), 3000);
     return () => clearTimeout(t);
   }, [successPopupVisible]);
+
+  useEffect(() => {
+    const uid = currentUser?.user_id ?? currentUser?.id;
+    if (!lab?.lab_id || !uid) return;
+    const url = `${API_BASE}/labs/resource_usage.php?lab_id=${lab.lab_id}&user_id=${uid}`;
+    fetch(url, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => {
+        if (!d?.success) return;
+        setHintViewed(Boolean(d?.data?.hint_viewed));
+        setSolutionViewed(Boolean(d?.data?.solution_viewed));
+      })
+      .catch(() => {});
+  }, [lab?.lab_id, currentUser?.user_id, currentUser?.id]);
+
+  const markResourceViewed = async (resourceType) => {
+    const uid = currentUser?.user_id ?? currentUser?.id;
+    if (!uid || !lab?.lab_id) return;
+    try {
+      await fetch(`${API_BASE}/labs/resource_usage.php`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: uid,
+          lab_id: lab.lab_id,
+          resource: resourceType,
+          viewed: true,
+        }),
+      });
+    } catch (_) {}
+  };
 
   const [startLabLoading, setStartLabLoading] = useState(false);
   const [startLabError, setStartLabError] = useState(null);
@@ -216,13 +264,29 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
     }
   };
 
-  const derivedHints = [
-    "Try enumerating input parameters first.",
-    "Observe server responses for useful error messages.",
+  const fallbackHints = [
+    "Start by mapping all user-controlled inputs.",
+    "Compare normal vs malformed requests and watch for behavior changes.",
   ];
 
+  const fallbackSolution =
+    "Use a methodical workflow: identify the vulnerable input, craft a safe proof-of-concept payload, then escalate the payload until you trigger the target condition for the lab.";
+
+  const labMeta =
+    mockLabs.find((m) => String(m.lab_id) === String(lab?.lab_id)) || null;
+
+  const derivedHints =
+    Array.isArray(lab?.hints) && lab.hints.length > 0
+      ? lab.hints
+      : Array.isArray(labMeta?.hints) && labMeta.hints.length > 0
+        ? labMeta.hints
+        : fallbackHints;
   const derivedSolution =
-    "This is a placeholder solution. Replace this text with the real walkthrough for your lab scenario.";
+    typeof lab?.solution === "string" && lab.solution.trim()
+      ? lab.solution
+      : typeof labMeta?.solution === "string" && labMeta.solution.trim()
+        ? labMeta.solution
+        : fallbackSolution;
 
   if (!lab) {
     return (
@@ -373,6 +437,18 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
               <p className="text-sm sm:text-base text-slate-200 leading-relaxed">
                 {lab.description}
               </p>
+              <p className="mt-3 text-xs font-mono text-slate-400">
+                Current penalty:{" "}
+                <span className="text-amber-300">{penaltyPercent}%</span>{" "}
+                {maxPoints > 0 && (
+                  <>
+                    {" "}
+                    | Possible score now:{" "}
+                    <span className="text-emerald-300">{possiblePoints}</span> /{" "}
+                    {maxPoints}
+                  </>
+                )}
+              </p>
             </section>
 
             {![1, 5, 7].includes(lab.lab_id) && (
@@ -440,11 +516,17 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
             <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-4 shadow-lg shadow-black/40">
               <button
                 className="flex w-full items-center justify-between gap-2 text-sm font-mono text-slate-100"
-                onClick={() => setHintsOpen((v) => !v)}
+                onClick={() => {
+                  setHintsOpen((v) => !v);
+                  if (!hintViewed) {
+                    setHintViewed(true);
+                    markResourceViewed("hint");
+                  }
+                }}
               >
                 <span className="flex items-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-300" />
-                  Hints
+                  Hints (-25%)
                 </span>
                 {hintsOpen ? (
                   <ChevronUp className="w-4 h-4" />
@@ -479,7 +561,7 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
               >
                 <span className="flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4 text-rose-400" />
-                  Solution
+                  Solution (-75%)
                 </span>
                 {solutionOpen ? (
                   <ChevronUp className="w-4 h-4" />
@@ -494,10 +576,16 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
                     <div className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-3">
                       <p className="text-rose-100 text-[11px]">
                         Are you sure you want to view the solution? This may
-                        reduce the learning impact of this lab.
+                        reduce your awarded score by 75%.
                       </p>
                       <button
-                        onClick={() => setSolutionConfirm(true)}
+                        onClick={() => {
+                          setSolutionConfirm(true);
+                          if (!solutionViewed) {
+                            setSolutionViewed(true);
+                            markResourceViewed("solution");
+                          }
+                        }}
                         className="mt-2 inline-flex items-center gap-1 rounded-lg border border-rose-400/60 bg-rose-500/20 px-3 py-1.5 text-[11px] text-rose-100 hover:bg-rose-500/30 transition-colors"
                       >
                         Reveal Solution
