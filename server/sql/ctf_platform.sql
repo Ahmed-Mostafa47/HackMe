@@ -60,6 +60,10 @@ CREATE TABLE labs (
   lab_id INT PRIMARY KEY AUTO_INCREMENT,
   title VARCHAR(255) NOT NULL,
   description TEXT NOT NULL,
+  solution LONGTEXT NULL,
+  icon VARCHAR(16) NULL,
+  port INT NULL,
+  launch_path VARCHAR(255) NULL,
   labtype_id INT NOT NULL,
   difficulty ENUM('easy','medium','hard') NOT NULL DEFAULT 'easy',
   points_total INT NOT NULL DEFAULT 0,
@@ -105,6 +109,16 @@ CREATE TABLE hints (
   text TEXT NOT NULL,
   penalty_points INT NOT NULL DEFAULT 0,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE lab_resource_usage (
+  usage_id INT PRIMARY KEY AUTO_INCREMENT,
+  user_id INT NOT NULL,
+  lab_id INT NOT NULL,
+  hint_viewed TINYINT(1) NOT NULL DEFAULT 0,
+  solution_viewed TINYINT(1) NOT NULL DEFAULT 0,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uniq_user_lab (user_id, lab_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE file_resources (
@@ -286,6 +300,10 @@ ALTER TABLE testcases
 
 ALTER TABLE hints 
   ADD CONSTRAINT fk_hints_challenge FOREIGN KEY (challenge_id) REFERENCES challenges (challenge_id);
+
+ALTER TABLE lab_resource_usage
+  ADD CONSTRAINT fk_usage_user FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE,
+  ADD CONSTRAINT fk_usage_lab FOREIGN KEY (lab_id) REFERENCES labs (lab_id) ON DELETE CASCADE;
 
 ALTER TABLE file_resources 
   ADD CONSTRAINT fk_files_owner FOREIGN KEY (owner_id) REFERENCES users (user_id),

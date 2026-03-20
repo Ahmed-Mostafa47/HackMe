@@ -36,19 +36,6 @@ if (!isset($conn) || !$conn) {
 
 $conn->set_charset('utf8mb4');
 
-// Ensure table for hint/solution usage exists.
-$conn->query("
-    CREATE TABLE IF NOT EXISTS lab_resource_usage (
-        usage_id INT AUTO_INCREMENT PRIMARY KEY,
-        user_id INT NOT NULL,
-        lab_id INT NOT NULL,
-        hint_viewed TINYINT(1) NOT NULL DEFAULT 0,
-        solution_viewed TINYINT(1) NOT NULL DEFAULT 0,
-        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        UNIQUE KEY uniq_user_lab (user_id, lab_id)
-    )
-");
-
 $raw = file_get_contents('php://input');
 $input = json_decode($raw, true);
 if (!is_array($input)) {
