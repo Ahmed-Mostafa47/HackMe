@@ -107,24 +107,6 @@ VALUES
  '💉', 4000, '/',
  2, 'medium', 150, @creator, 1, 'public', 'cyberops/sql-injection-whitebox', 3600),
 
-(2, 'Buffer Overflow Code Review',
- 'Review C source code to identify buffer overflow vulnerabilities and develop exploits.',
- 'Identify the unsafe copy operation and calculate the overwrite offset. Craft input that controls execution flow and trigger the target behavior safely.',
- '💥', 4000, '/',
- 2, 'hard', 250, @creator, 1, 'public', 'cyberops/buffer-overflow-whitebox', 3600),
-
-(3, 'Blind SQL Injection',
- 'Exploit SQL injection vulnerabilities without source code access using blind techniques.',
- 'Use time-based blind SQL injection payloads with conditional delays to infer true/false states and extract data progressively.',
- '🎯', 4000, '/',
- 2, 'medium', 200, @creator, 1, 'public', 'cyberops/blind-sql-blackbox', 3600),
-
-(4, 'XSS Black Box Detection',
- 'Discover and exploit Cross-Site Scripting vulnerabilities through external testing.',
- 'Find reflected user input and craft a context-appropriate XSS payload so JavaScript executes in the browser.',
- '⚡', 4000, '/',
- 2, 'easy', 100, @creator, 1, 'public', 'cyberops/xss-blackbox', 3600),
-
 (5, 'Reflected XSS Blog Lab',
  'Exploit a reflected XSS vulnerability in a blog search feature.',
  'Inject a reflected payload through the search parameter so it is rendered unsafely, then execute JavaScript to trigger alert().',
@@ -167,9 +149,6 @@ ON DUPLICATE KEY UPDATE
 INSERT INTO challenges (challenge_id, lab_id, created_by, title, statement, order_index, max_score, difficulty, is_active)
 VALUES
 (201, 1, @creator, 'AUTHENTICATION_BYPASS', 'Bypass login using SQL injection in authentication flow.', 1, 150, 'medium', 1),
-(202, 2, @creator, 'BUFFER_OVERFLOW_EXPLOIT', 'Identify and exploit the overflow point to control execution.', 1, 250, 'hard', 1),
-(203, 3, @creator, 'BLIND_TIME_BASED_SQLI', 'Extract data using timing differences.', 1, 200, 'medium', 1),
-(204, 4, @creator, 'XSS_BLACKBOX', 'Discover reflected XSS in the target surface.', 1, 100, 'easy', 1),
 (205, 5, @creator, 'REFLECTED_XSS', 'Execute JavaScript via reflected input.', 1, 100, 'medium', 1),
 (207, 7, @creator, 'DOM_XSS', 'Execute JavaScript via DOM sink.', 1, 100, 'easy', 1),
 (208, 8, @creator, 'ACCESS_CONTROL_BYPASS', 'Bypass role restrictions to access admin feature.', 1, 100, 'medium', 1),
@@ -183,9 +162,6 @@ ON DUPLICATE KEY UPDATE
 INSERT INTO testcases (testcase_id, challenge_id, secret_flag_hash, secret_flag_plain, points, active, type)
 VALUES
 (201, 201, 'FLAG{AUTH_BYPASS_123}', 'FLAG{AUTH_BYPASS_123}', 150, 1, 'flag_match'),
-(202, 202, 'FLAG{BOF_EXPLOIT_222}', 'FLAG{BOF_EXPLOIT_222}', 250, 1, 'flag_match'),
-(203, 203, 'FLAG{BLIND_SQLI_789}', 'FLAG{BLIND_SQLI_789}', 200, 1, 'flag_match'),
-(204, 204, 'FLAG{XSS_BLACKBOX_444}', 'FLAG{XSS_BLACKBOX_444}', 100, 1, 'flag_match'),
 (205, 205, 'FLAG{XSS_REFLECTED_111}', 'FLAG{XSS_REFLECTED_111}', 100, 1, 'flag_match'),
 (207, 207, 'FLAG{DOM_XSS_333}', 'FLAG{DOM_XSS_333}', 100, 1, 'flag_match'),
 (208, 208, 'FLAG{UNPROTECTED_ADMIN_PANEL}', 'FLAG{UNPROTECTED_ADMIN_PANEL}', 100, 1, 'flag_match'),
@@ -197,18 +173,12 @@ ON DUPLICATE KEY UPDATE
   active = 1;
 
 -- 5) Hints (two per lab)
-DELETE FROM hints WHERE challenge_id IN (201, 202, 203, 204, 205, 207, 208, 209);
+DELETE FROM hints WHERE challenge_id IN (201, 205, 207, 208, 209);
 
 INSERT INTO hints (challenge_id, text, penalty_points)
 VALUES
 (201, 'Inspect authentication inputs for injectable query fragments.', 0),
 (201, 'Try boolean-based payloads to force login success.', 0),
-(202, 'Trace where fixed-size buffers receive untrusted data.', 0),
-(202, 'Check unsafe copy routines and overwrite offsets.', 0),
-(203, 'Use response timing to infer true/false conditions.', 0),
-(203, 'Extract data one character at a time with conditional delays.', 0),
-(204, 'Probe reflected parameters first and observe rendering context.', 0),
-(204, 'Use payloads valid for attributes and text contexts.', 0),
 (205, 'Target the blog search parameter and test reflected payloads.', 0),
 (205, 'Try a payload that directly calls alert().', 0),
 (207, 'Inspect client-side sinks receiving URL/search input.', 0),

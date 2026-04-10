@@ -62,81 +62,6 @@ export const mockLabs = [
       "The vulnerable login query is injectable through user-controlled input. Use a boolean-based SQL injection payload in the username field to bypass authentication, then enumerate database records with a UNION-based payload to complete the challenge path.",
   },
   {
-    lab_id: 2,
-    title: "BUFFER_OVERFLOW_CODE_REVIEW",
-    description:
-      "Review C source code to identify buffer overflow vulnerabilities and develop exploits",
-    labtype_id: 2,
-    difficulty: "hard",
-    points_total: 250,
-    is_published: true,
-    visibility: "public",
-    docker_image: "cyberops/buffer-overflow-whitebox",
-    created_by: 1,
-    whitebox_files: [
-      "vulnerable_server.c",
-      "exploit_dev.c",
-      "memory_analysis.txt",
-    ],
-    progress: 20,
-    status: "STARTED",
-    icon: "💥",
-    hints: [
-      "Trace where fixed-size buffers copy untrusted user data.",
-      "Verify bounds checks and identify unsafe string functions.",
-    ],
-    solution:
-      "Identify the unsafe copy operation and calculate the exact overwrite offset. Craft input that controls execution flow without crashing the process, then deliver the exploit payload to trigger the intended behavior.",
-  },
-
-  // Black Box Labs
-  {
-    lab_id: 3,
-    title: "BLIND_SQL_INJECTION",
-    description:
-      "Exploit SQL injection vulnerabilities without source code access using blind techniques",
-    labtype_id: 2,
-    difficulty: "medium",
-    points_total: 200,
-    is_published: true,
-    visibility: "public",
-    docker_image: "cyberops/blind-sql-blackbox",
-    created_by: 1,
-    blackbox_endpoints: ["/login", "/search", "/user/profile"],
-    progress: 0,
-    status: "LOCKED",
-    icon: "🎯",
-    hints: [
-      "Use response timing differences to infer true/false SQL conditions.",
-      "Extract information incrementally with character-by-character predicates.",
-    ],
-    solution:
-      "Exploit the blind injection point using time-based payloads such as conditional sleep expressions. Build automated requests to recover schema and target values by observing delayed responses.",
-  },
-  {
-    lab_id: 4,
-    title: "XSS_BLACK_BOX_DETECTION",
-    description:
-      "Discover and exploit Cross-Site Scripting vulnerabilities through external testing",
-    labtype_id: 2,
-    difficulty: "easy",
-    points_total: 100,
-    is_published: true,
-    visibility: "public",
-    docker_image: "cyberops/xss-blackbox",
-    created_by: 1,
-    blackbox_endpoints: ["/contact", "/comment", "/search"],
-    progress: 0,
-    status: "NOT_STARTED",
-    icon: "⚡",
-    hints: [
-      "Probe reflected parameters first, then test script-context breakouts.",
-      "Use payloads that remain valid within HTML attributes and text contexts.",
-    ],
-    solution:
-      "Locate the reflected input sink and confirm unsanitized output. Craft an XSS payload matched to the rendering context so JavaScript executes in the victim browser, then demonstrate impact with a controlled action.",
-  },
-  {
     lab_id: 5,
     port: 4001,
     title: "REFLECTED_XSS_BLOG_LAB",
@@ -285,24 +210,6 @@ export const mockChallenges = [
         type: "flag_match",
         secret_flag_plain: "FLAG{DATA_EXFIL_456}",
         points: 100,
-      },
-    ],
-  },
-  {
-    challenge_id: 3,
-    lab_id: 3,
-    title: "BLIND_TIME_BASED_SQLI",
-    statement:
-      "Exploit time-based blind SQL injection to extract database information",
-    order_index: 1,
-    max_score: 150,
-    difficulty: "hard",
-    testcases: [
-      {
-        testcase_id: 3,
-        type: "flag_match",
-        secret_flag_plain: "FLAG{BLIND_SQLI_789}",
-        points: 150,
       },
     ],
   },

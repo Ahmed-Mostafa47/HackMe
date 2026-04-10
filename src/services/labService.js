@@ -20,6 +20,46 @@ const getLabsBase = () =>
     ? "/api/labs"
     : getApiBase();
 
+/** Same shape as GET get_lab_details.php `data.lab` for UI compatibility */
+function mockLabToDetailsPayload(lab) {
+  if (!lab) return null;
+  const hints = Array.isArray(lab.hints)
+    ? lab.hints.map((h) => String(h).trim()).filter(Boolean)
+    : [];
+  return {
+    success: true,
+    message: "OK",
+    data: {
+      lab: {
+        lab_id: Number(lab.lab_id) || 0,
+        title: String(lab.display_name ?? lab.title ?? ""),
+        description: String(lab.description ?? ""),
+        icon: String(lab.icon ?? "LAB"),
+        port: lab.port != null ? Number(lab.port) : null,
+        launch_path: String(lab.launch_path ?? ""),
+        labtype_id: Number(lab.labtype_id) || 0,
+        difficulty: String(lab.difficulty ?? "easy"),
+        points_total: Number(lab.points_total) || 0,
+        is_published: lab.is_published !== false,
+        visibility: String(lab.visibility ?? "public"),
+        has_solution: !!(lab.solution && String(lab.solution).trim()),
+        hints,
+      },
+    },
+  };
+}
+
+async function getLabDetailsFromMock(labId) {
+  const { mockLabs } = await import("../data/mockData");
+  const id = Number(labId);
+  const lab = mockLabs.find((l) => Number(l.lab_id) === id);
+  const payload = mockLabToDetailsPayload(lab);
+  if (!payload) {
+    throw new Error("Lab not found");
+  }
+  return payload;
+}
+
 export const labService = {
   async getLabs() {
     try {
@@ -73,15 +113,31 @@ export const labService = {
   },
 
   async getLabDetails(labId) {
-    const response = await fetch(
-      `${getLabsBase()}/get_lab_details.php?lab_id=${encodeURIComponent(labId)}`,
-      { cache: "no-store" }
-    );
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok || !data?.success) {
-      throw new Error(data?.message || `Failed to load lab details (${response.status})`);
+    try {
+      const response = await fetch(
+        `${getLabsBase()}/get_lab_details.php?lab_id=${encodeURIComponent(labId)}`,
+        { cache: "no-store" }
+      );
+      const data = await response.json().catch(() => ({}));
+      if (response.ok && data?.success) {
+        return data;
+      }
+      // DB down, or lab missing from DB while list came from mock — use mock details
+      if (
+        data?.message === "Lab not found" ||
+        data?.message === "Load error" ||
+        !response.ok
+      ) {
+        return await getLabDetailsFromMock(labId);
+      }
+      throw new Error(
+        data?.message || `Failed to load lab details (${response.status})`
+      );
+    } catch (err) {
+      if (err?.message === "Lab not found") throw err;
+      console.warn("LabService: getLabDetails API failed, trying mock:", err?.message);
+      return await getLabDetailsFromMock(labId);
     }
-    return data;
   },
 
   async getLabSolution({ labId, userId }) {
