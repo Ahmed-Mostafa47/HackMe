@@ -8,8 +8,8 @@ import {
   Trash2,
   ArrowLeft,
   Loader2,
+  Plus,
 } from "lucide-react";
-import { mockLabs } from "../../data/mockData";
 import { labService } from "../../services/labService";
 import { LAB_TYPES } from "../../data/labTypes";
 import { getCategoryFromLabTitle } from "../../utils/labCategories";
@@ -36,24 +36,32 @@ const LabsListModern = ({
   labType,
   category,
   onBack,
+  onAddLab,
 }) => {
   const [labs, setLabs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    labService.getLabs().then((res) => {
-      setLoading(false);
-      if (res.success && res.data?.labs?.length) {
-        setLabs(res.data.labs);
-      } else {
-        const registered = mockLabs.filter((l) => l.lab_id === 1 || l.lab_id === 5 || l.lab_id === 7 || l.lab_id === 8 || l.lab_id === 9 || l.lab_id === 10);
-        setLabs(registered.length ? registered : mockLabs);
-      }
-    }).catch(() => {
-      setLoading(false);
-      const registered = mockLabs.filter((l) => l.lab_id === 1 || l.lab_id === 5 || l.lab_id === 7 || l.lab_id === 8 || l.lab_id === 9 || l.lab_id === 10);
-      setLabs(registered.length ? registered : mockLabs);
-    });
+    let mounted = true;
+    labService
+      .getLabs()
+      .then((res) => {
+        if (!mounted) return;
+        setLabs(res?.data?.labs || []);
+        setError("");
+      })
+      .catch((err) => {
+        if (!mounted) return;
+        setLabs([]);
+        setError(err?.message || "Failed to load labs from server.");
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const labTypeId = labType === LAB_TYPES.WHITE_BOX ? 1 : labType === LAB_TYPES.BLACK_BOX ? 2 : labType === LAB_TYPES.ACCESS_CONTROL ? 3 : null;
@@ -64,12 +72,14 @@ const LabsListModern = ({
       } else if (lab.labtype_id !== labTypeId) return false;
     }
     if (category) {
-      const labCat = getCategoryFromLabTitle(lab.title || lab.display_name);
+      const labCat = getCategoryFromLabTitle(lab.title);
       if (labCat !== category) return false;
     }
     return true;
   });
-  const displayedLabs = labType != null || category != null ? filteredLabs : labs;
+  const canAddLab =
+    (labType === LAB_TYPES.WHITE_BOX || labType === LAB_TYPES.BLACK_BOX) &&
+    (isAdmin || isInstructor);
 
   const handleOpenLab = (lab) => {
     if (onLabClick) {
@@ -114,6 +124,16 @@ const LabsListModern = ({
               </p>
               <p>// SELECT_TARGET_AND_DEPLOY</p>
             </div>
+            {canAddLab && (
+              <button
+                type="button"
+                onClick={() => onAddLab && onAddLab()}
+                className="ml-2 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-4 py-2 text-xs sm:text-sm font-mono font-semibold text-slate-950 shadow-lg shadow-emerald-500/40 hover:from-emerald-400 hover:to-emerald-500 transition-all"
+              >
+                <Plus className="w-4 h-4" />
+                Add Lab
+              </button>
+            )}
           </div>
         </header>
 
@@ -130,6 +150,10 @@ const LabsListModern = ({
         {loading ? (
           <div className="flex justify-center py-16">
             <Loader2 className="w-8 h-8 text-emerald-400 animate-spin" />
+          </div>
+        ) : error ? (
+          <div className="rounded-2xl border border-rose-700 bg-rose-950/30 p-8 text-center">
+            <p className="text-rose-300 font-mono">{error}</p>
           </div>
         ) : filteredLabs.length === 0 ? (
           <div className="rounded-2xl border border-slate-700 bg-slate-900/50 p-8 text-center">

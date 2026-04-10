@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Plus,
   CheckCircle2,
@@ -9,7 +9,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { mockLabs } from "../../data/mockData";
+import { labService } from "../../services/labService";
 
 const statusColors = {
   pending:
@@ -21,7 +21,8 @@ const statusColors = {
 };
 
 const InstructorLabsDashboard = () => {
-  const [labs] = useState(mockLabs);
+  const [labs, setLabs] = useState([]);
+  const [labsError, setLabsError] = useState("");
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -31,6 +32,31 @@ const InstructorLabsDashboard = () => {
     solution: "",
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const getLabTypeLabel = (labtypeId) => {
+    if (labtypeId === 1) return "WHITE_BOX";
+    if (labtypeId === 2) return "BLACK_BOX";
+    if (labtypeId === 3) return "ACCESS_CONTROL";
+    return "LAB";
+  };
+
+  useEffect(() => {
+    let mounted = true;
+    labService
+      .getLabs()
+      .then((res) => {
+        if (!mounted) return;
+        setLabs(res?.data?.labs || []);
+        setLabsError("");
+      })
+      .catch((err) => {
+        if (!mounted) return;
+        setLabs([]);
+        setLabsError(err?.message || "Failed to load labs from server.");
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const handleSubmitLab = (e) => {
     e.preventDefault();
@@ -42,16 +68,16 @@ const InstructorLabsDashboard = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black py-14 px-4 sm:px-6 lg:px-10">
       <div className="max-w-6xl mx-auto space-y-10">
         <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 sm:gap-6">
-          <div className="space-y-2">
+          <div className="space-y-2 pt-6">
             <p className="text-xs text-emerald-400 font-mono tracking-[0.2em] uppercase">
               // INSTRUCTOR_DASHBOARD
             </p>
             <h1 className="text-3xl sm:text-4xl font-bold text-slate-50 font-mono">
-              Labs Authoring Console
+              Labs Management Console
             </h1>
             <p className="text-sm text-slate-400 max-w-xl">
-              Design, document, and submit labs for approval. Track their
-              review status in real time.
+              Manage DB-powered labs, review metadata, and prepare new labs for
+              future create/edit APIs.
             </p>
           </div>
 
@@ -75,10 +101,10 @@ const InstructorLabsDashboard = () => {
               </div>
               <div>
                 <h2 className="text-base sm:text-lg font-mono font-semibold text-slate-50">
-                  Add New Lab
+                  Add New Lab (UI Preview)
                 </h2>
                 <p className="text-xs text-slate-400">
-                  Fill in the lab details and submit for admin approval.
+                  Preview form only. Persisting lab creation is not wired to API yet.
                 </p>
               </div>
             </div>
@@ -195,15 +221,20 @@ const InstructorLabsDashboard = () => {
               </div>
               <div>
                 <h2 className="text-base sm:text-lg font-mono font-semibold text-slate-50">
-                  My Labs & Status
+                  Labs Loaded From Database
                 </h2>
                 <p className="text-xs text-slate-400">
-                  Track approval state of your submitted labs.
+                  Published labs and metadata currently available through API.
                 </p>
               </div>
             </div>
 
             <div className="space-y-4">
+              {labsError && (
+                <div className="rounded-xl border border-rose-700 bg-rose-950/30 p-3 text-xs text-rose-300 font-mono">
+                  {labsError}
+                </div>
+              )}
               {labs.map((lab) => (
                 <div
                   key={lab.lab_id}
@@ -222,28 +253,47 @@ const InstructorLabsDashboard = () => {
                     <div
                       className={[
                         "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-mono uppercase tracking-wide shadow self-start sm:self-auto",
-                        statusColors["pending"],
+                        lab.is_published
+                          ? statusColors["approved"]
+                          : statusColors["pending"],
                       ].join(" ")}
                     >
                       <Clock className="w-3.5 h-3.5" />
-                      Pending Approval
+                      {lab.is_published ? "Published" : "Draft"}
                     </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 text-[11px] text-slate-400 font-mono">
+                    <span className="rounded-full border border-slate-600 px-2 py-0.5">
+                      Type: {getLabTypeLabel(lab.labtype_id)}
+                    </span>
+                    <span className="rounded-full border border-slate-600 px-2 py-0.5">
+                      Points: {lab.points_total ?? 0}
+                    </span>
+                    <span className="rounded-full border border-slate-600 px-2 py-0.5">
+                      Port: {lab.port ?? "N/A"}
+                    </span>
+                    <span className="rounded-full border border-slate-600 px-2 py-0.5">
+                      Visibility: {String(lab.visibility || "private").toUpperCase()}
+                    </span>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                     <button
                       type="button"
+                      disabled
                       className="inline-flex items-center gap-1.5 rounded-lg border border-slate-600 bg-slate-800/80 px-3 py-1.5 text-[11px] font-mono text-slate-200 hover:border-emerald-400 hover:text-emerald-300 transition-colors"
                     >
                       <Pencil className="w-3.5 h-3.5" />
-                      Edit
+                      Edit (Soon)
                     </button>
                     <button
                       type="button"
+                      disabled
                       className="inline-flex items-center gap-1.5 rounded-lg border border-rose-500/60 bg-rose-500/10 px-3 py-1.5 text-[11px] font-mono text-rose-200 hover:bg-rose-500/20 transition-colors"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
-                      Remove
+                      Remove (Soon)
                     </button>
                   </div>
                 </div>

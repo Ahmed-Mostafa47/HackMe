@@ -72,23 +72,48 @@ if ($userId < 1) {
     exit;
 }
 
-// Points from labs_config (same source as get_labs)
+// Points from DB first (single source), fallback to labs_config.
 $points = 100;
-foreach ($GLOBALS['LABS_REGISTRY'] ?? [] as $cfg) {
-    if (($cfg['lab_id'] ?? 0) === $labId) {
-        $points = (int)($cfg['points'] ?? 100);
-        break;
-    }
+$labRow = $conn->query("SELECT points_total FROM labs WHERE lab_id = $labIdEsc LIMIT 1");
+if ($labRow && $labRow->num_rows > 0) {
+    $lab = $labRow->fetch_assoc();
+    $points = (int)($lab['points_total'] ?? 100);
 }
 if ($points <= 0) {
-    $labRow = $conn->query("SELECT points_total FROM labs WHERE lab_id = $labIdEsc LIMIT 1");
-    if ($labRow && $labRow->num_rows > 0) {
-        $lab = $labRow->fetch_assoc();
-        $points = (int)($lab['points_total'] ?? 100);
+    foreach ($GLOBALS['LABS_REGISTRY'] ?? [] as $cfg) {
+        if (($cfg['lab_id'] ?? 0) === $labId) {
+            $points = (int)($cfg['points'] ?? 100);
+            break;
+        }
     }
 }
 if ($points <= 0) {
     $points = 100;
+}
+
+// Apply score penalties based on viewed resources in this lab.
+// Hint viewed: -25%, Solution viewed: -75% (cumulative, capped at 100%).
+$penaltyRes = $conn->query("
+  SELECT hint_viewed, solution_viewed
+  FROM lab_resource_usage
+  WHERE user_id = $userId AND lab_id = $labIdEsc
+  LIMIT 1
+");
+if ($penaltyRes && $penaltyRes->num_rows > 0) {
+    $penaltyRow = $penaltyRes->fetch_assoc();
+    $hintViewed = ((int)($penaltyRow['hint_viewed'] ?? 0) === 1);
+    $solutionViewed = ((int)($penaltyRow['solution_viewed'] ?? 0) === 1);
+    $penaltyPercent = 0;
+    if ($hintViewed) {
+        $penaltyPercent += 25;
+    }
+    if ($solutionViewed) {
+        $penaltyPercent += 75;
+    }
+    if ($penaltyPercent > 100) {
+        $penaltyPercent = 100;
+    }
+    $points = (int) floor($points * (1 - ($penaltyPercent / 100)));
 }
 
 // Get challenge for lab (existing tables - no new table)

@@ -54,6 +54,12 @@ export const mockLabs = [
     progress: 80,
     status: "IN_PROGRESS",
     icon: "💉",
+    hints: [
+      "Inspect authentication inputs for injectable query fragments.",
+      "Try bypass payloads using boolean conditions to force login success.",
+    ],
+    solution:
+      "The vulnerable login query is injectable through user-controlled input. Use a boolean-based SQL injection payload in the username field to bypass authentication, then enumerate database records with a UNION-based payload to complete the challenge path.",
   },
   {
     lab_id: 2,
@@ -75,6 +81,12 @@ export const mockLabs = [
     progress: 20,
     status: "STARTED",
     icon: "💥",
+    hints: [
+      "Trace where fixed-size buffers copy untrusted user data.",
+      "Verify bounds checks and identify unsafe string functions.",
+    ],
+    solution:
+      "Identify the unsafe copy operation and calculate the exact overwrite offset. Craft input that controls execution flow without crashing the process, then deliver the exploit payload to trigger the intended behavior.",
   },
 
   // Black Box Labs
@@ -94,6 +106,12 @@ export const mockLabs = [
     progress: 0,
     status: "LOCKED",
     icon: "🎯",
+    hints: [
+      "Use response timing differences to infer true/false SQL conditions.",
+      "Extract information incrementally with character-by-character predicates.",
+    ],
+    solution:
+      "Exploit the blind injection point using time-based payloads such as conditional sleep expressions. Build automated requests to recover schema and target values by observing delayed responses.",
   },
   {
     lab_id: 4,
@@ -111,6 +129,12 @@ export const mockLabs = [
     progress: 0,
     status: "NOT_STARTED",
     icon: "⚡",
+    hints: [
+      "Probe reflected parameters first, then test script-context breakouts.",
+      "Use payloads that remain valid within HTML attributes and text contexts.",
+    ],
+    solution:
+      "Locate the reflected input sink and confirm unsanitized output. Craft an XSS payload matched to the rendering context so JavaScript executes in the victim browser, then demonstrate impact with a controlled action.",
   },
   {
     lab_id: 5,
@@ -127,6 +151,12 @@ export const mockLabs = [
     progress: 0,
     status: "NOT_STARTED",
     icon: "⚡",
+    hints: [
+      "The vulnerable point is the search endpoint in the blog page.",
+      "Try payloads that immediately call alert in reflected output.",
+    ],
+    solution:
+      "Inject a reflected payload through the search parameter so it is rendered unsafely by the blog UI. A working JavaScript payload should execute and trigger alert, which marks the lab as solved.",
   },
   {
     lab_id: 7,
@@ -143,6 +173,12 @@ export const mockLabs = [
     progress: 0,
     status: "NOT_STARTED",
     icon: "⚡",
+    hints: [
+      "This is DOM XSS, so inspect client-side JavaScript sinks.",
+      "Use an event-handler payload because script tags may not execute in innerHTML.",
+    ],
+    solution:
+      "The page reads attacker-controlled data from the URL and writes it into an innerHTML sink. Inject a payload with an executable event handler (for example, image error handler) to execute alert and complete the lab.",
   },
   {
     lab_id: 8,
@@ -159,6 +195,12 @@ export const mockLabs = [
     progress: 0,
     status: "NOT_STARTED",
     icon: "🔐",
+    hints: [
+      "Enumerate restricted endpoints and compare user/admin behavior.",
+      "Test whether role checks are enforced on the server, not only in the UI.",
+    ],
+    solution:
+      "Identify a privileged feature exposed without robust server-side authorization. Access the protected route directly or manipulate request context to bypass role checks and retrieve the access-control flag.",
   },
   {
     lab_id: 9,
@@ -175,6 +217,12 @@ export const mockLabs = [
     progress: 0,
     status: "NOT_STARTED",
     icon: "🔐",
+    hints: [
+      "Look for numeric IDs in URLs or API requests.",
+      "Change object identifiers to another user and verify unauthorized access.",
+    ],
+    solution:
+      "Exploit insecure direct object reference by modifying a resource identifier tied to another account. Because ownership validation is missing, the application returns unauthorized data and confirms the access-control bypass.",
   },
   {
     lab_id: 10,

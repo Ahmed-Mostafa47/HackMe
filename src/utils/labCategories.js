@@ -69,7 +69,7 @@ export function getCategoryFromLabTitle(labTitle) {
 export function getCategoriesWithLabs(labs) {
   const counts = {};
   labs.forEach((lab) => {
-    const key = getCategoryFromLabTitle(lab.title || lab.display_name);
+    const key = getCategoryFromLabTitle(lab.title);
     counts[key] = (counts[key] || 0) + 1;
   });
 
