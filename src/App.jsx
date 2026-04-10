@@ -109,9 +109,12 @@ function AppContent() {
   // When lab is solved (e.g. SQL lab in new tab), refresh points from DB
   useEffect(() => {
     const handler = async (e) => {
-      if (e?.data?.type !== "LAB_SOLVED" || !currentUser?.user_id) return;
+      const t = e?.data?.type;
+      if (t !== "LAB_SOLVED" && t !== "HACKME_LAB_SOLVED") return;
+      const uid = currentUser?.user_id ?? currentUser?.id;
+      if (!uid) return;
       try {
-        const res = await fetch(`${API_BASE}/get_user_points.php?user_id=${currentUser.user_id}`);
+        const res = await fetch(`${API_BASE}/get_user_points.php?user_id=${uid}`);
         const data = await res.json();
         if (data.success && data.total_points != null) {
           updateUserPoints(data.total_points);
@@ -120,7 +123,7 @@ function AppContent() {
     };
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
-  }, [currentUser?.user_id, updateUserPoints]);
+  }, [currentUser?.user_id, currentUser?.id, updateUserPoints]);
 
   // Refresh points when user returns to tab (e.g. after solving lab in another tab)
   useEffect(() => {

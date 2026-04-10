@@ -60,7 +60,7 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
 
   // Listen for lab solved from Training Labs (postMessage)
   // Only accept from lab origins (localhost:4001, 4002) to prevent false solves from extensions/other tabs.
-  const labOrigins = ["http://localhost:4001", "http://localhost:4002", "http://localhost:4003", "http://127.0.0.1:4001", "http://127.0.0.1:4002", "http://127.0.0.1:4003"];
+  const labOrigins = ["http://localhost:4000", "http://localhost:4001", "http://localhost:4002", "http://localhost:4003", "http://127.0.0.1:4000", "http://127.0.0.1:4001", "http://127.0.0.1:4002", "http://127.0.0.1:4003"];
   useEffect(() => {
     const handler = (e) => {
       if (!labOrigins.includes(e?.origin ?? "")) return;

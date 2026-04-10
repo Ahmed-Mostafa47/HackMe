@@ -46,12 +46,12 @@ const LabsListModern = ({
       if (res.success && res.data?.labs?.length) {
         setLabs(res.data.labs);
       } else {
-        const registered = mockLabs.filter((l) => l.lab_id === 1 || l.lab_id === 5 || l.lab_id === 7 || l.lab_id === 8 || l.lab_id === 9);
+        const registered = mockLabs.filter((l) => l.lab_id === 1 || l.lab_id === 5 || l.lab_id === 7 || l.lab_id === 8 || l.lab_id === 9 || l.lab_id === 10);
         setLabs(registered.length ? registered : mockLabs);
       }
     }).catch(() => {
       setLoading(false);
-      const registered = mockLabs.filter((l) => l.lab_id === 1 || l.lab_id === 5 || l.lab_id === 7 || l.lab_id === 8 || l.lab_id === 9);
+      const registered = mockLabs.filter((l) => l.lab_id === 1 || l.lab_id === 5 || l.lab_id === 7 || l.lab_id === 8 || l.lab_id === 9 || l.lab_id === 10);
       setLabs(registered.length ? registered : mockLabs);
     });
   }, []);

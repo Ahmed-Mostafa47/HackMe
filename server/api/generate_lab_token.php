@@ -62,6 +62,12 @@ if ($labId < 1) {
     exit;
 }
 
+// Tie token to HackMe user so submit_flag can award points when the lab tab sends access_token only.
+if ($userId < 1) {
+    echo json_encode(['success' => false, 'message' => 'Login required — open this lab from HackMe while signed in.']);
+    exit;
+}
+
 $token = bin2hex(random_bytes(32));
 $expiresAt = date('Y-m-d H:i:s', time() + 600); // 10 minutes
 

@@ -27,6 +27,7 @@ UNION ALL SELECT 2, 'BUFFER_OVERFLOW_CODE_REVIEW', 'Review C source code to iden
 UNION ALL SELECT 3, 'BLIND_SQL_INJECTION', 'Exploit SQL injection vulnerabilities without source code access using blind techniques', 2, 'medium', 200, @creator, 1, 'public', 'cyberops/blind-sql-blackbox', 3600
 UNION ALL SELECT 4, 'XSS_BLACK_BOX_DETECTION', 'Discover and exploit Cross-Site Scripting vulnerabilities through external testing', 2, 'easy', 100, @creator, 1, 'public', 'cyberops/xss-blackbox', 3600
 UNION ALL SELECT 5, 'ACCESS_CONTROL_BYPASS', 'Test role-based access control: bypass restrictions and escalate privileges', 3, 'medium', 100, @creator, 1, 'public', 'cyberops/access-control-lab', 3600
+UNION ALL SELECT 10, 'SQL_INJECTION_ACADEMY', 'Exploit SQL injection on a programming academy site: use sqlmap to find tables and users, get admin email, login and delete a user', 2, 'medium', 150, @creator, 1, 'public', '', 3600
 ON DUPLICATE KEY UPDATE title = VALUES(title), description = VALUES(description), labtype_id = VALUES(labtype_id), difficulty = VALUES(difficulty), points_total = VALUES(points_total);
 
 -- 4. Challenges (linked to labs)
@@ -37,7 +38,8 @@ VALUES
 (3, 3, @creator, 'BLIND_TIME_BASED_SQLI', 'Time-based blind SQL injection', 1, 150, 'hard', 1),
 (4, 2, @creator, 'BUFFER_OVERFLOW_EXPLOIT', 'Exploit buffer overflow', 1, 100, 'hard', 1),
 (5, 4, @creator, 'XSS_REFLECTED', 'Reflected XSS discovery', 1, 50, 'easy', 1),
-(6, 5, @creator, 'UNPROTECTED_ADMIN_PANEL', 'Access the admin panel without authorization', 1, 50, 'medium', 1);
+(6, 5, @creator, 'UNPROTECTED_ADMIN_PANEL', 'Access the admin panel without authorization', 1, 50, 'medium', 1),
+(8, 10, @creator, 'ACADEMY_SQLI_DELETED', 'Use SQL injection to access admin and delete a user', 1, 150, 'medium', 1);
 
 -- Testcases (flags) - use ON DUPLICATE to fix flags even if rows exist
 INSERT INTO testcases (testcase_id, challenge_id, secret_flag_hash, secret_flag_plain, points, active, type)
@@ -47,5 +49,6 @@ VALUES
 (3, 3, 'FLAG{BLIND_SQLI_789}', 'FLAG{BLIND_SQLI_789}', 150, 1, 'flag_match'),
 (4, 4, 'FLAG{BOF_EXPLOIT_222}', 'FLAG{BOF_EXPLOIT_222}', 100, 1, 'flag_match'),
 (5, 5, 'FLAG{XSS_REFLECTED_111}', 'FLAG{XSS_REFLECTED_111}', 50, 1, 'flag_match'),
-(6, 6, 'FLAG{UNPROTECTED_ADMIN_PANEL}', 'FLAG{UNPROTECTED_ADMIN_PANEL}', 50, 1, 'flag_match')
+(6, 6, 'FLAG{UNPROTECTED_ADMIN_PANEL}', 'FLAG{UNPROTECTED_ADMIN_PANEL}', 50, 1, 'flag_match'),
+(8, 8, 'FLAG{ACADEMY_SQLI_DELETED}', 'FLAG{ACADEMY_SQLI_DELETED}', 150, 1, 'flag_match')
 ON DUPLICATE KEY UPDATE secret_flag_hash = VALUES(secret_flag_hash), secret_flag_plain = VALUES(secret_flag_plain), points = VALUES(points), active = 1;

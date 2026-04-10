@@ -31,4 +31,10 @@ $GLOBALS['LABS_REGISTRY'] = [
         'points' => 100,
         'compose_file' => 'docker-compose.access-control.yml',
     ],
+    [
+        'lab_id' => 10,
+        'folder' => 'SQL',
+        'port' => 4000,
+        'points' => 150,
+    ],
 ];

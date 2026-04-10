@@ -176,6 +176,22 @@ export const mockLabs = [
     status: "NOT_STARTED",
     icon: "🔐",
   },
+  {
+    lab_id: 10,
+    port: 4000,
+    title: "SQL_INJECTION_ACADEMY",
+    description:
+      "Exploit SQL injection on a programming academy site. Use sqlmap to discover tables and users, get the admin email, log in as admin, and delete a user to capture the flag.",
+    labtype_id: 2,
+    difficulty: "medium",
+    points_total: 150,
+    is_published: true,
+    visibility: "public",
+    created_by: 1,
+    progress: 0,
+    status: "NOT_STARTED",
+    icon: "💉",
+  },
 ];
 
 export const mockChallenges = [
