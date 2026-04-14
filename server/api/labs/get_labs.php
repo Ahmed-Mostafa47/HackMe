@@ -70,14 +70,20 @@ if (!$res) {
 
 $labs = [];
 while ($row = $res->fetch_assoc()) {
+    $labId = (int) ($row['lab_id'] ?? 0);
+    $labtypeId = (int) ($row['labtype_id'] ?? 0);
+    // Lab 1 is the SQL white-box workbench; always expose as WHITE_BOX (labtype_id=1) even if DB row was not migrated yet.
+    if ($labId === 1) {
+        $labtypeId = 1;
+    }
     $labs[] = [
-        'lab_id' => (int)($row['lab_id'] ?? 0),
+        'lab_id' => $labId,
         'title' => (string)($row['title'] ?? ''),
         'description' => (string)($row['description'] ?? ''),
         'icon' => (string)($row['icon'] ?? 'LAB'),
         'port' => isset($row['port']) ? (int)$row['port'] : null,
         'launch_path' => (string)($row['launch_path'] ?? ''),
-        'labtype_id' => (int)($row['labtype_id'] ?? 0),
+        'labtype_id' => $labtypeId,
         'difficulty' => (string)($row['difficulty'] ?? 'easy'),
         'points_total' => (int)($row['points_total'] ?? 0),
         'is_published' => (int)($row['is_published'] ?? 0) === 1,

@@ -33,7 +33,15 @@ const LabsCategoriesPage = ({
         const all = res?.data?.labs || [];
         const labTypeId = labType === LAB_TYPES.WHITE_BOX ? 1 : labType === LAB_TYPES.ACCESS_CONTROL ? 3 : 2;
         const filtered = all.filter((lab) => {
-          if (labType === LAB_TYPES.BLACK_BOX) return lab.labtype_id === 2 || lab.labtype_id === 3;
+          const id = Number(lab.lab_id);
+          if (labType === LAB_TYPES.BLACK_BOX) {
+            if (lab.labtype_id !== 2 && lab.labtype_id !== 3) return false;
+            if (id === 1) return false;
+            return true;
+          }
+          if (labType === LAB_TYPES.WHITE_BOX) {
+            return lab.labtype_id === 1 || id === 1;
+          }
           return lab.labtype_id === labTypeId;
         });
         setLabs(filtered);

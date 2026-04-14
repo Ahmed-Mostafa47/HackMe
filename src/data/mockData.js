@@ -36,14 +36,14 @@ export const mockLabTypes = [
 ];
 
 export const mockLabs = [
-  // Black Box Labs (formerly White Box)
+  // Lab 1: white-box SQLi (sources served from Training Labs path via API when DB is up)
   {
     lab_id: 1,
     port: 4000,
-    title: "SQL_INJECTION_SOURCE_ANALYSIS",
+    title: "SQL_INJECTION_WHITEBOX",
     description:
-      "Analyze vulnerable PHP source code to identify and exploit SQL injection points with full code access",
-    labtype_id: 2,
+      "White-box: review vulnerable login source, submit file/line/fix; server validates syntax and parameterized SQL. One graded solve per user.",
+    labtype_id: 1,
     difficulty: "medium",
     points_total: 150,
     is_published: true,

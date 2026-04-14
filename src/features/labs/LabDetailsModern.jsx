@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   Shield,
@@ -24,6 +25,20 @@ const diffBadgeClasses = {
 };
 
 const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    if (String(labId) !== "1") return;
+    const q = new URLSearchParams();
+    q.set("labId", "1");
+    const fc = searchParams.get("fromCategory");
+    const ft = searchParams.get("labType");
+    if (fc) q.set("fromCategory", fc);
+    if (ft) q.set("labType", ft);
+    navigate(`/lab-whitebox?${q.toString()}`, { replace: true });
+  }, [labId, navigate, searchParams]);
+
   const [lab, setLab] = useState(null);
   const [labLoading, setLabLoading] = useState(true);
   const [labError, setLabError] = useState("");
@@ -46,6 +61,12 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
 
   // Reset labSolved when switching to a different lab (prevents stale state from previous lab)
   useEffect(() => {
+    if (String(labId) === "1") {
+      setLabLoading(false);
+      setLab(null);
+      setLabError("");
+      return;
+    }
     let mounted = true;
     setLabLoading(true);
     setLabError("");
@@ -121,7 +142,7 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
       if (!lab?.lab_id || (!currentUser?.user_id && !currentUser?.id)) return;
       try {
         const uid = currentUser?.user_id ?? currentUser?.id;
-        const url = `${API_BASE}/labs/check_lab_solved.php?lab_id=${lab.lab_id}&user_id=${uid}`;
+        const url = `${API_BASE}/labs/check_lab_solved.php?lab_id=${lab.lab_id}&user_id=${uid}&scope=standard`;
         const r = await fetch(url, { cache: "no-store", signal: abort.signal });
         const d = await r.json().catch(() => ({}));
         if (d?.solved) {
@@ -300,6 +321,14 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
       setSolutionLoading(false);
     }
   };
+
+  if (String(labId) === "1") {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black flex items-center justify-center">
+        <p className="text-slate-400 font-mono text-sm">Opening white-box workspace…</p>
+      </div>
+    );
+  }
 
   if (labLoading) {
     return (

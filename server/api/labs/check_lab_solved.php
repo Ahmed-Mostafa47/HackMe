@@ -16,6 +16,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 $labId = (int)($_GET['lab_id'] ?? 0);
 $userId = (int)($_GET['user_id'] ?? 0);
+$scope = isset($_GET['scope']) ? trim((string) ($_GET['scope'] ?? '')) : '';
+if ($scope !== 'whitebox' && $scope !== 'standard') {
+    $scope = '';
+}
+// Lab 1 has two completion channels; if scope is missing, default to white-box check only (avoids false "solved" from flag/black-box rows).
+if ($scope === '') {
+    $scope = ($labId === 1) ? 'whitebox' : 'standard';
+}
 
 if ($labId < 1 || $userId < 1) {
     echo json_encode(['solved' => false]);
@@ -37,12 +45,32 @@ if (!isset($conn) || !$conn) {
 $labIdEsc = (int)$labId;
 $userIdEsc = (int)$userId;
 
-$res = $conn->query("
-  SELECT 1 FROM submissions s
-  JOIN lab_instances li ON li.instance_id = s.instance_id
-  WHERE li.lab_id = $labIdEsc AND s.user_id = $userIdEsc AND s.status = 'graded'
-  LIMIT 1
-");
+if ($scope === 'whitebox') {
+    $wb = $conn->real_escape_string('whitebox_sqli_lab1');
+    $res = $conn->query("
+      SELECT 1 FROM submissions s
+      JOIN lab_instances li ON li.instance_id = s.instance_id
+      WHERE li.lab_id = $labIdEsc AND s.user_id = $userIdEsc AND s.status = 'graded'
+        AND TRIM(COALESCE(s.payload_text, '')) = '$wb'
+      LIMIT 1
+    ");
+} elseif ($labIdEsc === 1) {
+    $wb = $conn->real_escape_string('whitebox_sqli_lab1');
+    $res = $conn->query("
+      SELECT 1 FROM submissions s
+      JOIN lab_instances li ON li.instance_id = s.instance_id
+      WHERE li.lab_id = $labIdEsc AND s.user_id = $userIdEsc AND s.status = 'graded'
+        AND TRIM(COALESCE(s.payload_text, '')) <> '$wb'
+      LIMIT 1
+    ");
+} else {
+    $res = $conn->query("
+      SELECT 1 FROM submissions s
+      JOIN lab_instances li ON li.instance_id = s.instance_id
+      WHERE li.lab_id = $labIdEsc AND s.user_id = $userIdEsc AND s.status = 'graded'
+      LIMIT 1
+    ");
+}
 
 $solved = ($res && $res->num_rows > 0);
-echo json_encode(['solved' => (bool)$solved]);
+echo json_encode(['solved' => (bool) $solved, 'scope' => $scope]);

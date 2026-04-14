@@ -61,6 +61,9 @@ if (!$labRes || $labRes->num_rows === 0) {
 }
 
 $lab = $labRes->fetch_assoc();
+if ((int) ($lab['lab_id'] ?? 0) === 1) {
+    $lab['labtype_id'] = 1;
+}
 
 $hintsRes = $conn->query("
     SELECT h.text

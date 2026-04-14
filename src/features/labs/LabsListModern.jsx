@@ -67,8 +67,12 @@ const LabsListModern = ({
   const labTypeId = labType === LAB_TYPES.WHITE_BOX ? 1 : labType === LAB_TYPES.BLACK_BOX ? 2 : labType === LAB_TYPES.ACCESS_CONTROL ? 3 : null;
   const filteredLabs = labs.filter((lab) => {
     if (labTypeId != null) {
-      if (labTypeId === 2) {
+      const id = Number(lab.lab_id);
+      if (labTypeId === 1) {
+        if (lab.labtype_id !== 1 && id !== 1) return false;
+      } else if (labTypeId === 2) {
         if (lab.labtype_id !== 2 && lab.labtype_id !== 3) return false;
+        if (id === 1) return false;
       } else if (lab.labtype_id !== labTypeId) return false;
     }
     if (category) {
@@ -88,7 +92,8 @@ const LabsListModern = ({
       const q = new URLSearchParams({ labId: lab.lab_id });
       if (category) q.set("fromCategory", category);
       if (labType) q.set("labType", labType);
-      window.location.href = `/lab-modern?${q.toString()}`;
+      const path = Number(lab.lab_id) === 1 ? "/lab-whitebox" : "/lab-modern";
+      window.location.href = `${path}?${q.toString()}`;
     }
   };
 

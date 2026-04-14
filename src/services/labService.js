@@ -75,6 +75,21 @@ export const labService = {
       }
 
       if (Array.isArray(data?.data?.labs) && data.data.labs.length > 0) {
+        const labs = data.data.labs;
+        const hasLab1 = labs.some((l) => Number(l?.lab_id) === 1);
+        if (!hasLab1) {
+          const { mockLabs } = await import("../data/mockData");
+          const fromMock = mockLabs.find((l) => Number(l.lab_id) === 1);
+          if (fromMock) {
+            labs.push({ ...fromMock });
+            labs.sort((a, b) => Number(a.lab_id) - Number(b.lab_id));
+          }
+        }
+        for (const lab of labs) {
+          if (Number(lab?.lab_id) === 1) {
+            lab.labtype_id = 1;
+          }
+        }
         return data;
       }
 
@@ -151,6 +166,34 @@ export const labService = {
       throw new Error(data?.message || `Failed to load solution (${response.status})`);
     }
     return data;
+  },
+
+  async getWhiteboxLab({ labId, userId }) {
+    const response = await fetch(
+      `${getLabsBase()}/get_whitebox_lab.php?lab_id=${encodeURIComponent(labId)}&user_id=${encodeURIComponent(userId)}`,
+      { cache: "no-store" }
+    );
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data?.success) {
+      throw new Error(data?.message || `White-box lab unavailable (${response.status})`);
+    }
+    return data;
+  },
+
+  async submitWhiteboxFix({ labId, userId, accessToken, sourceFile, line, replacementCode }) {
+    const response = await fetch(`${getLabsBase()}/submit_whitebox_fix.php`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        lab_id: labId,
+        user_id: userId,
+        access_token: accessToken || "",
+        source_file: sourceFile,
+        line,
+        replacement_code: replacementCode,
+      }),
+    });
+    return response.json().catch(() => ({}));
   },
 };
 

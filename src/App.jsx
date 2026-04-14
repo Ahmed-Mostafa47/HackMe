@@ -19,6 +19,7 @@ import TrainingSelectionPage from "./features/dashboard/TrainingSelectionPage";
 import LabsListModern from "./features/labs/LabsListModern";
 import LabsCategoriesPage from "./features/labs/LabsCategoriesPage";
 import LabDetailsModern from "./features/labs/LabDetailsModern";
+import LabWhiteboxPage from "./features/labs/LabWhiteboxPage";
 import InstructorLabsDashboard from "./features/labs/InstructorLabsDashboard";
 import AdminLabsDashboard from "./features/labs/AdminLabsDashboard";
 import SandboxLabApp from "./features/labs/SandboxLabApp";
@@ -495,7 +496,13 @@ function AppContent() {
               isInstructor={isInstructor}
               onEditLab={() => {}}
               onRemoveLab={() => {}}
-              onLabClick={(lab) => navigate(`/lab-modern?labId=${lab.lab_id}`)}
+              onLabClick={(lab) =>
+                navigate(
+                  Number(lab.lab_id) === 1
+                    ? `/lab-whitebox?labId=1`
+                    : `/lab-modern?labId=${lab.lab_id}`
+                )
+              }
             />
           );
         }
@@ -527,8 +534,31 @@ function AppContent() {
             onBack={backToCategories}
             onAddLab={() => navigate("/instructor-labs")}
             onLabClick={(lab) =>
-              navigate(`/lab-modern?labId=${lab.lab_id}&fromCategory=${categoryParam}&labType=${labTypeParam}`)
+              navigate(
+                Number(lab.lab_id) === 1
+                  ? `/lab-whitebox?labId=1&fromCategory=${encodeURIComponent(categoryParam)}&labType=${encodeURIComponent(labTypeParam)}`
+                  : `/lab-modern?labId=${lab.lab_id}&fromCategory=${categoryParam}&labType=${labTypeParam}`
+              )
             }
+          />
+        );
+      }
+      case "/lab-whitebox": {
+        const wbLabId = params.get("labId") || "1";
+        return (
+          <LabWhiteboxPage
+            key={wbLabId}
+            currentUser={currentUser}
+            onFlagSuccess={async () => {
+              if (!currentUser?.user_id) return;
+              try {
+                const res = await fetch(`${API_BASE}/get_user_points.php?user_id=${currentUser.user_id}`);
+                const data = await res.json();
+                if (data.success && data.total_points != null) {
+                  updateUserPoints(data.total_points);
+                }
+              } catch (_) {}
+            }}
           />
         );
       }

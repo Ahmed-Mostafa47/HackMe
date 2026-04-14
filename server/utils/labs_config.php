@@ -3,7 +3,7 @@
  * Labs configuration - paths and registry for Training Labs integration.
  * LABS_BASE_PATH: Root folder containing all Training Labs (e.g. D:\Graduation_project\Training Labs)
  */
-define('LABS_BASE_PATH', 'E:\\Level 4\\Semeser1\\graduation\\Labs');
+define('LABS_BASE_PATH', 'E:\\Level 4\\Semester1\\graduation\\Labs');
 
 $GLOBALS['LABS_REGISTRY'] = [
     [

@@ -22,18 +22,18 @@ INSERT IGNORE INTO lab_types (labtype_id, name, description) VALUES
 SET @creator = (SELECT user_id FROM users ORDER BY user_id ASC LIMIT 1);
 
 INSERT INTO labs (lab_id, title, description, labtype_id, difficulty, points_total, created_by, is_published, visibility, docker_image, reset_interval)
-SELECT 1, 'SQL_INJECTION_SOURCE_ANALYSIS', 'Analyze vulnerable PHP source code to identify and exploit SQL injection points with full code access', 2, 'medium', 150, @creator, 1, 'public', 'cyberops/sql-injection-whitebox', 3600
+SELECT 1, 'SQL_INJECTION_WHITEBOX', 'White-box: review vulnerable login source, submit file/line/fix; validated with php -l + parameterized-query rules. Unlimited wrong attempts; one graded solve per user.', 1, 'medium', 150, @creator, 1, 'public', 'cyberops/sql-injection-whitebox', 3600
 UNION ALL SELECT 5, 'ACCESS_CONTROL_BYPASS', 'Test role-based access control: bypass restrictions and escalate privileges', 3, 'medium', 100, @creator, 1, 'public', 'cyberops/access-control-lab', 3600
 UNION ALL SELECT 10, 'SQL_INJECTION_ACADEMY', 'Exploit SQL injection on a programming academy site: use sqlmap to find tables and users, get admin email, login and delete a user', 2, 'medium', 150, @creator, 1, 'public', '', 3600
 ON DUPLICATE KEY UPDATE title = VALUES(title), description = VALUES(description), labtype_id = VALUES(labtype_id), difficulty = VALUES(difficulty), points_total = VALUES(points_total);
 
 -- 4. Challenges (linked to labs)
-INSERT IGNORE INTO challenges (challenge_id, lab_id, created_by, title, statement, order_index, max_score, difficulty, is_active)
+INSERT IGNORE INTO challenges (challenge_id, lab_id, created_by, title, statement, order_index, max_score, difficulty, is_active, whitebox_files_ref)
 VALUES
-(1, 1, @creator, 'AUTHENTICATION_BYPASS', 'Bypass login using SQL injection', 1, 50, 'medium', 1),
-(2, 1, @creator, 'DATA_EXFILTRATION', 'Extract user data via UNION injection', 2, 100, 'hard', 1),
-(6, 5, @creator, 'UNPROTECTED_ADMIN_PANEL', 'Access the admin panel without authorization', 1, 50, 'medium', 1),
-(8, 10, @creator, 'ACADEMY_SQLI_DELETED', 'Use SQL injection to access admin and delete a user', 1, 150, 'medium', 1);
+(1, 1, @creator, 'SECURE_LOGIN_ENDPOINT', 'Identify the SQL injection in api/login.php and replace the vulnerable query with prepared statements.', 1, 50, 'medium', 1, '{"version":1,"verify_profile":"lab1_sqli_login","files":[{"id":"login","display_name":"login.php","relative_path":"api/login.php","vulnerable_line":10}]}'),
+(2, 1, @creator, 'DATA_EXFILTRATION', 'Extract user data via UNION injection', 2, 100, 'hard', 1, NULL),
+(6, 5, @creator, 'UNPROTECTED_ADMIN_PANEL', 'Access the admin panel without authorization', 1, 50, 'medium', 1, NULL),
+(8, 10, @creator, 'ACADEMY_SQLI_DELETED', 'Use SQL injection to access admin and delete a user', 1, 150, 'medium', 1, NULL);
 
 -- Testcases (flags) - use ON DUPLICATE to fix flags even if rows exist
 INSERT INTO testcases (testcase_id, challenge_id, secret_flag_hash, secret_flag_plain, points, active, type)
