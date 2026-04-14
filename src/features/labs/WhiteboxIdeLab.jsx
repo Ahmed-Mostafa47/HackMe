@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FileCode, Folder, Play, ShieldCheck, Terminal } from "lucide-react";
 import { labService } from "../../services/labService";
+import { WHITEBOX_SQL_LAB_ID } from "../../constants/labs";
 
 const splitLines = (text) => {
   if (text == null) return [""];
@@ -40,7 +41,7 @@ const WhiteboxIdeLab = ({
       const rel = first?.relative_path ?? "";
       setActivePath(rel);
       setSourceFile(rel);
-      setLineNo(first?.vulnerable_line != null ? String(first.vulnerable_line) : "");
+      setLineNo("");
       setFeedback(null);
     } catch (e) {
       setPayload(null);
@@ -61,14 +62,9 @@ const WhiteboxIdeLab = ({
 
   const lines = useMemo(() => splitLines(activeFile?.content ?? ""), [activeFile]);
 
-  const vulnLine = activeFile?.vulnerable_line ?? null;
-
   useEffect(() => {
     if (!activeFile) return;
     setSourceFile(activeFile.relative_path ?? "");
-    if (activeFile.vulnerable_line != null) {
-      setLineNo(String(activeFile.vulnerable_line));
-    }
   }, [activeFile]);
 
   const syncScroll = (e) => {
@@ -95,14 +91,31 @@ const WhiteboxIdeLab = ({
         line,
         replacementCode: replacement,
       });
-      const pts = res?.data?.points_earned ?? 0;
+      const pts = Number(res?.data?.points_earned ?? 0);
+      const demoOk =
+        res?.success &&
+        (res?.message === "LAB_VERIFIED_DEMO_MODE" || res?.data?.demo_mode === true);
+      if (demoOk) {
+        const detail = res?.data?.verify_detail?.trim() || "";
+        setFeedback({
+          ok: true,
+          text: detail
+            ? `Demo only (no score): ${detail}`
+            : "Patch verified in demo mode only — add this lab to the database to earn points.",
+        });
+        return;
+      }
       const already = res?.data?.already_solved || res?.message === "LAB_ALREADY_SOLVED";
-      if (res?.success && (res?.message === "LAB_SOLVED" || already)) {
+      const gradedOk =
+        res?.success &&
+        !res?.data?.demo_mode &&
+        (res?.message === "LAB_SOLVED" || res?.message === "LAB_ALREADY_SOLVED" || pts > 0);
+      if (gradedOk) {
         setFeedback({
           ok: true,
           text: already
             ? "Lab was already marked solved for your account."
-            : res?.data?.verify_detail || "Fix accepted. Lab completed.",
+            : `${res?.data?.verify_detail || "Fix accepted."} Lab completed — +${already ? 0 : pts} pts.`,
         });
         onSolved?.({ points: already ? 0 : pts, already });
         return;
@@ -127,13 +140,34 @@ const WhiteboxIdeLab = ({
   }
 
   if (loadError) {
+    const looksLikeMissingLab =
+      /lab not found|missing or not published/i.test(loadError) ||
+      /migrate_lab11/i.test(loadError);
+    const looksLikePath =
+      /LABS_BASE_PATH|sources path is not available|No readable source files/i.test(loadError);
+
     return (
       <section className="rounded-2xl border border-rose-700/50 bg-rose-950/20 p-6">
         <p className="text-xs font-mono text-rose-200">{loadError}</p>
-        <p className="mt-2 text-[11px] text-slate-500 font-mono">
-          Check that LABS_BASE_PATH in server/utils/labs_config.php points to the folder that contains the{" "}
-          <code className="text-slate-400">SQL/api/login.php</code> Training Lab tree.
-        </p>
+        {looksLikeMissingLab ? (
+          <p className="mt-2 text-[11px] text-slate-400 font-mono leading-relaxed">
+            White-box SQL uses <code className="text-slate-300">lab_id={WHITEBOX_SQL_LAB_ID}</code>. Add it to the
+            database with <code className="text-slate-300">is_published=1</code> and{" "}
+            <code className="text-slate-300">visibility=&apos;public&apos;</code>, e.g. run{" "}
+            <code className="text-slate-300">server/sql/migrate_lab11_split_whitebox.sql</code>.
+          </p>
+        ) : looksLikePath ? (
+          <p className="mt-2 text-[11px] text-slate-500 font-mono">
+            Check that <code className="text-slate-400">LABS_BASE_PATH</code> in{" "}
+            <code className="text-slate-400">server/utils/labs_config.php</code> points to the folder that contains the{" "}
+            <code className="text-slate-400">SQL/api/login.php</code> Training Lab tree.
+          </p>
+        ) : (
+          <p className="mt-2 text-[11px] text-slate-500 font-mono">
+            If the message above is not about the database, verify <code className="text-slate-400">LABS_BASE_PATH</code>{" "}
+            and that the SQL lab folder exists on the server.
+          </p>
+        )}
       </section>
     );
   }
@@ -142,8 +176,27 @@ const WhiteboxIdeLab = ({
     return null;
   }
 
+  const showProdBanner = payload?.lab_unregistered === true || payload?.setup_incomplete === true;
+
   return (
     <section className="rounded-2xl border border-slate-700 bg-slate-950/80 overflow-hidden shadow-xl shadow-black/50">
+      {showProdBanner && (
+        <div className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-[11px] font-mono text-amber-100/95 leading-relaxed">
+          {payload?.lab_unregistered ? (
+            <>
+              <span className="text-amber-200 font-semibold">Unregistered lab (DB):</span> no row in{" "}
+              <code className="text-amber-100/90">labs</code> yet — UI uses fallback metadata. Submissions still earn
+              points; run your SQL migration when ready.
+            </>
+          ) : (
+            <>
+              <span className="text-amber-200 font-semibold">Incomplete setup:</span> add or fix{" "}
+              <code className="text-amber-100/90">challenges.whitebox_files_ref</code> so file metadata comes from the
+              database (optional; verification still works).
+            </>
+          )}
+        </div>
+      )}
       <div className="flex items-center justify-between gap-3 border-b border-slate-800 px-4 py-3 bg-slate-900/90">
         <div className="flex items-center gap-2 min-w-0">
           <Terminal className="w-4 h-4 text-emerald-400 shrink-0" />
@@ -200,12 +253,8 @@ const WhiteboxIdeLab = ({
             >
               {lines.map((_, i) => {
                 const n = i + 1;
-                const hot = vulnLine != null && n === vulnLine;
                 return (
-                  <div
-                    key={n}
-                    className={hot ? "text-amber-400 font-semibold" : ""}
-                  >
+                  <div key={n}>
                     {n}
                   </div>
                 );
@@ -219,12 +268,6 @@ const WhiteboxIdeLab = ({
               {activeFile?.content ?? ""}
             </pre>
           </div>
-
-          {vulnLine != null && (
-            <p className="px-3 py-1.5 text-[10px] font-mono text-amber-200/90 bg-amber-500/5 border-t border-amber-500/20">
-              Vulnerable query assignment is expected around line {vulnLine}. Replace that line (or expand to a short block) using prepared statements.
-            </p>
-          )}
         </div>
       </div>
 
@@ -243,7 +286,7 @@ const WhiteboxIdeLab = ({
 
         <div className="grid sm:grid-cols-3 gap-3">
           <label className="block space-y-1">
-            <span className="text-[10px] font-mono text-slate-500">Vulnerable file</span>
+            <span className="text-[10px] font-mono text-slate-500">Source file</span>
             <select
               value={sourceFile}
               onChange={(e) => setSourceFile(e.target.value)}

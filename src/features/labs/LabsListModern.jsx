@@ -11,6 +11,7 @@ import {
   Plus,
 } from "lucide-react";
 import { labService } from "../../services/labService";
+import { WHITEBOX_SQL_LAB_ID } from "../../constants/labs";
 import { LAB_TYPES } from "../../data/labTypes";
 import { getCategoryFromLabTitle } from "../../utils/labCategories";
 
@@ -69,10 +70,9 @@ const LabsListModern = ({
     if (labTypeId != null) {
       const id = Number(lab.lab_id);
       if (labTypeId === 1) {
-        if (lab.labtype_id !== 1 && id !== 1) return false;
+        if (lab.labtype_id !== 1 && id !== WHITEBOX_SQL_LAB_ID) return false;
       } else if (labTypeId === 2) {
         if (lab.labtype_id !== 2 && lab.labtype_id !== 3) return false;
-        if (id === 1) return false;
       } else if (lab.labtype_id !== labTypeId) return false;
     }
     if (category) {
@@ -92,7 +92,8 @@ const LabsListModern = ({
       const q = new URLSearchParams({ labId: lab.lab_id });
       if (category) q.set("fromCategory", category);
       if (labType) q.set("labType", labType);
-      const path = Number(lab.lab_id) === 1 ? "/lab-whitebox" : "/lab-modern";
+      const path =
+        Number(lab.lab_id) === WHITEBOX_SQL_LAB_ID ? "/lab-whitebox" : "/lab-modern";
       window.location.href = `${path}?${q.toString()}`;
     }
   };

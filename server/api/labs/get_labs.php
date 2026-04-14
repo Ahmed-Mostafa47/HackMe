@@ -23,6 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 
 try {
     require_once __DIR__ . '/../../utils/db_connect.php';
+    require_once __DIR__ . '/../../utils/labs_config.php';
 } catch (Throwable $e) {
     http_response_code(500);
     echo json_encode(['success' => false, 'message' => 'Load error', 'data' => ['labs' => []]]);
@@ -72,8 +73,8 @@ $labs = [];
 while ($row = $res->fetch_assoc()) {
     $labId = (int) ($row['lab_id'] ?? 0);
     $labtypeId = (int) ($row['labtype_id'] ?? 0);
-    // Lab 1 is the SQL white-box workbench; always expose as WHITE_BOX (labtype_id=1) even if DB row was not migrated yet.
-    if ($labId === 1) {
+    // SQL white-box is a dedicated lab (see HACKME_WHITEBOX_SQL_LAB_ID); always expose as WHITE_BOX if DB not migrated.
+    if (defined('HACKME_WHITEBOX_SQL_LAB_ID') && $labId === (int) HACKME_WHITEBOX_SQL_LAB_ID) {
         $labtypeId = 1;
     }
     $labs[] = [

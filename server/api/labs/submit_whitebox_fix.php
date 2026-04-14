@@ -31,6 +31,7 @@ try {
     require_once __DIR__ . '/../../utils/whitebox_lab1_defaults.php';
     require_once __DIR__ . '/../../utils/whitebox_sqli_verify.php';
     require_once __DIR__ . '/../../utils/lab_completion_helper.php';
+    require_once __DIR__ . '/../../utils/lab_production_state.php';
 } catch (Throwable $e) {
     http_response_code(500);
     echo json_encode(['success' => false, 'message' => 'Load error', 'data' => ['points_earned' => 0]]);
@@ -76,6 +77,14 @@ if ($labId < 1 || $userId < 1) {
     echo json_encode(['success' => false, 'message' => 'Missing lab_id or authenticated user', 'data' => ['points_earned' => 0]]);
     exit;
 }
+if ($labId !== hackme_whitebox_sql_lab_id()) {
+    echo json_encode([
+        'success' => false,
+        'message' => 'White-box submission is only for lab_id ' . hackme_whitebox_sql_lab_id() . ' (SQL white-box).',
+        'data' => ['points_earned' => 0],
+    ]);
+    exit;
+}
 if ($sourceFile === '' || strpos($sourceFile, '..') !== false) {
     echo json_encode(['success' => false, 'message' => 'Invalid source_file', 'data' => ['points_earned' => 0]]);
     exit;
@@ -95,6 +104,8 @@ if ($nlCount > 120) {
 }
 
 $labIdEsc = (int) $labId;
+$prodState = hackme_whitebox_production_state($conn, $labIdEsc);
+
 $chRes = $conn->query("
   SELECT challenge_id, whitebox_files_ref
   FROM challenges
@@ -102,22 +113,35 @@ $chRes = $conn->query("
   ORDER BY order_index ASC, challenge_id ASC
   LIMIT 1
 ");
-if (!$chRes || $chRes->num_rows === 0) {
-    echo json_encode(['success' => false, 'message' => 'No challenge for lab', 'data' => ['points_earned' => 0]]);
-    exit;
+$chRow = null;
+if ($chRes && $chRes->num_rows > 0) {
+    $chRow = $chRes->fetch_assoc();
 }
-$chRow = $chRes->fetch_assoc();
-$rawMeta = trim((string) ($chRow['whitebox_files_ref'] ?? ''));
-if ($rawMeta === '' && $labIdEsc === 1) {
-    $rawMeta = hackme_whitebox_lab1_meta_json();
+
+$meta = null;
+$rawMeta = $chRow !== null ? trim((string) ($chRow['whitebox_files_ref'] ?? '')) : '';
+if ($rawMeta !== '') {
+    $meta = json_decode($rawMeta, true);
 }
-$meta = json_decode($rawMeta, true);
-if ((!is_array($meta) || empty($meta['files']) || !is_array($meta['files'])) && $labIdEsc === 1) {
+if (!is_array($meta) || empty($meta['files']) || !is_array($meta['files'])) {
     $meta = hackme_whitebox_lab1_meta();
+    if (!$prodState['lab_in_db']) {
+        error_log('[HackMe CRITICAL] submit_whitebox_fix: lab_id=' . $labIdEsc . ' not in DB; verification may run in demo mode only.');
+    } elseif (!$prodState['whitebox_ref_valid']) {
+        error_log('[HackMe WARNING] submit_whitebox_fix: lab_id=' . $labIdEsc . ' missing/invalid whitebox_files_ref; using built-in meta for verify + graded completion.');
+    }
 }
+
 if (!is_array($meta) || empty($meta['files']) || !is_array($meta['files'])) {
     echo json_encode(['success' => false, 'message' => 'Lab not in white-box mode', 'data' => ['points_earned' => 0]]);
     exit;
+}
+
+if ($chRow === null) {
+    $chRow = [
+        'challenge_id' => 0,
+        'whitebox_files_ref' => json_encode($meta, JSON_UNESCAPED_SLASHES),
+    ];
 }
 
 $allowed = null;
@@ -192,7 +216,11 @@ if (!$v['ok']) {
     exit;
 }
 
-$result = hackme_record_lab_completion($conn, $labId, $userId, 'whitebox_sqli_lab1', 'whitebox');
+if (!$prodState['lab_in_db']) {
+    error_log('[HackMe WARNING] submit_whitebox_fix: lab_id=' . $labIdEsc . ' has no labs row yet; recording completion anyway (helper may INSERT lab/challenge).');
+}
+
+$result = hackme_record_lab_completion($conn, $labId, $userId, hackme_whitebox_sql_payload_mark(), 'whitebox');
 echo json_encode([
     'success' => (bool) ($result['success'] ?? false),
     'message' => (string) ($result['message'] ?? ''),
@@ -200,5 +228,9 @@ echo json_encode([
         'points_earned' => (int) ($result['points_earned'] ?? 0),
         'already_solved' => (bool) ($result['already_solved'] ?? false),
         'verify_detail' => $v['message'],
+        'demo_mode' => false,
+        'scoring_allowed' => true,
+        'setup_incomplete' => $prodState['setup_incomplete'],
+        'lab_unregistered' => !$prodState['lab_in_db'],
     ],
 ]);

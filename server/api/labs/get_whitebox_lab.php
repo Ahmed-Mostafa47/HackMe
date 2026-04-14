@@ -29,6 +29,7 @@ try {
     require_once __DIR__ . '/../../utils/db_connect.php';
     require_once __DIR__ . '/../../utils/labs_config.php';
     require_once __DIR__ . '/../../utils/whitebox_lab1_defaults.php';
+    require_once __DIR__ . '/../../utils/lab_production_state.php';
 } catch (Throwable $e) {
     http_response_code(500);
     echo json_encode(['success' => false, 'message' => 'Load error']);
@@ -51,21 +52,37 @@ if ($labId < 1 || $userId < 1) {
     exit;
 }
 
-$labIdEsc = (int) $labId;
-$labRes = $conn->query("
-  SELECT lab_id, title, labtype_id, description
-  FROM labs
-  WHERE lab_id = $labIdEsc AND is_published = 1 AND visibility = 'public'
-  LIMIT 1
-");
-if (!$labRes || $labRes->num_rows === 0) {
-    echo json_encode(['success' => false, 'message' => 'Lab not found']);
+if ($labId !== hackme_whitebox_sql_lab_id()) {
+    echo json_encode([
+        'success' => false,
+        'message' => 'White-box API is only for the dedicated SQL white-box lab (lab_id ' . hackme_whitebox_sql_lab_id() . ').',
+    ]);
     exit;
 }
-$labRow = $labRes->fetch_assoc();
-if ($labIdEsc === 1) {
-    $labRow['labtype_id'] = 1;
+
+$labIdEsc = (int) $labId;
+$prodState = hackme_whitebox_production_state($conn, $labIdEsc);
+
+$labFullRes = $conn->query("
+  SELECT lab_id, title, labtype_id, description
+  FROM labs
+  WHERE lab_id = $labIdEsc
+  LIMIT 1
+");
+if ($labFullRes && $labFullRes->num_rows > 0) {
+    $labRow = $labFullRes->fetch_assoc();
+    if (!$prodState['lab_public']) {
+        error_log('[HackMe WARNING] whitebox lab_id=' . $labIdEsc . ' exists in DB but is not published/public; UI shown, scoring disabled until fixed.');
+    }
+} else {
+    error_log('[HackMe CRITICAL] whitebox lab_id=' . $labIdEsc . ' missing from labs table; serving UI fallback only (unregistered).');
+    $labRow = hackme_whitebox_sql_fallback_lab_row();
 }
+$labRow['lab_id'] = $labIdEsc;
+$labRow['labtype_id'] = 1;
+
+$labUnregistered = !$prodState['lab_in_db'];
+$setupIncomplete = $prodState['setup_incomplete'];
 
 $chRes = $conn->query("
   SELECT challenge_id, title, whitebox_files_ref
@@ -74,23 +91,25 @@ $chRes = $conn->query("
   ORDER BY order_index ASC, challenge_id ASC
   LIMIT 1
 ");
-if (!$chRes || $chRes->num_rows === 0) {
-    if ($labIdEsc !== 1) {
-        echo json_encode(['success' => false, 'message' => 'No challenge for this lab']);
-        exit;
-    }
-    $ch = [
-        'challenge_id' => 0,
-        'title' => 'SECURE_LOGIN_ENDPOINT',
-        'whitebox_files_ref' => hackme_whitebox_lab1_meta_json(),
-    ];
-} else {
+$ch = null;
+if ($chRes && $chRes->num_rows > 0) {
     $ch = $chRes->fetch_assoc();
 }
 
-$rawRef = trim((string) ($ch['whitebox_files_ref'] ?? ''));
-if ($rawRef === '' && $labIdEsc === 1) {
-    $rawRef = hackme_whitebox_lab1_meta_json();
+$rawRef = '';
+if ($prodState['scoring_allowed'] && $ch !== null) {
+    $rawRef = trim((string) ($ch['whitebox_files_ref'] ?? ''));
+} elseif ($ch !== null) {
+    $rawRef = trim((string) ($ch['whitebox_files_ref'] ?? ''));
+}
+
+if ($rawRef === '' || !$prodState['scoring_allowed']) {
+    if ($prodState['lab_in_db'] && $prodState['challenge_row'] && !$prodState['whitebox_ref_valid']) {
+        error_log('[HackMe WARNING] whitebox lab_id=' . $labIdEsc . ' has challenge but invalid/empty whitebox_files_ref; using built-in meta for UI only.');
+    }
+    if ($rawRef === '') {
+        $rawRef = hackme_whitebox_lab1_meta_json();
+    }
 }
 
 if ($rawRef === '') {
@@ -99,13 +118,24 @@ if ($rawRef === '') {
 }
 
 $meta = json_decode($rawRef, true);
-if ((!is_array($meta) || empty($meta['files']) || !is_array($meta['files'])) && $labIdEsc === 1) {
+if (!is_array($meta) || empty($meta['files']) || !is_array($meta['files'])) {
+    if ($prodState['lab_in_db'] && trim($rawRef) !== '') {
+        error_log('[HackMe WARNING] whitebox lab_id=' . $labIdEsc . ' invalid whitebox_files_ref JSON; using built-in meta for UI.');
+    }
     $meta = hackme_whitebox_lab1_meta();
 }
 
 if (!is_array($meta) || empty($meta['files']) || !is_array($meta['files'])) {
     echo json_encode(['success' => false, 'message' => 'Invalid whitebox_files_ref JSON']);
     exit;
+}
+
+if ($ch === null) {
+    $ch = [
+        'challenge_id' => 0,
+        'title' => 'SECURE_LOGIN_ENDPOINT',
+        'whitebox_files_ref' => $rawRef,
+    ];
 }
 
 $labRoot = null;
@@ -186,5 +216,8 @@ echo json_encode([
         'verify_profile' => (string) ($meta['verify_profile'] ?? ''),
         'verification_help' => 'Submissions are checked in an isolated temp file: PHP syntax (php -l) plus static rules ensuring SQL is parameterized (no username/password concatenated into query strings).',
         'files' => $filesOut,
+        'lab_unregistered' => $labUnregistered,
+        'setup_incomplete' => $setupIncomplete,
+        'scoring_allowed' => $prodState['scoring_allowed'],
     ],
 ]);

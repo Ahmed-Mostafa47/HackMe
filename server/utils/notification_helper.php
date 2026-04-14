@@ -30,7 +30,7 @@ function send_notification(
     }
 
     // Validate type
-    $allowedTypes = ['like', 'comment', 'reply', 'message', 'update', 'role_request', 'system'];
+    $allowedTypes = ['like', 'comment', 'reply', 'message', 'update', 'role_request', 'system', 'moderation'];
     if (!in_array($type, $allowedTypes)) {
         error_log("Invalid notification type: $type");
         return false;

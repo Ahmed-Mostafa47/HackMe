@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, CheckCircle2, Shield, Terminal } from "lucide-react";
 import { labService } from "../../services/labService";
+import { WHITEBOX_SQL_LAB_ID } from "../../constants/labs";
 import WhiteboxIdeLab from "./WhiteboxIdeLab";
 
 const diffBadgeClasses = {
@@ -16,12 +17,13 @@ const diffBadgeClasses = {
 const LabWhiteboxPage = ({ currentUser, onFlagSuccess }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const labId = Number(searchParams.get("labId") || "1") || 1;
+  const labId =
+    Number(searchParams.get("labId") || String(WHITEBOX_SQL_LAB_ID)) || WHITEBOX_SQL_LAB_ID;
   const fromCategory = searchParams.get("fromCategory");
   const labType = searchParams.get("labType");
 
   useEffect(() => {
-    if (labId !== 1) {
+    if (labId !== WHITEBOX_SQL_LAB_ID) {
       navigate(`/lab-modern?labId=${encodeURIComponent(String(labId))}`, { replace: true });
     }
   }, [labId, navigate]);
@@ -44,7 +46,7 @@ const LabWhiteboxPage = ({ currentUser, onFlagSuccess }) => {
   };
 
   useEffect(() => {
-    if (labId !== 1) {
+    if (labId !== WHITEBOX_SQL_LAB_ID) {
       setLoading(false);
       return;
     }

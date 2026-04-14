@@ -246,24 +246,12 @@ if ($penaltyRes && $penaltyRes->num_rows > 0) {
 }
 
 // Check if lab already solved - first time only, no points on repeat
-// Lab 1: white-box fix (payload whitebox_sqli_lab1) does not count as black-box/flag completion.
-if ($labId === 1) {
-    $wbEsc = $conn->real_escape_string('whitebox_sqli_lab1');
-    $check = $conn->query("
-    SELECT 1 FROM submissions s
-    INNER JOIN lab_instances li ON li.instance_id = s.instance_id
-    WHERE li.lab_id = $labId AND s.user_id = $userId AND s.status = 'graded'
-      AND COALESCE(s.payload_text, '') <> '$wbEsc'
-    LIMIT 1
-");
-} else {
-    $check = $conn->query("
+$check = $conn->query("
     SELECT 1 FROM submissions s
     INNER JOIN lab_instances li ON li.instance_id = s.instance_id
     WHERE li.lab_id = $labId AND s.user_id = $userId AND s.status = 'graded'
     LIMIT 1
 ");
-}
 if ($check && $check->num_rows > 0) {
     echo json_encode(['success' => false, 'message' => 'LAB_ALREADY_SOLVED', 'already_solved' => true]);
     exit;

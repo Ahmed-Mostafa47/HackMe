@@ -1,3 +1,6 @@
+-- DEPRECATED: This merged white-box into lab_id 1. Use migrate_lab11_split_whitebox.sql instead
+-- (lab 1 = black-box SQL, lab 11 = white-box SQL).
+--
 -- Lab 1: white-box SQLi on Training Labs sources (challenges.whitebox_files_ref + lab_types)
 USE ctf_platform;
 

@@ -102,15 +102,6 @@ function hackme_record_lab_completion(
             AND s.payload_text = '$payloadMark'
           LIMIT 1
         ");
-    } elseif ($labIdEsc === 1) {
-        $wb = $conn->real_escape_string('whitebox_sqli_lab1');
-        $check = $conn->query("
-          SELECT 1 FROM submissions s
-          JOIN lab_instances li ON li.instance_id = s.instance_id
-          WHERE li.lab_id = $labIdEsc AND s.user_id = $userIdEsc AND s.status = 'graded'
-            AND COALESCE(s.payload_text, '') <> '$wb'
-          LIMIT 1
-        ");
     } else {
         $check = $conn->query("
           SELECT 1 FROM submissions s

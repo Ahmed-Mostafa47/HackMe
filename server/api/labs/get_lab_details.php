@@ -23,6 +23,9 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 
 try {
     require_once __DIR__ . '/../../utils/db_connect.php';
+    require_once __DIR__ . '/../../utils/labs_config.php';
+    require_once __DIR__ . '/../../utils/whitebox_lab1_defaults.php';
+    require_once __DIR__ . '/../../utils/lab_production_state.php';
 } catch (Throwable $e) {
     http_response_code(500);
     echo json_encode(['success' => false, 'message' => 'Load error']);
@@ -43,25 +46,36 @@ if ($labId < 1) {
     exit;
 }
 
-$labRes = $conn->query("
+$isWbSql = defined('HACKME_WHITEBOX_SQL_LAB_ID') && $labId === (int) HACKME_WHITEBOX_SQL_LAB_ID;
+$wbState = $isWbSql ? hackme_whitebox_production_state($conn, $labId) : null;
+
+$labSelect = "
     SELECT
         lab_id, title, description, icon, port, launch_path,
         labtype_id, difficulty, points_total, is_published, visibility,
         CASE WHEN COALESCE(solution, '') <> '' THEN 1 ELSE 0 END AS has_solution
     FROM labs
-    WHERE lab_id = $labId
-      AND is_published = 1
-      AND visibility = 'public'
-    LIMIT 1
-");
+";
 
-if (!$labRes || $labRes->num_rows === 0) {
+$labPubRes = $conn->query($labSelect . " WHERE lab_id = $labId AND is_published = 1 AND visibility = 'public' LIMIT 1");
+
+if ($labPubRes && $labPubRes->num_rows > 0) {
+    $lab = $labPubRes->fetch_assoc();
+} elseif ($isWbSql) {
+    $labAnyRes = $conn->query($labSelect . " WHERE lab_id = $labId LIMIT 1");
+    if ($labAnyRes && $labAnyRes->num_rows > 0) {
+        error_log('[HackMe WARNING] get_lab_details: whitebox lab_id=' . $labId . ' exists but is not published/public; UI fallback row.');
+        $lab = $labAnyRes->fetch_assoc();
+    } else {
+        error_log('[HackMe CRITICAL] get_lab_details: whitebox lab_id=' . $labId . ' missing from labs; UI fallback only.');
+        $lab = hackme_whitebox_sql_fallback_lab_row();
+    }
+} else {
     echo json_encode(['success' => false, 'message' => 'Lab not found']);
     exit;
 }
 
-$lab = $labRes->fetch_assoc();
-if ((int) ($lab['lab_id'] ?? 0) === 1) {
+if ($isWbSql) {
     $lab['labtype_id'] = 1;
 }
 
@@ -84,24 +98,32 @@ if ($hintsRes) {
     }
 }
 
+$data = [
+    'lab' => [
+        'lab_id' => (int) ($lab['lab_id'] ?? 0),
+        'title' => (string) ($lab['title'] ?? ''),
+        'description' => (string) ($lab['description'] ?? ''),
+        'icon' => (string) ($lab['icon'] ?? 'LAB'),
+        'port' => isset($lab['port']) ? (int) $lab['port'] : null,
+        'launch_path' => (string) ($lab['launch_path'] ?? ''),
+        'labtype_id' => (int) ($lab['labtype_id'] ?? 0),
+        'difficulty' => (string) ($lab['difficulty'] ?? 'easy'),
+        'points_total' => (int) ($lab['points_total'] ?? 0),
+        'is_published' => (int) ($lab['is_published'] ?? 0) === 1,
+        'visibility' => (string) ($lab['visibility'] ?? 'private'),
+        'has_solution' => (int) ($lab['has_solution'] ?? 0) === 1,
+        'hints' => $hints,
+    ],
+];
+
+if ($isWbSql && $wbState !== null) {
+    $data['lab_unregistered'] = !$wbState['lab_in_db'];
+    $data['setup_incomplete'] = $wbState['setup_incomplete'];
+    $data['scoring_allowed'] = $wbState['scoring_allowed'];
+}
+
 echo json_encode([
     'success' => true,
     'message' => 'OK',
-    'data' => [
-        'lab' => [
-            'lab_id' => (int)($lab['lab_id'] ?? 0),
-            'title' => (string)($lab['title'] ?? ''),
-            'description' => (string)($lab['description'] ?? ''),
-            'icon' => (string)($lab['icon'] ?? 'LAB'),
-            'port' => isset($lab['port']) ? (int)$lab['port'] : null,
-            'launch_path' => (string)($lab['launch_path'] ?? ''),
-            'labtype_id' => (int)($lab['labtype_id'] ?? 0),
-            'difficulty' => (string)($lab['difficulty'] ?? 'easy'),
-            'points_total' => (int)($lab['points_total'] ?? 0),
-            'is_published' => (int)($lab['is_published'] ?? 0) === 1,
-            'visibility' => (string)($lab['visibility'] ?? 'private'),
-            'has_solution' => (int)($lab['has_solution'] ?? 0) === 1,
-            'hints' => $hints,
-        ],
-    ],
+    'data' => $data,
 ]);

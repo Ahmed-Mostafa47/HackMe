@@ -20,9 +20,8 @@ $scope = isset($_GET['scope']) ? trim((string) ($_GET['scope'] ?? '')) : '';
 if ($scope !== 'whitebox' && $scope !== 'standard') {
     $scope = '';
 }
-// Lab 1 has two completion channels; if scope is missing, default to white-box check only (avoids false "solved" from flag/black-box rows).
 if ($scope === '') {
-    $scope = ($labId === 1) ? 'whitebox' : 'standard';
+    $scope = 'standard';
 }
 
 if ($labId < 1 || $userId < 1) {
@@ -32,6 +31,8 @@ if ($labId < 1 || $userId < 1) {
 
 try {
     require_once __DIR__ . '/../../utils/db_connect.php';
+    require_once __DIR__ . '/../../utils/labs_config.php';
+    require_once __DIR__ . '/../../utils/whitebox_lab1_defaults.php';
 } catch (Throwable $e) {
     echo json_encode(['solved' => false]);
     exit;
@@ -46,21 +47,16 @@ $labIdEsc = (int)$labId;
 $userIdEsc = (int)$userId;
 
 if ($scope === 'whitebox') {
-    $wb = $conn->real_escape_string('whitebox_sqli_lab1');
+    if ($labIdEsc !== hackme_whitebox_sql_lab_id()) {
+        echo json_encode(['solved' => false, 'scope' => $scope]);
+        exit;
+    }
+    $wb = $conn->real_escape_string(hackme_whitebox_sql_payload_mark());
     $res = $conn->query("
       SELECT 1 FROM submissions s
       JOIN lab_instances li ON li.instance_id = s.instance_id
       WHERE li.lab_id = $labIdEsc AND s.user_id = $userIdEsc AND s.status = 'graded'
         AND TRIM(COALESCE(s.payload_text, '')) = '$wb'
-      LIMIT 1
-    ");
-} elseif ($labIdEsc === 1) {
-    $wb = $conn->real_escape_string('whitebox_sqli_lab1');
-    $res = $conn->query("
-      SELECT 1 FROM submissions s
-      JOIN lab_instances li ON li.instance_id = s.instance_id
-      WHERE li.lab_id = $labIdEsc AND s.user_id = $userIdEsc AND s.status = 'graded'
-        AND TRIM(COALESCE(s.payload_text, '')) <> '$wb'
       LIMIT 1
     ");
 } else {

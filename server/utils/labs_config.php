@@ -5,9 +5,18 @@
  */
 define('LABS_BASE_PATH', 'E:\\Level 4\\Semester1\\graduation\\Labs');
 
+/** White-box SQL source lab (separate from black-box SQL lab_id = 1). */
+define('HACKME_WHITEBOX_SQL_LAB_ID', 11);
+
 $GLOBALS['LABS_REGISTRY'] = [
     [
         'lab_id' => 1,
+        'folder' => 'SQL',
+        'port' => 4000,
+        'points' => 100,
+    ],
+    [
+        'lab_id' => 11,
         'folder' => 'SQL',
         'port' => 4000,
         'points' => 100,

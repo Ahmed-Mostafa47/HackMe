@@ -76,17 +76,19 @@ export const labService = {
 
       if (Array.isArray(data?.data?.labs) && data.data.labs.length > 0) {
         const labs = data.data.labs;
-        const hasLab1 = labs.some((l) => Number(l?.lab_id) === 1);
-        if (!hasLab1) {
-          const { mockLabs } = await import("../data/mockData");
-          const fromMock = mockLabs.find((l) => Number(l.lab_id) === 1);
-          if (fromMock) {
-            labs.push({ ...fromMock });
-            labs.sort((a, b) => Number(a.lab_id) - Number(b.lab_id));
+        const { mockLabs } = await import("../data/mockData");
+        const { WHITEBOX_SQL_LAB_ID } = await import("../constants/labs");
+        for (const id of [1, WHITEBOX_SQL_LAB_ID]) {
+          if (!labs.some((l) => Number(l?.lab_id) === id)) {
+            const fromMock = mockLabs.find((l) => Number(l.lab_id) === id);
+            if (fromMock) {
+              labs.push({ ...fromMock });
+            }
           }
         }
+        labs.sort((a, b) => Number(a.lab_id) - Number(b.lab_id));
         for (const lab of labs) {
-          if (Number(lab?.lab_id) === 1) {
+          if (Number(lab?.lab_id) === WHITEBOX_SQL_LAB_ID) {
             lab.labtype_id = 1;
           }
         }
@@ -95,9 +97,11 @@ export const labService = {
 
       // API empty - fall back to mock labs (registered subset preferred)
       const { mockLabs } = await import("../data/mockData");
+      const { WHITEBOX_SQL_LAB_ID: wbIdEmpty } = await import("../constants/labs");
       const registered = mockLabs.filter(
         (l) =>
           l.lab_id === 1 ||
+          l.lab_id === wbIdEmpty ||
           l.lab_id === 5 ||
           l.lab_id === 7 ||
           l.lab_id === 8 ||
@@ -111,9 +115,11 @@ export const labService = {
     } catch (error) {
       console.warn("LabService: API unavailable, using mock data:", error?.message);
       const { mockLabs } = await import("../data/mockData");
-      const registered = mockLabs.filter(
+      const { WHITEBOX_SQL_LAB_ID: wbId } = await import("../constants/labs");
+      const registeredFallback = mockLabs.filter(
         (l) =>
           l.lab_id === 1 ||
+          l.lab_id === wbId ||
           l.lab_id === 5 ||
           l.lab_id === 7 ||
           l.lab_id === 8 ||
@@ -122,7 +128,7 @@ export const labService = {
       );
       return {
         success: true,
-        data: { labs: registered.length ? registered : mockLabs },
+        data: { labs: registeredFallback.length ? registeredFallback : mockLabs },
       };
     }
   },
