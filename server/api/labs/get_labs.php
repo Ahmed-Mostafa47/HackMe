@@ -23,6 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 
 try {
     require_once __DIR__ . '/../../utils/db_connect.php';
+    require_once __DIR__ . '/../../utils/labs_config.php';
 } catch (Throwable $e) {
     http_response_code(500);
     echo json_encode(['success' => false, 'message' => 'Load error', 'data' => ['labs' => []]]);
@@ -36,6 +37,8 @@ if (!isset($conn) || !$conn) {
 }
 
 $conn->set_charset('utf8mb4');
+
+$wbSqlListId = (int) (defined('HACKME_WHITEBOX_SQL_LAB_ID') ? HACKME_WHITEBOX_SQL_LAB_ID : 11);
 
 $res = $conn->query("
     SELECT
@@ -70,14 +73,30 @@ if (!$res) {
 
 $labs = [];
 while ($row = $res->fetch_assoc()) {
+    $labId = (int) ($row['lab_id'] ?? 0);
+    if ($labId === 11 && $wbSqlListId !== 11) {
+        continue;
+    }
+    $labtypeId = (int) ($row['labtype_id'] ?? 0);
+    if ($labId === $wbSqlListId || $labId === 18 || $labId === 19) {
+        $labtypeId = 1;
+    }
+    // Lab 1 is the black-box SQL injection lab (white-box SQL uses HACKME_WHITEBOX_SQL_LAB_ID).
+    if ($labId === 1) {
+        $labtypeId = 2;
+    }
+    $title = (string) ($row['title'] ?? '');
+    if ($labId === 18) {
+        $title = 'Access Control Bypass';
+    }
     $labs[] = [
-        'lab_id' => (int)($row['lab_id'] ?? 0),
-        'title' => (string)($row['title'] ?? ''),
+        'lab_id' => $labId,
+        'title' => $title,
         'description' => (string)($row['description'] ?? ''),
         'icon' => (string)($row['icon'] ?? 'LAB'),
         'port' => isset($row['port']) ? (int)$row['port'] : null,
         'launch_path' => (string)($row['launch_path'] ?? ''),
-        'labtype_id' => (int)($row['labtype_id'] ?? 0),
+        'labtype_id' => $labtypeId,
         'difficulty' => (string)($row['difficulty'] ?? 'easy'),
         'points_total' => (int)($row['points_total'] ?? 0),
         'is_published' => (int)($row['is_published'] ?? 0) === 1,
@@ -85,6 +104,67 @@ while ($row = $res->fetch_assoc()) {
         'hints_count' => (int)($row['hints_count'] ?? 0),
     ];
 }
+
+// White-box access-control cards (same category idea as Black Box) even if DB seed was not applied.
+$present = [];
+foreach ($labs as $L) {
+    $present[(int) ($L['lab_id'] ?? 0)] = true;
+}
+$defaults = [
+    18 => [
+        'title' => 'Access Control Bypass',
+        'description' => 'White-box: fix admin_panel — ?role= in the URL must not set $_SESSION before ADMIN_PANEL.',
+        'icon' => '🔓',
+        'port' => 4003,
+        'launch_path' => '/lab/1',
+        'points_total' => 100,
+    ],
+    19 => [
+        'title' => 'ACCESS_CONTROL_WHITEBOX_19',
+        'description' => 'Access control (WHITE_BOX listing): IDOR / horizontal access; capture the lab flag.',
+        'icon' => '🔓',
+        'port' => 4003,
+        'launch_path' => '/lab/2',
+        'points_total' => 100,
+    ],
+    20 => [
+        'title' => 'XSS Lab 1 - Whitebox',
+        'description' => 'White-box reflected XSS: review vulnerable source and apply output encoding fix.',
+        'icon' => '⚡',
+        'port' => 4001,
+        'launch_path' => '/',
+        'points_total' => 100,
+    ],
+    21 => [
+        'title' => 'XSS Lab 2 - Whitebox',
+        'description' => 'White-box DOM XSS: replace unsafe DOM sink with safe text rendering.',
+        'icon' => '⚡',
+        'port' => 4002,
+        'launch_path' => '/',
+        'points_total' => 100,
+    ],
+];
+foreach ($defaults as $lid => $meta) {
+    if (!isset($present[$lid])) {
+        $labs[] = [
+            'lab_id' => $lid,
+            'title' => $meta['title'],
+            'description' => $meta['description'],
+            'icon' => $meta['icon'],
+            'port' => $meta['port'],
+            'launch_path' => $meta['launch_path'],
+            'labtype_id' => 1,
+            'difficulty' => 'medium',
+            'points_total' => $meta['points_total'],
+            'is_published' => true,
+            'visibility' => 'public',
+            'hints_count' => 0,
+        ];
+    }
+}
+usort($labs, static function ($a, $b) {
+    return ((int) ($a['lab_id'] ?? 0)) <=> ((int) ($b['lab_id'] ?? 0));
+});
 
 echo json_encode([
     'success' => true,

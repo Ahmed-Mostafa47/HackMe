@@ -18,6 +18,8 @@ const CommentsPage = ({ currentUser, isAdmin }) => {
   const [error, setError] = useState("");
   const [replyingTo, setReplyingTo] = useState(null);
   const [replyContent, setReplyContent] = useState({});
+  const [commentsPostingBlocked, setCommentsPostingBlocked] = useState(false);
+  const [commentsBannedUntil, setCommentsBannedUntil] = useState(null);
   const commentsRef = useRef([]); // Ref to track comments without causing re-renders
 
   const userId = currentUser?.user_id ?? null;
@@ -25,8 +27,13 @@ const CommentsPage = ({ currentUser, isAdmin }) => {
 
   const canPost = useMemo(() => {
     const trimmed = newComment.trim();
-    return Boolean(userId && trimmed.length > 0 && trimmed.length <= MAX_COMMENT_LENGTH);
-  }, [newComment, userId]);
+    return Boolean(
+      userId &&
+        !commentsPostingBlocked &&
+        trimmed.length > 0 &&
+        trimmed.length <= MAX_COMMENT_LENGTH
+    );
+  }, [newComment, userId, commentsPostingBlocked]);
 
   const loadComments = useCallback(async (isRefresh = false) => {
     // Check if we have existing comments to determine loading state
@@ -38,7 +45,10 @@ const CommentsPage = ({ currentUser, isAdmin }) => {
     }
     
     try {
-      const { comments: payload } = await fetchComments(userId);
+      const data = await fetchComments(userId);
+      const payload = Array.isArray(data) ? data : data.comments ?? [];
+      setCommentsPostingBlocked(Boolean(data.comments_posting_blocked));
+      setCommentsBannedUntil(data.comments_banned_until ?? null);
       // Ensure all comments have replies array initialized and are properly structured
       const normalizedComments = (payload || []).map(comment => {
         // Deep clone to avoid reference issues
@@ -116,7 +126,7 @@ const CommentsPage = ({ currentUser, isAdmin }) => {
   };
 
   const handleAddComment = async () => {
-    if (!canPost || isSubmitting) return;
+    if (!canPost || isSubmitting || commentsPostingBlocked) return;
     setIsSubmitting(true);
 
     try {
@@ -138,6 +148,7 @@ const CommentsPage = ({ currentUser, isAdmin }) => {
   };
 
   const handleReply = async (parentId) => {
+    if (commentsPostingBlocked) return;
     const content = replyContent[parentId]?.trim() || "";
     if (!content || !userId || isSubmitting) return;
 
@@ -254,6 +265,12 @@ const CommentsPage = ({ currentUser, isAdmin }) => {
         </div>
 
         <div className="bg-gray-800/80 backdrop-blur-lg rounded-xl sm:rounded-2xl p-3 sm:p-4 md:p-6 border border-gray-700 hover:border-green-500/50 transition-all duration-300 mb-6 sm:mb-8">
+          {commentsPostingBlocked && (
+            <div className="mb-4 rounded-lg border border-amber-500/50 bg-amber-950/40 px-4 py-3 text-center text-xs sm:text-sm font-mono text-amber-200">
+              COMMENTS_LOCKED: policy violation.
+              {commentsBannedUntil ? ` Until ${String(commentsBannedUntil).replace("T", " ")}` : ""}
+            </div>
+          )}
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-3 sm:mb-4">
             <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 mx-auto sm:mx-0 bg-gradient-to-br from-green-600 to-green-700 rounded-lg flex items-center justify-center text-xl sm:text-2xl border border-green-500/30">
               {userAvatar}
@@ -264,7 +281,8 @@ const CommentsPage = ({ currentUser, isAdmin }) => {
               placeholder="TRANSMIT_INTEL_OR_REQUEST_SUPPORT..."
               maxLength={MAX_COMMENT_LENGTH}
               rows={4}
-              className="w-full bg-gray-700/50 border-2 border-gray-600 rounded-lg p-3 sm:p-4 text-white text-xs sm:text-sm md:text-base placeholder-gray-500 outline-none focus:border-green-500 focus:bg-gray-700/80 transition-all duration-300 resize-none font-mono"
+              disabled={commentsPostingBlocked}
+              className="w-full bg-gray-700/50 border-2 border-gray-600 rounded-lg p-3 sm:p-4 text-white text-xs sm:text-sm md:text-base placeholder-gray-500 outline-none focus:border-green-500 focus:bg-gray-700/80 transition-all duration-300 resize-none font-mono disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 sm:items-center justify-between">
@@ -346,6 +364,7 @@ const CommentsPage = ({ currentUser, isAdmin }) => {
                 formatTimestamp={formatTimestamp}
                 isSubmitting={isSubmitting}
                 setReplyContent={setReplyContent}
+                postingBlocked={commentsPostingBlocked}
               />
             ))
           )}
@@ -370,10 +389,14 @@ const CommentItem = ({
   formatTimestamp,
   isSubmitting,
   setReplyContent,
+  postingBlocked,
 }) => {
   const isReplying = replyingTo === comment.id;
   const replyText = replyContent[comment.id] || "";
-  const canReply = replyText.trim().length > 0 && replyText.trim().length <= MAX_COMMENT_LENGTH;
+  const canReply =
+    !postingBlocked &&
+    replyText.trim().length > 0 &&
+    replyText.trim().length <= MAX_COMMENT_LENGTH;
 
   return (
     <div className="bg-gray-800/80 backdrop-blur-lg rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 border border-gray-700 hover:border-green-500/50 transition-all duration-300 hover:shadow-xl">
@@ -436,7 +459,7 @@ const CommentItem = ({
           />
           ACK ({comment.likes})
         </button>
-        {userId && (
+        {userId && !postingBlocked && (
           <button
             type="button"
             onClick={() => onToggleReply(comment.id)}
@@ -453,7 +476,7 @@ const CommentItem = ({
       </div>
 
       {/* Reply Input */}
-      {isReplying && userId && (
+      {isReplying && userId && !postingBlocked && (
         <div className="mt-4 sm:mt-5 p-3 sm:p-4 bg-gray-700/50 rounded-lg border border-gray-600">
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-3">
             <div className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 mx-auto sm:mx-0 bg-gradient-to-br from-green-600 to-green-700 rounded-lg flex items-center justify-center text-lg sm:text-xl border border-green-500/30">

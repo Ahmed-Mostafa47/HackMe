@@ -10,7 +10,9 @@ import { labService } from "../../services/labService";
 import { LAB_TYPES } from "../../data/labTypes";
 import {
   getCategoriesWithLabs,
+  WHITEBOX_CATEGORY_ORDER,
 } from "../../utils/labCategories";
+import { WHITEBOX_SQL_LAB_ID } from "../../constants/labs";
 
 const LabsCategoriesPage = ({
   labType,
@@ -33,7 +35,18 @@ const LabsCategoriesPage = ({
         const all = res?.data?.labs || [];
         const labTypeId = labType === LAB_TYPES.WHITE_BOX ? 1 : labType === LAB_TYPES.ACCESS_CONTROL ? 3 : 2;
         const filtered = all.filter((lab) => {
-          if (labType === LAB_TYPES.BLACK_BOX) return lab.labtype_id === 2 || lab.labtype_id === 3;
+          const id = Number(lab.lab_id);
+          if (labType === LAB_TYPES.BLACK_BOX) {
+            if (lab.labtype_id !== 2 && lab.labtype_id !== 3) return false;
+            return true;
+          }
+          if (labType === LAB_TYPES.WHITE_BOX) {
+            if (id === 1) return false;
+            return lab.labtype_id === 1 || id === WHITEBOX_SQL_LAB_ID;
+          }
+          if (labType === LAB_TYPES.ACCESS_CONTROL) {
+            return lab.labtype_id === 3 || id === 18 || id === 19;
+          }
           return lab.labtype_id === labTypeId;
         });
         setLabs(filtered);
@@ -52,7 +65,18 @@ const LabsCategoriesPage = ({
     };
   }, [labType]);
 
-  const categories = getCategoriesWithLabs(labs);
+  const rawCategories = getCategoriesWithLabs(labs);
+  const categories =
+    labType === LAB_TYPES.WHITE_BOX
+      ? [...rawCategories].sort((a, b) => {
+          const rank = (k) => {
+            const i = WHITEBOX_CATEGORY_ORDER.indexOf(k);
+            return i === -1 ? 50 : i;
+          };
+          const d = rank(a.key) - rank(b.key);
+          return d !== 0 ? d : a.label.localeCompare(b.label);
+        })
+      : rawCategories;
   const labTypeLabel =
     labType === LAB_TYPES.WHITE_BOX ? "WHITE_BOX" : labType === LAB_TYPES.ACCESS_CONTROL ? "BROKEN_ACCESS" : "BLACK_BOX";
   const canAddLab =

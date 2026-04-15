@@ -1,11 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Terminal, Shield, Code, Users, ArrowRight, Zap, Target, TrendingUp, Clock } from 'lucide-react';
+import { Terminal, Shield, Code, Users, ArrowRight, Zap, Target, TrendingUp, Clock, Trophy, BookOpen, Flag } from 'lucide-react';
 import BinaryRain from '@/features/shared/ui/BinaryRain';
 import '@/styles/animations.css';
+
+const API_BASE = import.meta.env.DEV ? '/api' : 'http://localhost/HackMe/server/api';
 
 const LandingPage = ({ onNavigateToLogin, onNavigateToRegister }) => {
   const [visibleElements, setVisibleElements] = useState(new Set());
   const observerRef = useRef(null);
+  const [champions, setChampions] = useState([]);
+  const [championsLoading, setChampionsLoading] = useState(true);
+  const [championsError, setChampionsError] = useState(null);
 
   useEffect(() => {
     // On initial load, if page is at top, show all elements immediately (looks like one page)
@@ -55,6 +60,38 @@ const LandingPage = ({ onNavigateToLogin, onNavigateToRegister }) => {
       if (observerRef.current) {
         observerRef.current.disconnect();
       }
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setChampionsLoading(true);
+      setChampionsError(null);
+      try {
+        const res = await fetch(`${API_BASE}/get_leaderboard.php?limit=15`);
+        const data = await res.json();
+        if (cancelled) return;
+        if (data.success && Array.isArray(data.leaderboard)) {
+          setChampions(
+            data.leaderboard.map((p, i) => ({
+              rank: p.rank ?? i + 1,
+              name: p.name || p.username,
+              points: p.points,
+              avatar: ['👻', '👁️', '⚡', '🎯', '💀', '🔥', '⭐'][i % 7],
+            }))
+          );
+        } else {
+          setChampionsError(data.message || 'Could not load ranking');
+        }
+      } catch (e) {
+        if (!cancelled) setChampionsError('Cannot reach server');
+      } finally {
+        if (!cancelled) setChampionsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
     };
   }, []);
 
@@ -130,6 +167,31 @@ const LandingPage = ({ onNavigateToLogin, onNavigateToRegister }) => {
             <p className="text-base sm:text-lg text-gray-500 mb-8 sm:mb-10 font-mono max-w-2xl mx-auto">
               Master the art of cybersecurity through hands-on training, real-world challenges, and expert-guided learning paths.
             </p>
+            <div className="max-w-3xl mx-auto mt-8 rounded-2xl border border-green-500/20 bg-gray-900/40 backdrop-blur-sm p-6 sm:p-8 text-left space-y-4">
+              <h2 className="text-lg sm:text-xl font-bold text-green-400 font-mono text-center mb-4">
+                // WHAT_IS_THIS_PLATFORM
+              </h2>
+              <p className="text-sm sm:text-base text-gray-300 font-mono leading-relaxed">
+                <strong className="text-green-300">HackMe</strong> is a penetration-testing training platform. You get isolated lab environments (white-box and black-box), practice real vulnerabilities, and learn by doing—not only by reading.
+              </p>
+              <ul className="space-y-3 text-sm sm:text-base text-gray-400 font-mono">
+                <li className="flex gap-3">
+                  <BookOpen className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
+                  <span><span className="text-gray-200">Training labs:</span> SQL injection, XSS, blind testing, access control, IDOR, and more—organized by category and difficulty.</span>
+                </li>
+                <li className="flex gap-3">
+                  <Flag className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                  <span><span className="text-gray-200">Flags & scoring:</span> Capture flags in each lab, submit them securely, earn points, and track labs you have completed.</span>
+                </li>
+                <li className="flex gap-3">
+                  <Trophy className="w-5 h-5 text-yellow-400 shrink-0 mt-0.5" />
+                  <span><span className="text-gray-200">Leaderboard & rank:</span> Compete with other operatives, climb the ranking, and see your mission log of solved labs after you sign in.</span>
+                </li>
+              </ul>
+              <p className="text-xs sm:text-sm text-gray-500 font-mono pt-2 border-t border-gray-700/80">
+                Create an account to access the full mission dashboard, or sign in if you already have credentials.
+              </p>
+            </div>
 
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6">
@@ -212,6 +274,59 @@ const LandingPage = ({ onNavigateToLogin, onNavigateToRegister }) => {
                 </div>
               );
             })}
+          </div>
+        </div>
+      </section>
+
+      {/* Our Champions — public leaderboard (same data as OPERATIVE_RANKING) */}
+      <section className="relative py-12 sm:py-16 lg:py-20 px-4 sm:px-6 lg:px-8 border-t border-gray-800/80">
+        <div className="max-w-3xl mx-auto">
+          <div className="text-center mb-10 sm:mb-12">
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-amber-400 mb-3 font-mono tracking-tight">
+              OUR CHAMPIONS
+            </h2>
+            <p className="text-gray-500 font-mono text-sm sm:text-base">
+              // TOP_OPERATIVES_BY_TOTAL_POINTS
+            </p>
+          </div>
+          <div className="bg-gray-800/80 backdrop-blur-lg rounded-2xl p-5 sm:p-6 border border-amber-500/20 shadow-xl shadow-amber-900/10">
+            <div className="flex flex-wrap items-center gap-3 mb-6">
+              <div className="p-2 bg-gradient-to-br from-green-600 to-green-700 rounded-lg border border-green-500/30">
+                <Trophy className="w-6 h-6 text-green-400" />
+              </div>
+              <h3 className="text-xl sm:text-2xl font-bold text-white font-mono">
+                OPERATIVE_RANKING
+              </h3>
+            </div>
+            <div className="space-y-3">
+              {championsLoading ? (
+                <div className="text-center py-10 text-gray-400 font-mono text-sm">Loading champions...</div>
+              ) : championsError ? (
+                <div className="text-center py-10 text-amber-200/80 font-mono text-sm">
+                  {championsError}
+                  <span className="block text-gray-500 mt-2 text-xs">Start the backend (XAMPP) and ensure the leaderboard API is reachable.</span>
+                </div>
+              ) : champions.length === 0 ? (
+                <div className="text-center py-10 text-gray-400 font-mono text-sm">No rankings yet — be the first operative on the board.</div>
+              ) : (
+                champions.map((player) => (
+                  <div
+                    key={`${player.rank}-${player.name}`}
+                    className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 p-4 rounded-xl bg-gray-700/50 hover:bg-gray-700/80 border border-gray-600 transition-all duration-300"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="text-amber-400/90 font-mono font-bold w-8 shrink-0">#{player.rank}</span>
+                      <span className="text-2xl shrink-0">{player.avatar}</span>
+                      <span className="font-bold text-gray-200 font-mono truncate">{player.name}</span>
+                    </div>
+                    <div className="text-left sm:text-right sm:pl-4">
+                      <div className="font-bold text-green-400 text-lg font-mono">{player.points}</div>
+                      <div className="text-gray-400 text-xs font-mono tracking-wide">POINTS</div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       </section>

@@ -48,6 +48,30 @@ $flag = trim((string) ($input['flag'] ?? ''));
 $flag = preg_replace('/[\r\n]+/', '', $flag);
 $userId = (int) ($input['user_id'] ?? 0);
 
+// Labs opened in a new tab may send user_id=0; resolve HackMe user from lab access token (same rules as verify_lab_token.php)
+$accessToken = trim((string) ($input['access_token'] ?? ''));
+if ($userId < 1 && $accessToken !== '' && $labId >= 1) {
+    $atEsc = $conn->real_escape_string($accessToken);
+    $labIdInt = (int) $labId;
+    $tr = $conn->query(
+        "SELECT user_id FROM lab_access_tokens WHERE token = '$atEsc' AND lab_id = $labIdInt " .
+        "AND used_at IS NULL AND expires_at > NOW() LIMIT 1"
+    );
+    if ($tr && ($trow = $tr->fetch_assoc())) {
+        $rawUid = $trow['user_id'] ?? null;
+        if ($rawUid !== null && (int) $rawUid > 0) {
+            $userId = (int) $rawUid;
+        } else {
+            echo json_encode([
+                'success' => false,
+                'message' => 'LAB_TOKEN_MISSING_USER',
+                'detail' => 'This lab link is not tied to your HackMe account. Close the lab, log in on HackMe, and click Start Lab again.',
+            ]);
+            exit;
+        }
+    }
+}
+
 if ($labId < 1 || $flag === '' || $userId < 1) {
     echo json_encode(['success' => false, 'message' => 'Missing lab_id, flag, or user_id']);
     exit;
@@ -123,6 +147,94 @@ if ($labId === 9 && $flag === 'FLAG{IDOR_ACCESS_CONTROL_BYPASS}') {
     }
 }
 
+// Lab 10 + FLAG{ACADEMY_SQLI_DELETED}: SQLi academy lab, 150 points
+// Seed SQL does not include lab 10 — create/upsert here. Prefer submitting user as created_by (always valid if token resolved).
+if ($labId === 10 && $flag === 'FLAG{ACADEMY_SQLI_DELETED}') {
+    $conn->query("INSERT IGNORE INTO lab_types (labtype_id, name, description) VALUES (2, 'BLACK_BOX', 'Black Box Testing Labs')");
+    $creator = $userId > 0 ? (int) $userId : 0;
+    if ($creator < 1) {
+        $ur = $conn->query("SELECT user_id FROM users ORDER BY user_id ASC LIMIT 1");
+        $creator = $ur && ($r = $ur->fetch_assoc()) ? (int) $r['user_id'] : 0;
+    }
+    if ($creator > 0) {
+        $c = (int) $creator;
+        $conn->query(
+            "INSERT INTO labs (lab_id, title, description, labtype_id, difficulty, points_total, created_by, is_published, visibility, docker_image, reset_interval) " .
+            "VALUES (10, 'SQL_INJECTION_ACADEMY', 'Exploit SQL injection on a programming academy site: use sqlmap to find tables and users, get admin email, login and delete a user', 2, 'medium', 150, $c, 1, 'public', '', 3600) " .
+            "ON DUPLICATE KEY UPDATE title = VALUES(title), description = VALUES(description), labtype_id = VALUES(labtype_id), " .
+            "difficulty = VALUES(difficulty), points_total = VALUES(points_total), created_by = VALUES(created_by)"
+        );
+        // challenge_id 8 must belong to lab_id 10 or flag lookup (JOIN c.lab_id = 10) returns nothing → INVALID_FLAG
+        $conn->query(
+            "INSERT INTO challenges (challenge_id, lab_id, created_by, title, statement, order_index, max_score, difficulty, is_active) " .
+            "VALUES (8, 10, $c, 'ACADEMY_SQLI_DELETED', 'Use SQL injection to access admin and delete a user', 1, 150, 'medium', 1) " .
+            "ON DUPLICATE KEY UPDATE lab_id = VALUES(lab_id), created_by = VALUES(created_by), title = VALUES(title), " .
+            "statement = VALUES(statement), order_index = VALUES(order_index), max_score = VALUES(max_score), " .
+            "difficulty = VALUES(difficulty), is_active = VALUES(is_active)"
+        );
+        $conn->query(
+            "INSERT INTO testcases (testcase_id, challenge_id, secret_flag_hash, secret_flag_plain, points, active, type) " .
+            "VALUES (8, 8, 'FLAG{ACADEMY_SQLI_DELETED}', 'FLAG{ACADEMY_SQLI_DELETED}', 150, 1, 'flag_match') " .
+            "ON DUPLICATE KEY UPDATE challenge_id = VALUES(challenge_id), secret_flag_hash = VALUES(secret_flag_hash), " .
+            "secret_flag_plain = VALUES(secret_flag_plain), points = VALUES(points), active = VALUES(active), type = VALUES(type)"
+        );
+        $conn->query(
+            "UPDATE testcases t INNER JOIN challenges c ON c.challenge_id = t.challenge_id AND c.lab_id = 10 AND c.challenge_id = 8 " .
+            "SET t.secret_flag_plain = 'FLAG{ACADEMY_SQLI_DELETED}', t.secret_flag_hash = 'FLAG{ACADEMY_SQLI_DELETED}', t.points = 150, t.active = 1"
+        );
+    }
+}
+
+// Labs 18 / 19: white-box listed access-control labs (ensure rows so flags validate without manual seed).
+if ($labId === 18 || $labId === 19) {
+    $conn->query("INSERT IGNORE INTO lab_types (labtype_id, name, description) VALUES (1, 'WHITE_BOX', 'White Box Testing Labs')");
+    $ur = $conn->query("SELECT user_id FROM users ORDER BY user_id ASC LIMIT 1");
+    $creator = $ur && ($r = $ur->fetch_assoc()) ? (int) $r['user_id'] : 0;
+    if ($userId > 0) {
+        $creator = (int) $userId;
+    }
+    if ($creator > 0) {
+        $c = (int) $creator;
+        if ($labId === 18) {
+            $conn->query(
+                "INSERT INTO labs (lab_id, title, description, labtype_id, difficulty, points_total, created_by, is_published, visibility, docker_image, reset_interval) " .
+                "VALUES (18, 'Access Control Bypass', 'Broken access control (white-box): bypass authorization via session/role; capture FLAG{ACCESS_CONTROL_WHITEBOX_18}.', 1, 'medium', 100, $c, 1, 'public', 'cyberops/access-control-lab', 3600) " .
+                "ON DUPLICATE KEY UPDATE title = VALUES(title), description = VALUES(description), labtype_id = 1, " .
+                "difficulty = VALUES(difficulty), points_total = VALUES(points_total)"
+            );
+            $conn->query(
+                "INSERT INTO challenges (challenge_id, lab_id, created_by, title, statement, order_index, max_score, difficulty, is_active) " .
+                "VALUES (318, 18, $c, 'ACCESS_CONTROL_18', 'Solve the access-control challenge and submit the flag.', 1, 100, 'medium', 1) " .
+                "ON DUPLICATE KEY UPDATE lab_id = 18, is_active = 1, title = VALUES(title), statement = VALUES(statement), max_score = VALUES(max_score)"
+            );
+            $conn->query(
+                "INSERT INTO testcases (testcase_id, challenge_id, secret_flag_hash, secret_flag_plain, points, active, type) " .
+                "VALUES (318, 318, 'FLAG{ACCESS_CONTROL_WHITEBOX_18}', 'FLAG{ACCESS_CONTROL_WHITEBOX_18}', 100, 1, 'flag_match') " .
+                "ON DUPLICATE KEY UPDATE challenge_id = 318, secret_flag_plain = VALUES(secret_flag_plain), secret_flag_hash = VALUES(secret_flag_hash), points = 100, active = 1"
+            );
+            $wb18 = $conn->real_escape_string('{"version":1,"verify_profile":"lab18_admin_role_request","files":[{"id":"admin_panel","display_name":"admin_panel.php","relative_path":"public/admin_panel.php","vulnerable_line":4}]}');
+            $conn->query("UPDATE challenges SET whitebox_files_ref = '$wb18' WHERE challenge_id = 318 AND lab_id = 18");
+        } else {
+            $conn->query(
+                "INSERT INTO labs (lab_id, title, description, labtype_id, difficulty, points_total, created_by, is_published, visibility, docker_image, reset_interval) " .
+                "VALUES (19, 'ACCESS_CONTROL_WHITEBOX_19', 'Access control (WHITE_BOX listing): IDOR / horizontal access; capture FLAG{ACCESS_CONTROL_WHITEBOX_19}.', 1, 'medium', 100, $c, 1, 'public', 'cyberops/access-control-lab', 3600) " .
+                "ON DUPLICATE KEY UPDATE title = VALUES(title), description = VALUES(description), labtype_id = 1, " .
+                "difficulty = VALUES(difficulty), points_total = VALUES(points_total)"
+            );
+            $conn->query(
+                "INSERT INTO challenges (challenge_id, lab_id, created_by, title, statement, order_index, max_score, difficulty, is_active) " .
+                "VALUES (319, 19, $c, 'ACCESS_CONTROL_19', 'Solve the access-control challenge and submit the flag.', 1, 100, 'medium', 1) " .
+                "ON DUPLICATE KEY UPDATE lab_id = 19, is_active = 1, title = VALUES(title), statement = VALUES(statement), max_score = VALUES(max_score)"
+            );
+            $conn->query(
+                "INSERT INTO testcases (testcase_id, challenge_id, secret_flag_hash, secret_flag_plain, points, active, type) " .
+                "VALUES (319, 319, 'FLAG{ACCESS_CONTROL_WHITEBOX_19}', 'FLAG{ACCESS_CONTROL_WHITEBOX_19}', 100, 1, 'flag_match') " .
+                "ON DUPLICATE KEY UPDATE challenge_id = 319, secret_flag_plain = VALUES(secret_flag_plain), secret_flag_hash = VALUES(secret_flag_hash), points = 100, active = 1"
+            );
+        }
+    }
+}
+
 // Find matching flag in DB
 $res = $conn->query("
     SELECT c.challenge_id, t.points
@@ -152,6 +264,10 @@ $points = (int) $row['points'];
 // SQL Lab (lab_id=1): ensure 50 points if testcases has 0
 if ($points < 1 && $labId === 1) {
     $points = 50;
+}
+// Lab 10: ensure 150 points
+if ($points < 1 && $labId === 10) {
+    $points = 150;
 }
 
 // Apply score penalties based on viewed resources in this lab.

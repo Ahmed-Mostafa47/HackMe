@@ -23,6 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require_once __DIR__ . '/../../utils/db_connect.php';
 require_once __DIR__ . '/comments_repository.php';
 require_once __DIR__ . '/../../utils/notification_helper.php';
+require_once __DIR__ . '/../../utils/comment_moderation.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 $pathInfo = $_SERVER['PATH_INFO'] ?? '';
@@ -219,11 +220,18 @@ function handle_get_comments(mysqli $conn): void
     }
     unset($comment); // Break reference
 
+    $extra = [];
+    if ($currentUserId) {
+        $st = hackme_user_comments_ban_status($conn, $currentUserId);
+        $extra['comments_posting_blocked'] = $st['banned'];
+        $extra['comments_banned_until'] = $st['until'];
+    }
+
     ob_clean();
-    echo json_encode([
+    echo json_encode(array_merge([
         'success' => true,
         'comments' => $topLevelComments,
-    ]);
+    ], $extra));
     ob_end_flush();
 }
 
@@ -293,7 +301,59 @@ function handle_create_comment(mysqli $conn): void
         $parentId = null;
     }
 
+    $ban = hackme_user_comments_ban_status($conn, $userId);
+    if ($ban['banned']) {
+        ob_clean();
+        http_response_code(403);
+        echo json_encode([
+            'success' => false,
+            'message' => 'You are blocked from posting comments due to repeated policy violations.',
+            'code' => 'COMMENTS_BANNED',
+            'banned_until' => $ban['until'],
+        ]);
+        ob_end_flush();
+        return;
+    }
+
     $sanitizedContent = sanitize_comment_text($content);
+
+    $mod = hackme_moderate_comment_text($sanitizedContent);
+    if ($mod['flagged']) {
+        $strike = hackme_record_comment_moderation_strike($conn, $userId);
+        if ($strike['strikes'] === 1) {
+            send_notification(
+                $conn,
+                $userId,
+                null,
+                'moderation',
+                'Comment blocked',
+                'Your comment was not posted: it violates community guidelines (e.g. hate, harassment, or abuse). A second violation will permanently ban you from commenting.',
+                '/comments'
+            );
+        } elseif (!empty($strike['banned'])) {
+            send_notification(
+                $conn,
+                $userId,
+                null,
+                'moderation',
+                'Banned from comments',
+                'You can no longer post comments after repeated violations of our community guidelines.',
+                '/comments'
+            );
+        }
+
+        ob_clean();
+        http_response_code(422);
+        echo json_encode([
+            'success' => false,
+            'message' => 'This comment violates community guidelines and was not posted.',
+            'code' => 'COMMENT_MODERATION_BLOCKED',
+            'strike' => $strike['strikes'],
+            'banned' => (bool) ($strike['banned'] ?? false),
+        ]);
+        ob_end_flush();
+        return;
+    }
 
     if ($parentId !== null) {
         $stmt = $conn->prepare("INSERT INTO comments (user_id, content, parent_id) VALUES (?, ?, ?)");

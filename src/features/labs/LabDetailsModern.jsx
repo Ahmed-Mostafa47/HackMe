@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   Shield,
@@ -13,6 +14,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { labService } from "../../services/labService";
+import { WHITEBOX_WORKBENCH_LAB_IDS } from "../../constants/labs";
 
 // Use relative path when proxy exists (dev), else full URL (production)
 const API_BASE = import.meta.env.DEV ? "/api" : "http://localhost/HackMe/server/api";
@@ -23,7 +25,24 @@ const diffBadgeClasses = {
   hard: "bg-rose-500/10 text-rose-300 border-rose-400/50",
 };
 
+const whiteboxRouteLabIds = new Set(WHITEBOX_WORKBENCH_LAB_IDS);
+
 const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    const id = Number(labId);
+    if (!whiteboxRouteLabIds.has(id)) return;
+    const q = new URLSearchParams();
+    q.set("labId", String(id));
+    const fc = searchParams.get("fromCategory");
+    const ft = searchParams.get("labType");
+    if (fc) q.set("fromCategory", fc);
+    if (ft) q.set("labType", ft);
+    navigate(`/lab-whitebox?${q.toString()}`, { replace: true });
+  }, [labId, navigate, searchParams]);
+
   const [lab, setLab] = useState(null);
   const [labLoading, setLabLoading] = useState(true);
   const [labError, setLabError] = useState("");
@@ -46,6 +65,13 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
 
   // Reset labSolved when switching to a different lab (prevents stale state from previous lab)
   useEffect(() => {
+    const id = Number(labId);
+    if (whiteboxRouteLabIds.has(id)) {
+      setLabLoading(false);
+      setLab(null);
+      setLabError("");
+      return;
+    }
     let mounted = true;
     setLabLoading(true);
     setLabError("");
@@ -91,7 +117,7 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
 
   // Listen for lab solved from Training Labs (postMessage)
   // Only accept from lab origins (localhost:4001, 4002) to prevent false solves from extensions/other tabs.
-  const labOrigins = ["http://localhost:4001", "http://localhost:4002", "http://localhost:4003", "http://127.0.0.1:4001", "http://127.0.0.1:4002", "http://127.0.0.1:4003"];
+  const labOrigins = ["http://localhost:4000", "http://localhost:4001", "http://localhost:4002", "http://localhost:4003", "http://127.0.0.1:4000", "http://127.0.0.1:4001", "http://127.0.0.1:4002", "http://127.0.0.1:4003"];
   useEffect(() => {
     const handler = (e) => {
       if (!labOrigins.includes(e?.origin ?? "")) return;
@@ -121,7 +147,7 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
       if (!lab?.lab_id || (!currentUser?.user_id && !currentUser?.id)) return;
       try {
         const uid = currentUser?.user_id ?? currentUser?.id;
-        const url = `${API_BASE}/labs/check_lab_solved.php?lab_id=${lab.lab_id}&user_id=${uid}`;
+        const url = `${API_BASE}/labs/check_lab_solved.php?lab_id=${lab.lab_id}&user_id=${uid}&scope=standard`;
         const r = await fetch(url, { cache: "no-store", signal: abort.signal });
         const d = await r.json().catch(() => ({}));
         if (d?.solved) {
@@ -300,6 +326,14 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
       setSolutionLoading(false);
     }
   };
+
+  if (whiteboxRouteLabIds.has(Number(labId))) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black flex items-center justify-center">
+        <p className="text-slate-400 font-mono text-sm">Opening white-box workspace…</p>
+      </div>
+    );
+  }
 
   if (labLoading) {
     return (

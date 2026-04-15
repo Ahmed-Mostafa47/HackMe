@@ -36,23 +36,22 @@ export const mockLabTypes = [
 ];
 
 export const mockLabs = [
-  // Black Box Labs (formerly White Box)
+  // Lab 1: black-box SQL injection (flag / running lab)
   {
     lab_id: 1,
     port: 4000,
-    title: "SQL_INJECTION_SOURCE_ANALYSIS",
+    title: "SQL_INJECTION",
     description:
-      "Analyze vulnerable PHP source code to identify and exploit SQL injection points with full code access",
+      "Black-box: exploit SQL injection in the training lab login flow, capture the flag. Separate from the white-box SQL lab (lab 11).",
     labtype_id: 2,
     difficulty: "medium",
-    points_total: 150,
+    points_total: 100,
     is_published: true,
     visibility: "public",
-    docker_image: "cyberops/sql-injection-whitebox",
+    docker_image: "cyberops/sql-injection-lab",
     created_by: 1,
-    whitebox_files: ["login.php", "database_config.php", "user_management.php"],
-    progress: 80,
-    status: "IN_PROGRESS",
+    progress: 0,
+    status: "NOT_STARTED",
     icon: "💉",
     hints: [
       "Inspect authentication inputs for injectable query fragments.",
@@ -61,80 +60,30 @@ export const mockLabs = [
     solution:
       "The vulnerable login query is injectable through user-controlled input. Use a boolean-based SQL injection payload in the username field to bypass authentication, then enumerate database records with a UNION-based payload to complete the challenge path.",
   },
+  // Lab 11: white-box SQL (same Training Labs sources; separate id and points from lab 1)
   {
-    lab_id: 2,
-    title: "BUFFER_OVERFLOW_CODE_REVIEW",
+    lab_id: 11,
+    port: 4000,
+    title: "SQL_INJECTION_WHITEBOX",
     description:
-      "Review C source code to identify buffer overflow vulnerabilities and develop exploits",
-    labtype_id: 2,
-    difficulty: "hard",
-    points_total: 250,
-    is_published: true,
-    visibility: "public",
-    docker_image: "cyberops/buffer-overflow-whitebox",
-    created_by: 1,
-    whitebox_files: [
-      "vulnerable_server.c",
-      "exploit_dev.c",
-      "memory_analysis.txt",
-    ],
-    progress: 20,
-    status: "STARTED",
-    icon: "💥",
-    hints: [
-      "Trace where fixed-size buffers copy untrusted user data.",
-      "Verify bounds checks and identify unsafe string functions.",
-    ],
-    solution:
-      "Identify the unsafe copy operation and calculate the exact overwrite offset. Craft input that controls execution flow without crashing the process, then deliver the exploit payload to trigger the intended behavior.",
-  },
-
-  // Black Box Labs
-  {
-    lab_id: 3,
-    title: "BLIND_SQL_INJECTION",
-    description:
-      "Exploit SQL injection vulnerabilities without source code access using blind techniques",
-    labtype_id: 2,
+      "White-box: review vulnerable login source, submit file/line/fix; server validates syntax and parameterized SQL. One graded solve per user. Independent from black-box SQL lab 1.",
+    labtype_id: 1,
     difficulty: "medium",
-    points_total: 200,
-    is_published: true,
-    visibility: "public",
-    docker_image: "cyberops/blind-sql-blackbox",
-    created_by: 1,
-    blackbox_endpoints: ["/login", "/search", "/user/profile"],
-    progress: 0,
-    status: "LOCKED",
-    icon: "🎯",
-    hints: [
-      "Use response timing differences to infer true/false SQL conditions.",
-      "Extract information incrementally with character-by-character predicates.",
-    ],
-    solution:
-      "Exploit the blind injection point using time-based payloads such as conditional sleep expressions. Build automated requests to recover schema and target values by observing delayed responses.",
-  },
-  {
-    lab_id: 4,
-    title: "XSS_BLACK_BOX_DETECTION",
-    description:
-      "Discover and exploit Cross-Site Scripting vulnerabilities through external testing",
-    labtype_id: 2,
-    difficulty: "easy",
     points_total: 100,
     is_published: true,
     visibility: "public",
-    docker_image: "cyberops/xss-blackbox",
+    docker_image: "",
     created_by: 1,
-    blackbox_endpoints: ["/contact", "/comment", "/search"],
+    whitebox_files: ["login.php", "database_config.php", "user_management.php"],
     progress: 0,
     status: "NOT_STARTED",
-    icon: "⚡",
+    icon: "💉",
     hints: [
-      "Probe reflected parameters first, then test script-context breakouts.",
-      "Use payloads that remain valid within HTML attributes and text contexts.",
+      "Inspect authentication inputs for injectable query fragments.",
+      "Use prepared statements with bound parameters instead of string concatenation.",
     ],
     solution:
-      "Locate the reflected input sink and confirm unsanitized output. Craft an XSS payload matched to the rendering context so JavaScript executes in the victim browser, then demonstrate impact with a controlled action.",
+      "Replace the vulnerable dynamic SQL string with mysqli prepared statements and bind_param for username and password.",
   },
   {
     lab_id: 5,
@@ -224,6 +173,112 @@ export const mockLabs = [
     solution:
       "Exploit insecure direct object reference by modifying a resource identifier tied to another account. Because ownership validation is missing, the application returns unauthorized data and confirms the access-control bypass.",
   },
+  {
+    lab_id: 10,
+    port: 4000,
+    title: "SQL_INJECTION_ACADEMY",
+    description:
+      "Exploit SQL injection on a programming academy site. Use sqlmap to discover tables and users, get the admin email, log in as admin, and delete a user to capture the flag.",
+    labtype_id: 2,
+    difficulty: "medium",
+    points_total: 150,
+    is_published: true,
+    visibility: "public",
+    created_by: 1,
+    progress: 0,
+    status: "NOT_STARTED",
+    icon: "💉",
+  },
+  {
+    lab_id: 20,
+    port: 4001,
+    title: "XSS_REFLECTED_WHITEBOX",
+    display_name: "XSS Lab 1 - Whitebox",
+    description:
+      "White-box reflected XSS: inspect vulnerable source code, test payloads in isolated sandbox, and submit a secure output-encoding fix.",
+    labtype_id: 1,
+    difficulty: "medium",
+    points_total: 100,
+    is_published: true,
+    visibility: "public",
+    progress: 0,
+    status: "NOT_STARTED",
+    icon: "⚡",
+    launch_path: "/",
+    hints: [
+      "Reflected user input must be encoded before output.",
+      "Avoid direct concatenation into HTML response.",
+    ],
+    solution:
+      "Use strict output encoding (for example htmlspecialchars with ENT_QUOTES and UTF-8) when rendering user-controlled values in HTML.",
+  },
+  {
+    lab_id: 21,
+    port: 4002,
+    title: "XSS_DOM_WHITEBOX",
+    display_name: "XSS Lab 2 - Whitebox",
+    description:
+      "White-box DOM XSS: review JavaScript sink usage and replace unsafe HTML injection with safe DOM text rendering.",
+    labtype_id: 1,
+    difficulty: "medium",
+    points_total: 100,
+    is_published: true,
+    visibility: "public",
+    progress: 0,
+    status: "NOT_STARTED",
+    icon: "⚡",
+    launch_path: "/",
+    hints: [
+      "Search for innerHTML assignments fed by user input.",
+      "Use textContent or createTextNode for untrusted content.",
+    ],
+    solution:
+      "Remove unsafe innerHTML sink and render untrusted data through textContent/createTextNode to prevent script execution.",
+  },
+  {
+    lab_id: 18,
+    port: 4003,
+    title: "Access Control Bypass",
+    description:
+      "White-box: admin_panel route trusts ?role= in the URL and writes it into the session — fix the source (remove client-controlled role + enforce server-side admin gate).",
+    labtype_id: 1,
+    difficulty: "medium",
+    points_total: 100,
+    is_published: true,
+    visibility: "public",
+    docker_image: "cyberops/access-control-lab",
+    created_by: 1,
+    progress: 0,
+    status: "NOT_STARTED",
+    icon: "🔓",
+    launch_path: "/lab/1",
+    hints: [
+      "Compare user vs admin API responses for the same endpoint.",
+      "If a feature is hidden in the UI, try calling its API path directly.",
+    ],
+  },
+  {
+    lab_id: 19,
+    port: 4003,
+    title: "ACCESS_CONTROL_WHITEBOX_19",
+    description:
+      "Access control (WHITE_BOX listing): IDOR / horizontal access; capture the lab flag.",
+    labtype_id: 1,
+    difficulty: "medium",
+    points_total: 100,
+    is_published: true,
+    visibility: "public",
+    docker_image: "cyberops/access-control-lab",
+    created_by: 1,
+    progress: 0,
+    status: "NOT_STARTED",
+    icon: "🔓",
+    launch_path: "/lab/2",
+    hints: [
+      "Try predictable or sequential IDs on object references.",
+      "Confirm whether the server re-checks ownership on every read.",
+    ],
+  },
 ];
 
 export const mockChallenges = [
@@ -269,24 +324,6 @@ export const mockChallenges = [
         type: "flag_match",
         secret_flag_plain: "FLAG{DATA_EXFIL_456}",
         points: 100,
-      },
-    ],
-  },
-  {
-    challenge_id: 3,
-    lab_id: 3,
-    title: "BLIND_TIME_BASED_SQLI",
-    statement:
-      "Exploit time-based blind SQL injection to extract database information",
-    order_index: 1,
-    max_score: 150,
-    difficulty: "hard",
-    testcases: [
-      {
-        testcase_id: 3,
-        type: "flag_match",
-        secret_flag_plain: "FLAG{BLIND_SQLI_789}",
-        points: 150,
       },
     ],
   },

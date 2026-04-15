@@ -19,6 +19,7 @@ import TrainingSelectionPage from "./features/dashboard/TrainingSelectionPage";
 import LabsListModern from "./features/labs/LabsListModern";
 import LabsCategoriesPage from "./features/labs/LabsCategoriesPage";
 import LabDetailsModern from "./features/labs/LabDetailsModern";
+import LabWhiteboxPage from "./features/labs/LabWhiteboxPage";
 import InstructorLabsDashboard from "./features/labs/InstructorLabsDashboard";
 import AdminLabsDashboard from "./features/labs/AdminLabsDashboard";
 import SandboxLabApp from "./features/labs/SandboxLabApp";
@@ -31,6 +32,7 @@ import axios from "axios";
 import { useAuth } from "./hooks/useAuth";
 import { useLabs } from "./hooks/useLabs";
 import "./styles/animations.css";
+import { WHITEBOX_WORKBENCH_LAB_IDS } from "./constants/labs";
 
 const API_BASE = "http://localhost/HackMe/server/api";
 
@@ -109,9 +111,12 @@ function AppContent() {
   // When lab is solved (e.g. SQL lab in new tab), refresh points from DB
   useEffect(() => {
     const handler = async (e) => {
-      if (e?.data?.type !== "LAB_SOLVED" || !currentUser?.user_id) return;
+      const t = e?.data?.type;
+      if (t !== "LAB_SOLVED" && t !== "HACKME_LAB_SOLVED") return;
+      const uid = currentUser?.user_id ?? currentUser?.id;
+      if (!uid) return;
       try {
-        const res = await fetch(`${API_BASE}/get_user_points.php?user_id=${currentUser.user_id}`);
+        const res = await fetch(`${API_BASE}/get_user_points.php?user_id=${uid}`);
         const data = await res.json();
         if (data.success && data.total_points != null) {
           updateUserPoints(data.total_points);
@@ -120,7 +125,7 @@ function AppContent() {
     };
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
-  }, [currentUser?.user_id, updateUserPoints]);
+  }, [currentUser?.user_id, currentUser?.id, updateUserPoints]);
 
   // Refresh points when user returns to tab (e.g. after solving lab in another tab)
   useEffect(() => {
@@ -492,7 +497,13 @@ function AppContent() {
               isInstructor={isInstructor}
               onEditLab={() => {}}
               onRemoveLab={() => {}}
-              onLabClick={(lab) => navigate(`/lab-modern?labId=${lab.lab_id}`)}
+              onLabClick={(lab) =>
+                navigate(
+                  WHITEBOX_WORKBENCH_LAB_IDS.includes(Number(lab.lab_id))
+                    ? `/lab-whitebox?labId=${encodeURIComponent(String(lab.lab_id))}`
+                    : `/lab-modern?labId=${lab.lab_id}`
+                )
+              }
             />
           );
         }
@@ -524,8 +535,31 @@ function AppContent() {
             onBack={backToCategories}
             onAddLab={() => navigate("/instructor-labs")}
             onLabClick={(lab) =>
-              navigate(`/lab-modern?labId=${lab.lab_id}&fromCategory=${categoryParam}&labType=${labTypeParam}`)
+              navigate(
+                WHITEBOX_WORKBENCH_LAB_IDS.includes(Number(lab.lab_id))
+                  ? `/lab-whitebox?labId=${encodeURIComponent(String(lab.lab_id))}&fromCategory=${encodeURIComponent(categoryParam)}&labType=${encodeURIComponent(labTypeParam)}`
+                  : `/lab-modern?labId=${lab.lab_id}&fromCategory=${categoryParam}&labType=${labTypeParam}`
+              )
             }
+          />
+        );
+      }
+      case "/lab-whitebox": {
+        const wbLabId = params.get("labId") || String(WHITEBOX_WORKBENCH_LAB_IDS[0]);
+        return (
+          <LabWhiteboxPage
+            key={wbLabId}
+            currentUser={currentUser}
+            onFlagSuccess={async () => {
+              if (!currentUser?.user_id) return;
+              try {
+                const res = await fetch(`${API_BASE}/get_user_points.php?user_id=${currentUser.user_id}`);
+                const data = await res.json();
+                if (data.success && data.total_points != null) {
+                  updateUserPoints(data.total_points);
+                }
+              } catch (_) {}
+            }}
           />
         );
       }

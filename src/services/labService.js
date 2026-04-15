@@ -2,6 +2,8 @@
  * Lab Service - API-only labs data source.
  */
 
+import { WHITEBOX_SQL_LAB_ID, WHITEBOX_WORKBENCH_LAB_IDS } from "../constants/labs";
+
 export const getHackMeBase = () => {
   if (typeof window === "undefined") return "http://localhost/HackMe";
   const origin = window.location.origin;
@@ -20,28 +22,163 @@ const getLabsBase = () =>
     ? "/api/labs"
     : getApiBase();
 
+/** Same shape as GET get_lab_details.php `data.lab` for UI compatibility */
+function mockLabToDetailsPayload(lab) {
+  if (!lab) return null;
+  const hints = Array.isArray(lab.hints)
+    ? lab.hints.map((h) => String(h).trim()).filter(Boolean)
+    : [];
+  return {
+    success: true,
+    message: "OK",
+    data: {
+      lab: {
+        lab_id: Number(lab.lab_id) || 0,
+        title: String(lab.display_name ?? lab.title ?? ""),
+        description: String(lab.description ?? ""),
+        icon: String(lab.icon ?? "LAB"),
+        port: lab.port != null ? Number(lab.port) : null,
+        launch_path: String(lab.launch_path ?? ""),
+        labtype_id: Number(lab.labtype_id) || 0,
+        difficulty: String(lab.difficulty ?? "easy"),
+        points_total: Number(lab.points_total) || 0,
+        is_published: lab.is_published !== false,
+        visibility: String(lab.visibility ?? "public"),
+        has_solution: !!(lab.solution && String(lab.solution).trim()),
+        hints,
+      },
+    },
+  };
+}
+
+async function getLabDetailsFromMock(labId) {
+  const { mockLabs } = await import("../data/mockData");
+  const id = Number(labId);
+  const lab = mockLabs.find((l) => Number(l.lab_id) === id);
+  const payload = mockLabToDetailsPayload(lab);
+  if (!payload) {
+    throw new Error("Lab not found");
+  }
+  return payload;
+}
+
 export const labService = {
   async getLabs() {
-    const response = await fetch(`${getLabsBase()}/get_labs.php`, {
-      cache: "no-store",
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok || !data?.success) {
-      throw new Error(data?.message || `Failed to load labs (${response.status})`);
+    try {
+      const response = await fetch(`${getLabsBase()}/get_labs.php`, {
+        cache: "no-store",
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || data?.success === false) {
+        throw new Error(
+          data?.message || `Failed to load labs (${response.status})`
+        );
+      }
+
+      if (Array.isArray(data?.data?.labs) && data.data.labs.length > 0) {
+        const labs = data.data.labs.filter(
+          (l) => !(Number(l?.lab_id) === 11 && WHITEBOX_SQL_LAB_ID !== 11)
+        );
+        const { mockLabs } = await import("../data/mockData");
+        for (const id of [1, ...WHITEBOX_WORKBENCH_LAB_IDS]) {
+          if (!labs.some((l) => Number(l?.lab_id) === id)) {
+            const fromMock = mockLabs.find((l) => Number(l.lab_id) === id);
+            if (fromMock) {
+              labs.push({ ...fromMock });
+            }
+          }
+        }
+        labs.sort((a, b) => Number(a.lab_id) - Number(b.lab_id));
+        for (const lab of labs) {
+          const id = Number(lab?.lab_id);
+          if (WHITEBOX_WORKBENCH_LAB_IDS.includes(id)) {
+            lab.labtype_id = 1;
+          }
+        }
+        for (const mid of WHITEBOX_WORKBENCH_LAB_IDS) {
+          if (!labs.some((l) => Number(l?.lab_id) === mid)) {
+            const fromMock = mockLabs.find((l) => Number(l.lab_id) === mid);
+            if (fromMock) {
+              labs.push({ ...fromMock, labtype_id: 1 });
+            }
+          }
+        }
+        labs.sort((a, b) => Number(a.lab_id) - Number(b.lab_id));
+        data.data.labs = labs;
+        return data;
+      }
+
+      // API empty - fall back to mock labs (registered subset preferred)
+      const { mockLabs } = await import("../data/mockData");
+      const registered = mockLabs.filter(
+        (l) =>
+          l.lab_id === 1 ||
+          l.lab_id === WHITEBOX_SQL_LAB_ID ||
+          l.lab_id === 5 ||
+          l.lab_id === 7 ||
+          l.lab_id === 8 ||
+          l.lab_id === 9 ||
+          l.lab_id === 10 ||
+          l.lab_id === 18 ||
+          l.lab_id === 19 ||
+          l.lab_id === 20 ||
+          l.lab_id === 21
+      );
+      return {
+        success: true,
+        data: { labs: registered.length ? registered : mockLabs },
+      };
+    } catch (error) {
+      console.warn("LabService: API unavailable, using mock data:", error?.message);
+      const { mockLabs } = await import("../data/mockData");
+      const registeredFallback = mockLabs.filter(
+        (l) =>
+          l.lab_id === 1 ||
+          l.lab_id === WHITEBOX_SQL_LAB_ID ||
+          l.lab_id === 5 ||
+          l.lab_id === 7 ||
+          l.lab_id === 8 ||
+          l.lab_id === 9 ||
+          l.lab_id === 10 ||
+          l.lab_id === 18 ||
+          l.lab_id === 19 ||
+          l.lab_id === 20 ||
+          l.lab_id === 21
+      );
+      return {
+        success: true,
+        data: { labs: registeredFallback.length ? registeredFallback : mockLabs },
+      };
     }
-    return data;
   },
 
   async getLabDetails(labId) {
-    const response = await fetch(
-      `${getLabsBase()}/get_lab_details.php?lab_id=${encodeURIComponent(labId)}`,
-      { cache: "no-store" }
-    );
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok || !data?.success) {
-      throw new Error(data?.message || `Failed to load lab details (${response.status})`);
+    try {
+      const response = await fetch(
+        `${getLabsBase()}/get_lab_details.php?lab_id=${encodeURIComponent(labId)}`,
+        { cache: "no-store" }
+      );
+      const data = await response.json().catch(() => ({}));
+      if (response.ok && data?.success) {
+        return data;
+      }
+      // DB down, or lab missing from DB while list came from mock — use mock details
+      if (
+        data?.message === "Lab not found" ||
+        data?.message === "Load error" ||
+        !response.ok
+      ) {
+        return await getLabDetailsFromMock(labId);
+      }
+      throw new Error(
+        data?.message || `Failed to load lab details (${response.status})`
+      );
+    } catch (err) {
+      if (err?.message === "Lab not found") throw err;
+      console.warn("LabService: getLabDetails API failed, trying mock:", err?.message);
+      return await getLabDetailsFromMock(labId);
     }
-    return data;
   },
 
   async getLabSolution({ labId, userId }) {
@@ -53,6 +190,77 @@ export const labService = {
     const data = await response.json().catch(() => ({}));
     if (!response.ok || !data?.success) {
       throw new Error(data?.message || `Failed to load solution (${response.status})`);
+    }
+    return data;
+  },
+
+  async getWhiteboxLab({ labId, userId }) {
+    const response = await fetch(
+      `${getLabsBase()}/get_whitebox_lab.php?lab_id=${encodeURIComponent(labId)}&user_id=${encodeURIComponent(userId)}`,
+      { cache: "no-store" }
+    );
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data?.success) {
+      throw new Error(data?.message || `White-box lab unavailable (${response.status})`);
+    }
+    return data;
+  },
+
+  async submitWhiteboxFix({ labId, userId, accessToken, sourceFile, line, replacementCode }) {
+    const response = await fetch(`${getLabsBase()}/submit_whitebox_fix.php`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        lab_id: labId,
+        user_id: userId,
+        access_token: accessToken || "",
+        source_file: sourceFile,
+        line,
+        replacement_code: replacementCode,
+      }),
+    });
+    return response.json().catch(() => ({}));
+  },
+
+  async uploadLabZip({ file, userId }) {
+    const formData = new FormData();
+    formData.append("lab_zip", file);
+    formData.append("user_id", String(userId || 0));
+    const response = await fetch(`${getLabsBase()}/upload_lab_zip.php`, {
+      method: "POST",
+      body: formData,
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data?.success) {
+      throw new Error(data?.message || `Failed to upload ZIP (${response.status})`);
+    }
+    return data;
+  },
+
+  async finalizeLabUpload({ userId, uploadToken }) {
+    const response = await fetch(`${getLabsBase()}/finalize_lab_upload.php`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_id: userId,
+        upload_token: uploadToken,
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data?.success) {
+      throw new Error(data?.message || `Failed to finalize lab upload (${response.status})`);
+    }
+    return data;
+  },
+
+  async getLabDocument({ labId, kind }) {
+    const response = await fetch(
+      `${getLabsBase()}/get_lab_document.php?lab_id=${encodeURIComponent(labId)}&kind=${encodeURIComponent(kind)}`,
+      { cache: "no-store" }
+    );
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data?.success) {
+      throw new Error(data?.message || `Failed to load document (${response.status})`);
     }
     return data;
   },
