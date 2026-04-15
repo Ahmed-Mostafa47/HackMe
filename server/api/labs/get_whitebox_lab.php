@@ -29,6 +29,7 @@ try {
     require_once __DIR__ . '/../../utils/db_connect.php';
     require_once __DIR__ . '/../../utils/labs_config.php';
     require_once __DIR__ . '/../../utils/whitebox_lab1_defaults.php';
+    require_once __DIR__ . '/../../utils/whitebox_lab18_defaults.php';
 } catch (Throwable $e) {
     http_response_code(500);
     echo json_encode(['success' => false, 'message' => 'Load error']);
@@ -59,12 +60,33 @@ $labRes = $conn->query("
   LIMIT 1
 ");
 if (!$labRes || $labRes->num_rows === 0) {
-    echo json_encode(['success' => false, 'message' => 'Lab not found']);
-    exit;
-}
-$labRow = $labRes->fetch_assoc();
-if ($labIdEsc === 1) {
-    $labRow['labtype_id'] = 1;
+    // Built-in white-box labs: work without a DB row (fresh installs / empty labs table).
+    if ($labIdEsc === 1) {
+        $labRow = [
+            'lab_id' => 1,
+            'title' => 'SQL_INJECTION_WHITEBOX',
+            'labtype_id' => 1,
+            'description' => 'White-box: review login source and submit a fix (embedded sample if Training Labs path is unset).',
+        ];
+    } elseif ($labIdEsc === 18) {
+        $labRow = [
+            'lab_id' => 18,
+            'title' => 'Access Control Bypass',
+            'labtype_id' => 1,
+            'description' => 'White-box: fix admin route / session role (embedded sample if Training Labs path is unset).',
+        ];
+    } else {
+        echo json_encode(['success' => false, 'message' => 'Lab not found']);
+        exit;
+    }
+} else {
+    $labRow = $labRes->fetch_assoc();
+    if ($labIdEsc === 1 || $labIdEsc === 18) {
+        $labRow['labtype_id'] = 1;
+    }
+    if ($labIdEsc === 18) {
+        $labRow['title'] = 'Access Control Bypass';
+    }
 }
 
 $chRes = $conn->query("
@@ -75,15 +97,22 @@ $chRes = $conn->query("
   LIMIT 1
 ");
 if (!$chRes || $chRes->num_rows === 0) {
-    if ($labIdEsc !== 1) {
+    if ($labIdEsc === 1) {
+        $ch = [
+            'challenge_id' => 0,
+            'title' => 'SECURE_LOGIN_ENDPOINT',
+            'whitebox_files_ref' => hackme_whitebox_lab1_meta_json(),
+        ];
+    } elseif ($labIdEsc === 18) {
+        $ch = [
+            'challenge_id' => 0,
+            'title' => 'SECURE_ADMIN_PANEL_ROUTE',
+            'whitebox_files_ref' => hackme_whitebox_lab18_meta_json(),
+        ];
+    } else {
         echo json_encode(['success' => false, 'message' => 'No challenge for this lab']);
         exit;
     }
-    $ch = [
-        'challenge_id' => 0,
-        'title' => 'SECURE_LOGIN_ENDPOINT',
-        'whitebox_files_ref' => hackme_whitebox_lab1_meta_json(),
-    ];
 } else {
     $ch = $chRes->fetch_assoc();
 }
@@ -91,6 +120,9 @@ if (!$chRes || $chRes->num_rows === 0) {
 $rawRef = trim((string) ($ch['whitebox_files_ref'] ?? ''));
 if ($rawRef === '' && $labIdEsc === 1) {
     $rawRef = hackme_whitebox_lab1_meta_json();
+}
+if ($rawRef === '' && $labIdEsc === 18) {
+    $rawRef = hackme_whitebox_lab18_meta_json();
 }
 
 if ($rawRef === '') {
@@ -101,6 +133,9 @@ if ($rawRef === '') {
 $meta = json_decode($rawRef, true);
 if ((!is_array($meta) || empty($meta['files']) || !is_array($meta['files'])) && $labIdEsc === 1) {
     $meta = hackme_whitebox_lab1_meta();
+}
+if ((!is_array($meta) || empty($meta['files']) || !is_array($meta['files'])) && $labIdEsc === 18) {
+    $meta = hackme_whitebox_lab18_meta();
 }
 
 if (!is_array($meta) || empty($meta['files']) || !is_array($meta['files'])) {
@@ -124,11 +159,13 @@ foreach ($GLOBALS['LABS_REGISTRY'] ?? [] as $cfg) {
 }
 
 if ($labRoot === null || !is_dir($labRoot)) {
-    echo json_encode([
-        'success' => false,
-        'message' => 'Lab sources path is not available on the server. Set LABS_BASE_PATH in server/utils/labs_config.php to your Training Labs root.',
-    ]);
-    exit;
+    if ($labIdEsc !== 18 && $labIdEsc !== 1) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Lab sources path is not available on the server. Set LABS_BASE_PATH in server/utils/labs_config.php to your Training Labs root.',
+        ]);
+        exit;
+    }
 }
 
 $filesOut = [];
@@ -141,15 +178,34 @@ foreach ($meta['files'] as $f) {
     if ($rel === '' || strpos($rel, '..') !== false) {
         continue;
     }
-    $abs = realpath($labRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $rel));
-    if ($abs === false || !hackme_path_is_under_lab_root($abs, $labRoot)) {
-        continue;
+    $useStub = false;
+    $content = '';
+    if (($labIdEsc === 18 || $labIdEsc === 1) && ($labRoot === null || !is_dir($labRoot))) {
+        $useStub = true;
+    } else {
+        $abs = realpath($labRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $rel));
+        if ($abs === false || !hackme_path_is_under_lab_root($abs, $labRoot)) {
+            if ($labIdEsc === 18 || $labIdEsc === 1) {
+                $useStub = true;
+            } else {
+                continue;
+            }
+        } elseif (!is_file($abs) || !is_readable($abs)) {
+            if ($labIdEsc === 18 || $labIdEsc === 1) {
+                $useStub = true;
+            } else {
+                continue;
+            }
+        } else {
+            $content = (string) file_get_contents($abs);
+        }
     }
-    if (!is_file($abs) || !is_readable($abs)) {
-        continue;
+    if ($useStub) {
+        $content = $labIdEsc === 18
+            ? hackme_whitebox_lab18_stub_source()
+            : hackme_whitebox_lab1_stub_login_source();
     }
-    $content = file_get_contents($abs);
-    if ($content === false) {
+    if ($content === '') {
         continue;
     }
     if (strlen($content) > 512000) {
@@ -184,7 +240,9 @@ echo json_encode([
             'title' => (string) ($ch['title'] ?? ''),
         ],
         'verify_profile' => (string) ($meta['verify_profile'] ?? ''),
-        'verification_help' => 'Submissions are checked in an isolated temp file: PHP syntax (php -l) plus static rules ensuring SQL is parameterized (no username/password concatenated into query strings).',
+        'verification_help' => $labIdEsc === 18
+            ? 'Edit the highlighted line only. Replace the role-from-URL assignment with a server-side gate (403 + check role !== admin) before ADMIN_PANEL; php -l + static rules apply.'
+            : 'Submissions are checked in an isolated temp file: PHP syntax (php -l) plus static rules ensuring SQL is parameterized (no username/password concatenated into query strings). If LABS_BASE_PATH is unset or wrong, an embedded api/login.php sample is used so the lab still loads.',
         'files' => $filesOut,
     ],
 ]);

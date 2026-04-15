@@ -498,8 +498,8 @@ function AppContent() {
               onRemoveLab={() => {}}
               onLabClick={(lab) =>
                 navigate(
-                  Number(lab.lab_id) === 1
-                    ? `/lab-whitebox?labId=1`
+                  [1, 18, 19].includes(Number(lab.lab_id))
+                    ? `/lab-whitebox?labId=${encodeURIComponent(String(lab.lab_id))}`
                     : `/lab-modern?labId=${lab.lab_id}`
                 )
               }
@@ -535,8 +535,8 @@ function AppContent() {
             onAddLab={() => navigate("/instructor-labs")}
             onLabClick={(lab) =>
               navigate(
-                Number(lab.lab_id) === 1
-                  ? `/lab-whitebox?labId=1&fromCategory=${encodeURIComponent(categoryParam)}&labType=${encodeURIComponent(labTypeParam)}`
+                [1, 18, 19].includes(Number(lab.lab_id))
+                  ? `/lab-whitebox?labId=${encodeURIComponent(String(lab.lab_id))}&fromCategory=${encodeURIComponent(categoryParam)}&labType=${encodeURIComponent(labTypeParam)}`
                   : `/lab-modern?labId=${lab.lab_id}&fromCategory=${categoryParam}&labType=${labTypeParam}`
               )
             }

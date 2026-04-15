@@ -185,6 +185,56 @@ if ($labId === 10 && $flag === 'FLAG{ACADEMY_SQLI_DELETED}') {
     }
 }
 
+// Labs 18 / 19: white-box listed access-control labs (ensure rows so flags validate without manual seed).
+if ($labId === 18 || $labId === 19) {
+    $conn->query("INSERT IGNORE INTO lab_types (labtype_id, name, description) VALUES (1, 'WHITE_BOX', 'White Box Testing Labs')");
+    $ur = $conn->query("SELECT user_id FROM users ORDER BY user_id ASC LIMIT 1");
+    $creator = $ur && ($r = $ur->fetch_assoc()) ? (int) $r['user_id'] : 0;
+    if ($userId > 0) {
+        $creator = (int) $userId;
+    }
+    if ($creator > 0) {
+        $c = (int) $creator;
+        if ($labId === 18) {
+            $conn->query(
+                "INSERT INTO labs (lab_id, title, description, labtype_id, difficulty, points_total, created_by, is_published, visibility, docker_image, reset_interval) " .
+                "VALUES (18, 'Access Control Bypass', 'Broken access control (white-box): bypass authorization via session/role; capture FLAG{ACCESS_CONTROL_WHITEBOX_18}.', 1, 'medium', 100, $c, 1, 'public', 'cyberops/access-control-lab', 3600) " .
+                "ON DUPLICATE KEY UPDATE title = VALUES(title), description = VALUES(description), labtype_id = 1, " .
+                "difficulty = VALUES(difficulty), points_total = VALUES(points_total)"
+            );
+            $conn->query(
+                "INSERT INTO challenges (challenge_id, lab_id, created_by, title, statement, order_index, max_score, difficulty, is_active) " .
+                "VALUES (318, 18, $c, 'ACCESS_CONTROL_18', 'Solve the access-control challenge and submit the flag.', 1, 100, 'medium', 1) " .
+                "ON DUPLICATE KEY UPDATE lab_id = 18, is_active = 1, title = VALUES(title), statement = VALUES(statement), max_score = VALUES(max_score)"
+            );
+            $conn->query(
+                "INSERT INTO testcases (testcase_id, challenge_id, secret_flag_hash, secret_flag_plain, points, active, type) " .
+                "VALUES (318, 318, 'FLAG{ACCESS_CONTROL_WHITEBOX_18}', 'FLAG{ACCESS_CONTROL_WHITEBOX_18}', 100, 1, 'flag_match') " .
+                "ON DUPLICATE KEY UPDATE challenge_id = 318, secret_flag_plain = VALUES(secret_flag_plain), secret_flag_hash = VALUES(secret_flag_hash), points = 100, active = 1"
+            );
+            $wb18 = $conn->real_escape_string('{"version":1,"verify_profile":"lab18_admin_role_request","files":[{"id":"admin_panel","display_name":"admin_panel.php","relative_path":"public/admin_panel.php","vulnerable_line":4}]}');
+            $conn->query("UPDATE challenges SET whitebox_files_ref = '$wb18' WHERE challenge_id = 318 AND lab_id = 18");
+        } else {
+            $conn->query(
+                "INSERT INTO labs (lab_id, title, description, labtype_id, difficulty, points_total, created_by, is_published, visibility, docker_image, reset_interval) " .
+                "VALUES (19, 'ACCESS_CONTROL_WHITEBOX_19', 'Access control (WHITE_BOX listing): IDOR / horizontal access; capture FLAG{ACCESS_CONTROL_WHITEBOX_19}.', 1, 'medium', 100, $c, 1, 'public', 'cyberops/access-control-lab', 3600) " .
+                "ON DUPLICATE KEY UPDATE title = VALUES(title), description = VALUES(description), labtype_id = 1, " .
+                "difficulty = VALUES(difficulty), points_total = VALUES(points_total)"
+            );
+            $conn->query(
+                "INSERT INTO challenges (challenge_id, lab_id, created_by, title, statement, order_index, max_score, difficulty, is_active) " .
+                "VALUES (319, 19, $c, 'ACCESS_CONTROL_19', 'Solve the access-control challenge and submit the flag.', 1, 100, 'medium', 1) " .
+                "ON DUPLICATE KEY UPDATE lab_id = 19, is_active = 1, title = VALUES(title), statement = VALUES(statement), max_score = VALUES(max_score)"
+            );
+            $conn->query(
+                "INSERT INTO testcases (testcase_id, challenge_id, secret_flag_hash, secret_flag_plain, points, active, type) " .
+                "VALUES (319, 319, 'FLAG{ACCESS_CONTROL_WHITEBOX_19}', 'FLAG{ACCESS_CONTROL_WHITEBOX_19}', 100, 1, 'flag_match') " .
+                "ON DUPLICATE KEY UPDATE challenge_id = 319, secret_flag_plain = VALUES(secret_flag_plain), secret_flag_hash = VALUES(secret_flag_hash), points = 100, active = 1"
+            );
+        }
+    }
+}
+
 // Find matching flag in DB
 $res = $conn->query("
     SELECT c.challenge_id, t.points

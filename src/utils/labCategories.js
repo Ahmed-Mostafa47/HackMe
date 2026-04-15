@@ -20,7 +20,15 @@ export const LAB_CATEGORIES = {
     key: "broken_access",
     label: "Broken Access Control",
     icon: "🔓",
-    keywords: ["access", "idor", "authorization", "privilege", "bypass"],
+    keywords: [
+      "broken",
+      "access",
+      "access_control",
+      "idor",
+      "authorization",
+      "privilege",
+      "bypass",
+    ],
   },
   CSRF: {
     key: "csrf",
@@ -34,31 +42,37 @@ export const LAB_CATEGORIES = {
     icon: "💥",
     keywords: ["buffer", "overflow", "overflow"],
   },
-  GENERAL: {
-    key: "general",
-    label: "General",
-    icon: "📁",
-    keywords: [],
-  },
 };
 
+/** White-box access-control workbench labs (always grouped under Broken Access Control). */
+const WHITEBOX_ACCESS_LAB_IDS = new Set([18, 19]);
+
 /**
- * Derive category key from lab title/name
- * @param {string} labTitle - Lab title or name (e.g. "SQL_INJECTION_SOURCE_ANALYSIS", "REFLECTED_XSS_BLOG_LAB")
+ * Derive category key from lab title/name (and optional lab_id for known workbenches).
+ * @param {string} labTitle - Lab title or name
+ * @param {number|string|undefined} labId - When set, pins known white-box labs to the right folder
  * @returns {string} Category key
  */
-export function getCategoryFromLabTitle(labTitle) {
-  if (!labTitle || typeof labTitle !== "string") return LAB_CATEGORIES.GENERAL.key;
+export function getCategoryFromLabTitle(labTitle, labId) {
+  const id = labId != null && labId !== "" ? Number(labId) : NaN;
+  if (!Number.isNaN(id) && WHITEBOX_ACCESS_LAB_IDS.has(id)) {
+    return LAB_CATEGORIES.BROKEN_ACCESS.key;
+  }
+  if (id === 1) {
+    return LAB_CATEGORIES.SQL_INJECTION.key;
+  }
+  if (!labTitle || typeof labTitle !== "string") {
+    return LAB_CATEGORIES.BROKEN_ACCESS.key;
+  }
   const upper = labTitle.toUpperCase();
 
-  for (const [catKey, config] of Object.entries(LAB_CATEGORIES)) {
-    if (catKey === "GENERAL") continue;
+  for (const [, config] of Object.entries(LAB_CATEGORIES)) {
     if (config.keywords.some((kw) => upper.includes(kw.toUpperCase()))) {
       return config.key;
     }
   }
 
-  return LAB_CATEGORIES.GENERAL.key;
+  return LAB_CATEGORIES.BROKEN_ACCESS.key;
 }
 
 /**
@@ -69,7 +83,7 @@ export function getCategoryFromLabTitle(labTitle) {
 export function getCategoriesWithLabs(labs) {
   const counts = {};
   labs.forEach((lab) => {
-    const key = getCategoryFromLabTitle(lab.title);
+    const key = getCategoryFromLabTitle(lab.title, lab.lab_id);
     counts[key] = (counts[key] || 0) + 1;
   });
 

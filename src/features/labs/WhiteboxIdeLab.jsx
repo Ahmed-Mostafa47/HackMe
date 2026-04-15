@@ -131,8 +131,11 @@ const WhiteboxIdeLab = ({
       <section className="rounded-2xl border border-rose-700/50 bg-rose-950/20 p-6">
         <p className="text-xs font-mono text-rose-200">{loadError}</p>
         <p className="mt-2 text-[11px] text-slate-500 font-mono">
-          Check that LABS_BASE_PATH in server/utils/labs_config.php points to the folder that contains the{" "}
-          <code className="text-slate-400">SQL/api/login.php</code> Training Lab tree.
+          If this persists: set <code className="text-slate-400">LABS_BASE_PATH</code> in{" "}
+          <code className="text-slate-400">server/utils/labs_config.php</code> to your Training Labs root (folder that
+          contains <code className="text-slate-400">SQL/api/login.php</code> for lab 1, or <code className="text-slate-400">BA/</code>{" "}
+          for lab 18). When the path is missing, the server should fall back to an embedded sample — try refreshing after
+          updating the API.
         </p>
       </section>
     );

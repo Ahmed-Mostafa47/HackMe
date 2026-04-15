@@ -75,7 +75,7 @@ export const labService = {
       }
 
       if (Array.isArray(data?.data?.labs) && data.data.labs.length > 0) {
-        const labs = data.data.labs;
+        const labs = data.data.labs.filter((l) => Number(l?.lab_id) !== 11);
         const hasLab1 = labs.some((l) => Number(l?.lab_id) === 1);
         if (!hasLab1) {
           const { mockLabs } = await import("../data/mockData");
@@ -86,10 +86,21 @@ export const labService = {
           }
         }
         for (const lab of labs) {
-          if (Number(lab?.lab_id) === 1) {
+          const id = Number(lab?.lab_id);
+          if (id === 1 || id === 18 || id === 19) {
             lab.labtype_id = 1;
           }
         }
+        const { mockLabs } = await import("../data/mockData");
+        for (const mid of [18, 19]) {
+          if (!labs.some((l) => Number(l?.lab_id) === mid)) {
+            const fromMock = mockLabs.find((l) => Number(l.lab_id) === mid);
+            if (fromMock) {
+              labs.push({ ...fromMock, labtype_id: 1 });
+            }
+          }
+        }
+        labs.sort((a, b) => Number(a.lab_id) - Number(b.lab_id));
         return data;
       }
 
@@ -102,7 +113,9 @@ export const labService = {
           l.lab_id === 7 ||
           l.lab_id === 8 ||
           l.lab_id === 9 ||
-          l.lab_id === 10
+          l.lab_id === 10 ||
+          l.lab_id === 18 ||
+          l.lab_id === 19
       );
       return {
         success: true,
@@ -118,7 +131,9 @@ export const labService = {
           l.lab_id === 7 ||
           l.lab_id === 8 ||
           l.lab_id === 9 ||
-          l.lab_id === 10
+          l.lab_id === 10 ||
+          l.lab_id === 18 ||
+          l.lab_id === 19
       );
       return {
         success: true,

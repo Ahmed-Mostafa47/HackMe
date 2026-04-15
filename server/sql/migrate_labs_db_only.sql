@@ -129,7 +129,19 @@ VALUES
  'Find and exploit insecure direct object reference and horizontal access control flaws.',
  'Modify object identifiers in requests to access another user records where ownership checks are missing.',
  '🔐', 4003, '/lab/2',
- 3, 'medium', 120, @creator, 1, 'public', 'cyberops/idor-lab', 3600)
+ 3, 'medium', 120, @creator, 1, 'public', 'cyberops/idor-lab', 3600),
+
+(18, 'Access Control Bypass',
+ 'Broken access control (white-box): bypass authorization via session/role; capture FLAG{ACCESS_CONTROL_WHITEBOX_18}.',
+ 'Enumerate privileged routes and weak server-side checks; submit the flag in HackMe after solving the container lab.',
+ '🔓', 4003, '/lab/1',
+ 1, 'medium', 100, @creator, 1, 'public', 'cyberops/access-control-lab', 3600),
+
+(19, 'ACCESS_CONTROL_WHITEBOX_19',
+ 'Access control (WHITE_BOX listing): IDOR / horizontal access; capture FLAG{ACCESS_CONTROL_WHITEBOX_19}.',
+ 'Manipulate object identifiers and role boundaries; submit the flag in HackMe after solving the container lab.',
+ '🔓', 4003, '/lab/2',
+ 1, 'medium', 100, @creator, 1, 'public', 'cyberops/access-control-lab', 3600)
 ON DUPLICATE KEY UPDATE
   title = VALUES(title),
   description = VALUES(description),
@@ -152,12 +164,16 @@ VALUES
 (205, 5, @creator, 'REFLECTED_XSS', 'Execute JavaScript via reflected input.', 1, 100, 'medium', 1),
 (207, 7, @creator, 'DOM_XSS', 'Execute JavaScript via DOM sink.', 1, 100, 'easy', 1),
 (208, 8, @creator, 'ACCESS_CONTROL_BYPASS', 'Bypass role restrictions to access admin feature.', 1, 100, 'medium', 1),
-(209, 9, @creator, 'IDOR_BYPASS', 'Exploit IDOR for unauthorized access.', 1, 120, 'medium', 1)
+(209, 9, @creator, 'IDOR_BYPASS', 'Exploit IDOR for unauthorized access.', 1, 120, 'medium', 1),
+(318, 18, @creator, 'ACCESS_CONTROL_18', 'White-box: remove role-from-URL assignment and add a server-side admin gate before ADMIN_PANEL.', 1, 100, 'medium', 1),
+(319, 19, @creator, 'ACCESS_CONTROL_19', 'Solve the access-control challenge and submit the flag.', 1, 100, 'medium', 1)
 ON DUPLICATE KEY UPDATE
   statement = VALUES(statement),
   max_score = VALUES(max_score),
   difficulty = VALUES(difficulty),
   is_active = VALUES(is_active);
+
+UPDATE challenges SET whitebox_files_ref = '{"version":1,"verify_profile":"lab18_admin_role_request","files":[{"id":"admin_panel","display_name":"admin_panel.php","relative_path":"public/admin_panel.php","vulnerable_line":4}]}' WHERE challenge_id = 318;
 
 INSERT INTO testcases (testcase_id, challenge_id, secret_flag_hash, secret_flag_plain, points, active, type)
 VALUES
@@ -165,7 +181,9 @@ VALUES
 (205, 205, 'FLAG{XSS_REFLECTED_111}', 'FLAG{XSS_REFLECTED_111}', 100, 1, 'flag_match'),
 (207, 207, 'FLAG{DOM_XSS_333}', 'FLAG{DOM_XSS_333}', 100, 1, 'flag_match'),
 (208, 208, 'FLAG{UNPROTECTED_ADMIN_PANEL}', 'FLAG{UNPROTECTED_ADMIN_PANEL}', 100, 1, 'flag_match'),
-(209, 209, 'FLAG{IDOR_ACCESS_CONTROL_BYPASS}', 'FLAG{IDOR_ACCESS_CONTROL_BYPASS}', 120, 1, 'flag_match')
+(209, 209, 'FLAG{IDOR_ACCESS_CONTROL_BYPASS}', 'FLAG{IDOR_ACCESS_CONTROL_BYPASS}', 120, 1, 'flag_match'),
+(318, 318, 'FLAG{ACCESS_CONTROL_WHITEBOX_18}', 'FLAG{ACCESS_CONTROL_WHITEBOX_18}', 100, 1, 'flag_match'),
+(319, 319, 'FLAG{ACCESS_CONTROL_WHITEBOX_19}', 'FLAG{ACCESS_CONTROL_WHITEBOX_19}', 100, 1, 'flag_match')
 ON DUPLICATE KEY UPDATE
   secret_flag_hash = VALUES(secret_flag_hash),
   secret_flag_plain = VALUES(secret_flag_plain),
@@ -173,7 +191,7 @@ ON DUPLICATE KEY UPDATE
   active = 1;
 
 -- 5) Hints (two per lab)
-DELETE FROM hints WHERE challenge_id IN (201, 205, 207, 208, 209);
+DELETE FROM hints WHERE challenge_id IN (201, 205, 207, 208, 209, 318, 319);
 
 INSERT INTO hints (challenge_id, text, penalty_points)
 VALUES
@@ -186,4 +204,14 @@ VALUES
 (208, 'Enumerate restricted endpoints and compare roles.', 0),
 (208, 'Verify authorization on the server side, not only in UI.', 0),
 (209, 'Look for object IDs in URLs or API requests.', 0),
-(209, 'Switch identifiers to another user and test ownership checks.', 0);
+(209, 'Switch identifiers to another user and test ownership checks.', 0),
+(318, 'Compare user vs admin API responses for the same endpoint.', 0),
+(318, 'If a feature is hidden in the UI, try calling its API path directly.', 0),
+(319, 'Try predictable or sequential IDs on object references.', 0),
+(319, 'Confirm whether the server re-checks ownership on every read.', 0);
+
+-- Remove lab 11 from public listings (matches get_labs.php filter).
+UPDATE labs SET is_published = 0, visibility = 'private' WHERE lab_id = 11;
+
+-- Lab 18 display title (card + white-box header).
+UPDATE labs SET title = 'Access Control Bypass' WHERE lab_id = 18;

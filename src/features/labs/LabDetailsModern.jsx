@@ -29,9 +29,10 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
   const [searchParams] = useSearchParams();
 
   useEffect(() => {
-    if (String(labId) !== "1") return;
+    const wid = String(labId);
+    if (wid !== "1" && wid !== "18" && wid !== "19") return;
     const q = new URLSearchParams();
-    q.set("labId", "1");
+    q.set("labId", wid);
     const fc = searchParams.get("fromCategory");
     const ft = searchParams.get("labType");
     if (fc) q.set("fromCategory", fc);
@@ -61,7 +62,8 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
 
   // Reset labSolved when switching to a different lab (prevents stale state from previous lab)
   useEffect(() => {
-    if (String(labId) === "1") {
+    const wid = String(labId);
+    if (wid === "1" || wid === "18" || wid === "19") {
       setLabLoading(false);
       setLab(null);
       setLabError("");
@@ -322,7 +324,7 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
     }
   };
 
-  if (String(labId) === "1") {
+  if (String(labId) === "1" || String(labId) === "18" || String(labId) === "19") {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black flex items-center justify-center">
         <p className="text-slate-400 font-mono text-sm">Opening white-box workspace…</p>

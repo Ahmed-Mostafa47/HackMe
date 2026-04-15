@@ -29,7 +29,9 @@ try {
     require_once __DIR__ . '/../../utils/db_connect.php';
     require_once __DIR__ . '/../../utils/labs_config.php';
     require_once __DIR__ . '/../../utils/whitebox_lab1_defaults.php';
+    require_once __DIR__ . '/../../utils/whitebox_lab18_defaults.php';
     require_once __DIR__ . '/../../utils/whitebox_sqli_verify.php';
+    require_once __DIR__ . '/../../utils/whitebox_lab18_access_verify.php';
     require_once __DIR__ . '/../../utils/lab_completion_helper.php';
 } catch (Throwable $e) {
     http_response_code(500);
@@ -103,17 +105,30 @@ $chRes = $conn->query("
   LIMIT 1
 ");
 if (!$chRes || $chRes->num_rows === 0) {
-    echo json_encode(['success' => false, 'message' => 'No challenge for lab', 'data' => ['points_earned' => 0]]);
-    exit;
+    if ($labIdEsc === 1) {
+        $chRow = ['challenge_id' => 0, 'whitebox_files_ref' => hackme_whitebox_lab1_meta_json()];
+    } elseif ($labIdEsc === 18) {
+        $chRow = ['challenge_id' => 0, 'whitebox_files_ref' => hackme_whitebox_lab18_meta_json()];
+    } else {
+        echo json_encode(['success' => false, 'message' => 'No challenge for lab', 'data' => ['points_earned' => 0]]);
+        exit;
+    }
+} else {
+    $chRow = $chRes->fetch_assoc();
 }
-$chRow = $chRes->fetch_assoc();
 $rawMeta = trim((string) ($chRow['whitebox_files_ref'] ?? ''));
 if ($rawMeta === '' && $labIdEsc === 1) {
     $rawMeta = hackme_whitebox_lab1_meta_json();
 }
+if ($rawMeta === '' && $labIdEsc === 18) {
+    $rawMeta = hackme_whitebox_lab18_meta_json();
+}
 $meta = json_decode($rawMeta, true);
 if ((!is_array($meta) || empty($meta['files']) || !is_array($meta['files'])) && $labIdEsc === 1) {
     $meta = hackme_whitebox_lab1_meta();
+}
+if ((!is_array($meta) || empty($meta['files']) || !is_array($meta['files'])) && $labIdEsc === 18) {
+    $meta = hackme_whitebox_lab18_meta();
 }
 if (!is_array($meta) || empty($meta['files']) || !is_array($meta['files'])) {
     echo json_encode(['success' => false, 'message' => 'Lab not in white-box mode', 'data' => ['points_earned' => 0]]);
@@ -161,28 +176,50 @@ foreach ($GLOBALS['LABS_REGISTRY'] ?? [] as $cfg) {
     $labRoot = realpath($joined) ?: null;
     break;
 }
-if ($labRoot === null) {
+if ($labRoot === null && $labIdEsc !== 18 && $labIdEsc !== 1) {
     echo json_encode(['success' => false, 'message' => 'Lab root not configured', 'data' => ['points_earned' => 0]]);
     exit;
 }
 
-$abs = realpath($labRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $allowed));
-if ($abs === false || !hackme_path_is_under_lab_root($abs, $labRoot) || !is_readable($abs)) {
-    echo json_encode(['success' => false, 'message' => 'Source file not found on server', 'data' => ['points_earned' => 0]]);
-    exit;
+$original = '';
+if ($labIdEsc === 18) {
+    $original = hackme_whitebox_lab18_stub_source();
+    if ($labRoot !== null && is_dir($labRoot)) {
+        $absTry = realpath($labRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $allowed));
+        if ($absTry !== false && hackme_path_is_under_lab_root($absTry, $labRoot) && is_readable($absTry) && is_file($absTry)) {
+            $original = (string) file_get_contents($absTry);
+        }
+    }
+} elseif ($labIdEsc === 1) {
+    $original = hackme_whitebox_lab1_stub_login_source();
+    if ($labRoot !== null && is_dir($labRoot)) {
+        $absTry = realpath($labRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $allowed));
+        if ($absTry !== false && hackme_path_is_under_lab_root($absTry, $labRoot) && is_readable($absTry) && is_file($absTry)) {
+            $original = (string) file_get_contents($absTry);
+        }
+    }
+} else {
+    $abs = realpath($labRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $allowed));
+    if ($abs === false || !hackme_path_is_under_lab_root($abs, $labRoot) || !is_readable($abs)) {
+        echo json_encode(['success' => false, 'message' => 'Source file not found on server', 'data' => ['points_earned' => 0]]);
+        exit;
+    }
+    $original = (string) file_get_contents($abs);
 }
 
-$original = (string) file_get_contents($abs);
 $profile = (string) ($meta['verify_profile'] ?? '');
 if ($profile === '') {
-    $profile = 'lab1_sqli_login';
+    $profile = $labIdEsc === 18 ? 'lab18_admin_role_request' : 'lab1_sqli_login';
 }
-if ($profile !== 'lab1_sqli_login') {
+
+if ($profile === 'lab18_admin_role_request') {
+    $v = whitebox_lab18_apply_and_verify($original, $line, $replacement);
+} elseif ($profile === 'lab1_sqli_login') {
+    $v = whitebox_lab1_apply_and_verify($original, $line, $replacement);
+} else {
     echo json_encode(['success' => false, 'message' => 'Unsupported verify_profile', 'data' => ['points_earned' => 0]]);
     exit;
 }
-
-$v = whitebox_lab1_apply_and_verify($original, $line, $replacement);
 if (!$v['ok']) {
     echo json_encode([
         'success' => false,
@@ -192,7 +229,8 @@ if (!$v['ok']) {
     exit;
 }
 
-$result = hackme_record_lab_completion($conn, $labId, $userId, 'whitebox_sqli_lab1', 'whitebox');
+$wbPayload = $labIdEsc === 18 ? 'whitebox_access_lab18' : 'whitebox_sqli_lab1';
+$result = hackme_record_lab_completion($conn, $labId, $userId, $wbPayload, 'whitebox');
 echo json_encode([
     'success' => (bool) ($result['success'] ?? false),
     'message' => (string) ($result['message'] ?? ''),

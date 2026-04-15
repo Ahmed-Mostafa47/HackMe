@@ -20,11 +20,13 @@ const LabWhiteboxPage = ({ currentUser, onFlagSuccess }) => {
   const fromCategory = searchParams.get("fromCategory");
   const labType = searchParams.get("labType");
 
+  const isWhiteboxWorkbench = labId === 1 || labId === 18 || labId === 19;
+
   useEffect(() => {
-    if (labId !== 1) {
+    if (!isWhiteboxWorkbench) {
       navigate(`/lab-modern?labId=${encodeURIComponent(String(labId))}`, { replace: true });
     }
-  }, [labId, navigate]);
+  }, [isWhiteboxWorkbench, labId, navigate]);
 
   const [lab, setLab] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -44,7 +46,7 @@ const LabWhiteboxPage = ({ currentUser, onFlagSuccess }) => {
   };
 
   useEffect(() => {
-    if (labId !== 1) {
+    if (!isWhiteboxWorkbench) {
       setLoading(false);
       return;
     }

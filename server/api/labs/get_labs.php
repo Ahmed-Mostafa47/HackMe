@@ -71,14 +71,21 @@ if (!$res) {
 $labs = [];
 while ($row = $res->fetch_assoc()) {
     $labId = (int) ($row['lab_id'] ?? 0);
+    if ($labId === 11) {
+        continue;
+    }
     $labtypeId = (int) ($row['labtype_id'] ?? 0);
     // Lab 1 is the SQL white-box workbench; always expose as WHITE_BOX (labtype_id=1) even if DB row was not migrated yet.
-    if ($labId === 1) {
+    if ($labId === 1 || $labId === 18 || $labId === 19) {
         $labtypeId = 1;
+    }
+    $title = (string) ($row['title'] ?? '');
+    if ($labId === 18) {
+        $title = 'Access Control Bypass';
     }
     $labs[] = [
         'lab_id' => $labId,
-        'title' => (string)($row['title'] ?? ''),
+        'title' => $title,
         'description' => (string)($row['description'] ?? ''),
         'icon' => (string)($row['icon'] ?? 'LAB'),
         'port' => isset($row['port']) ? (int)$row['port'] : null,
@@ -91,6 +98,51 @@ while ($row = $res->fetch_assoc()) {
         'hints_count' => (int)($row['hints_count'] ?? 0),
     ];
 }
+
+// White-box access-control cards (same category idea as Black Box) even if DB seed was not applied.
+$present = [];
+foreach ($labs as $L) {
+    $present[(int) ($L['lab_id'] ?? 0)] = true;
+}
+$defaults = [
+    18 => [
+        'title' => 'Access Control Bypass',
+        'description' => 'White-box: fix admin_panel — ?role= in the URL must not set $_SESSION before ADMIN_PANEL.',
+        'icon' => '🔓',
+        'port' => 4003,
+        'launch_path' => '/lab/1',
+        'points_total' => 100,
+    ],
+    19 => [
+        'title' => 'ACCESS_CONTROL_WHITEBOX_19',
+        'description' => 'Access control (WHITE_BOX listing): IDOR / horizontal access; capture the lab flag.',
+        'icon' => '🔓',
+        'port' => 4003,
+        'launch_path' => '/lab/2',
+        'points_total' => 100,
+    ],
+];
+foreach ($defaults as $lid => $meta) {
+    if (!isset($present[$lid])) {
+        $labs[] = [
+            'lab_id' => $lid,
+            'title' => $meta['title'],
+            'description' => $meta['description'],
+            'icon' => $meta['icon'],
+            'port' => $meta['port'],
+            'launch_path' => $meta['launch_path'],
+            'labtype_id' => 1,
+            'difficulty' => 'medium',
+            'points_total' => $meta['points_total'],
+            'is_published' => true,
+            'visibility' => 'public',
+            'hints_count' => 0,
+        ];
+    }
+}
+usort($labs, static function ($a, $b) {
+    return ((int) ($a['lab_id'] ?? 0)) <=> ((int) ($b['lab_id'] ?? 0));
+});
 
 echo json_encode([
     'success' => true,

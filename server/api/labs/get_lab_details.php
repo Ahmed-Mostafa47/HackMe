@@ -42,6 +42,10 @@ if ($labId < 1) {
     echo json_encode(['success' => false, 'message' => 'Missing lab_id']);
     exit;
 }
+if ($labId === 11) {
+    echo json_encode(['success' => false, 'message' => 'Lab not found']);
+    exit;
+}
 
 $labRes = $conn->query("
     SELECT
@@ -56,13 +60,53 @@ $labRes = $conn->query("
 ");
 
 if (!$labRes || $labRes->num_rows === 0) {
+    // Built-in white-box access-control labs (listing) when DB rows are missing.
+    if ($labId === 18 || $labId === 19) {
+        $is18 = $labId === 18;
+        echo json_encode([
+            'success' => true,
+            'message' => 'OK',
+            'data' => [
+                'lab' => [
+                    'lab_id' => $labId,
+                    'title' => $is18 ? 'Access Control Bypass' : 'ACCESS_CONTROL_WHITEBOX_19',
+                    'description' => $is18
+                        ? 'White-box workbench: fix admin_panel.php — the URL ?role=admin poisons $_SESSION so anyone reaches ADMIN_PANEL. Patch the highlighted line in the source.'
+                        : 'Access control (WHITE_BOX listing): IDOR / horizontal access; capture the lab flag.',
+                    'icon' => '🔓',
+                    'port' => 4003,
+                    'launch_path' => $is18 ? '/lab/1' : '/lab/2',
+                    'labtype_id' => 1,
+                    'difficulty' => 'medium',
+                    'points_total' => 100,
+                    'is_published' => true,
+                    'visibility' => 'public',
+                    'has_solution' => false,
+                    'hints' => $is18
+                        ? [
+                            'Compare user vs admin API responses for the same endpoint.',
+                            'If a feature is hidden in the UI, try calling its API path directly.',
+                        ]
+                        : [
+                            'Try predictable or sequential IDs on object references.',
+                            'Confirm whether the server re-checks ownership on every read.',
+                        ],
+                ],
+            ],
+        ]);
+        exit;
+    }
     echo json_encode(['success' => false, 'message' => 'Lab not found']);
     exit;
 }
 
 $lab = $labRes->fetch_assoc();
-if ((int) ($lab['lab_id'] ?? 0) === 1) {
+$lidRow = (int) ($lab['lab_id'] ?? 0);
+if ($lidRow === 1 || $lidRow === 18 || $lidRow === 19) {
     $lab['labtype_id'] = 1;
+}
+if ($lidRow === 18) {
+    $lab['title'] = 'Access Control Bypass';
 }
 
 $hintsRes = $conn->query("

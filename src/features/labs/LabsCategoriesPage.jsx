@@ -42,6 +42,9 @@ const LabsCategoriesPage = ({
           if (labType === LAB_TYPES.WHITE_BOX) {
             return lab.labtype_id === 1 || id === 1;
           }
+          if (labType === LAB_TYPES.ACCESS_CONTROL) {
+            return lab.labtype_id === 3 || id === 18 || id === 19;
+          }
           return lab.labtype_id === labTypeId;
         });
         setLabs(filtered);
@@ -60,7 +63,16 @@ const LabsCategoriesPage = ({
     };
   }, [labType]);
 
-  const categories = getCategoriesWithLabs(labs);
+  const rawCategories = getCategoriesWithLabs(labs);
+  const categories =
+    labType === LAB_TYPES.WHITE_BOX
+      ? [...rawCategories].sort((a, b) => {
+          const rank = (k) =>
+            k === "sql_injection" ? 0 : k === "broken_access" ? 1 : 10;
+          const d = rank(a.key) - rank(b.key);
+          return d !== 0 ? d : a.label.localeCompare(b.label);
+        })
+      : rawCategories;
   const labTypeLabel =
     labType === LAB_TYPES.WHITE_BOX ? "WHITE_BOX" : labType === LAB_TYPES.ACCESS_CONTROL ? "BROKEN_ACCESS" : "BLACK_BOX";
   const canAddLab =

@@ -165,6 +165,50 @@ export const mockLabs = [
     status: "NOT_STARTED",
     icon: "💉",
   },
+  {
+    lab_id: 18,
+    port: 4003,
+    title: "Access Control Bypass",
+    description:
+      "White-box: admin_panel route trusts ?role= in the URL and writes it into the session — fix the source (remove client-controlled role + enforce server-side admin gate).",
+    labtype_id: 1,
+    difficulty: "medium",
+    points_total: 100,
+    is_published: true,
+    visibility: "public",
+    docker_image: "cyberops/access-control-lab",
+    created_by: 1,
+    progress: 0,
+    status: "NOT_STARTED",
+    icon: "🔓",
+    launch_path: "/lab/1",
+    hints: [
+      "Compare user vs admin API responses for the same endpoint.",
+      "If a feature is hidden in the UI, try calling its API path directly.",
+    ],
+  },
+  {
+    lab_id: 19,
+    port: 4003,
+    title: "ACCESS_CONTROL_WHITEBOX_19",
+    description:
+      "Access control (WHITE_BOX listing): IDOR / horizontal access; capture the lab flag.",
+    labtype_id: 1,
+    difficulty: "medium",
+    points_total: 100,
+    is_published: true,
+    visibility: "public",
+    docker_image: "cyberops/access-control-lab",
+    created_by: 1,
+    progress: 0,
+    status: "NOT_STARTED",
+    icon: "🔓",
+    launch_path: "/lab/2",
+    hints: [
+      "Try predictable or sequential IDs on object references.",
+      "Confirm whether the server re-checks ownership on every read.",
+    ],
+  },
 ];
 
 export const mockChallenges = [

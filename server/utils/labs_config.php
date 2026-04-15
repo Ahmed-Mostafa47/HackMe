@@ -1,9 +1,10 @@
 <?php
 /**
  * Labs configuration - paths and registry for Training Labs integration.
- * LABS_BASE_PATH: Root folder containing all Training Labs (e.g. D:\Graduation_project\Training Labs)
+ * LABS_BASE_PATH: Root folder containing all Training Labs (e.g. D:\Graduation_project\Training Labs).
+ * If this path is wrong or missing SQL/, white-box lab 1 still loads using an embedded api/login.php sample.
  */
-define('LABS_BASE_PATH', 'E:\\Level 4\\Semester1\\graduation\\Labs');
+define('LABS_BASE_PATH', 'C:\Users\ahmed\Desktop\4th cs\Labs');
 
 $GLOBALS['LABS_REGISTRY'] = [
     [
@@ -36,5 +37,19 @@ $GLOBALS['LABS_REGISTRY'] = [
         'folder' => 'SQL',
         'port' => 4000,
         'points' => 150,
+    ],
+    [
+        'lab_id' => 18,
+        'folder' => 'BA',
+        'port' => 4003,
+        'points' => 100,
+        'compose_file' => 'docker-compose.access-control.yml',
+    ],
+    [
+        'lab_id' => 19,
+        'folder' => 'BA',
+        'port' => 4003,
+        'points' => 100,
+        'compose_file' => 'docker-compose.access-control.yml',
     ],
 ];
