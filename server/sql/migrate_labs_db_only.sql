@@ -141,7 +141,19 @@ VALUES
  'Access control (WHITE_BOX listing): IDOR / horizontal access; capture FLAG{ACCESS_CONTROL_WHITEBOX_19}.',
  'Manipulate object identifiers and role boundaries; submit the flag in HackMe after solving the container lab.',
  '🔓', 4003, '/lab/2',
- 1, 'medium', 100, @creator, 1, 'public', 'cyberops/access-control-lab', 3600)
+ 1, 'medium', 100, @creator, 1, 'public', 'cyberops/access-control-lab', 3600),
+
+(20, 'XSS Lab 1 - Whitebox',
+ 'White-box reflected XSS: inspect vulnerable source, test payloads in isolated sandbox, and patch secure output encoding.',
+ 'Render untrusted reflected input with strict context-aware encoding (e.g., htmlspecialchars ENT_QUOTES UTF-8).',
+ '⚡', 4001, '/',
+ 1, 'medium', 100, @creator, 1, 'public', 'cyberops/xss-reflected-whitebox', 3600),
+
+(21, 'XSS Lab 2 - Whitebox',
+ 'White-box DOM XSS: inspect JavaScript sink and replace unsafe DOM injection with safe text rendering.',
+ 'Remove innerHTML sink for untrusted input and use textContent/createTextNode instead.',
+ '⚡', 4002, '/',
+ 1, 'medium', 100, @creator, 1, 'public', 'cyberops/xss-dom-whitebox', 3600)
 ON DUPLICATE KEY UPDATE
   title = VALUES(title),
   description = VALUES(description),
@@ -166,7 +178,9 @@ VALUES
 (208, 8, @creator, 'ACCESS_CONTROL_BYPASS', 'Bypass role restrictions to access admin feature.', 1, 100, 'medium', 1),
 (209, 9, @creator, 'IDOR_BYPASS', 'Exploit IDOR for unauthorized access.', 1, 120, 'medium', 1),
 (318, 18, @creator, 'ACCESS_CONTROL_18', 'White-box: remove role-from-URL assignment and add a server-side admin gate before ADMIN_PANEL.', 1, 100, 'medium', 1),
-(319, 19, @creator, 'ACCESS_CONTROL_19', 'Solve the access-control challenge and submit the flag.', 1, 100, 'medium', 1)
+(319, 19, @creator, 'ACCESS_CONTROL_19', 'Solve the access-control challenge and submit the flag.', 1, 100, 'medium', 1),
+(320, 20, @creator, 'REFLECTED_XSS_WHITEBOX_FIX', 'Patch reflected output to prevent script execution.', 1, 100, 'medium', 1),
+(321, 21, @creator, 'DOM_XSS_WHITEBOX_FIX', 'Patch DOM sink to prevent unsafe HTML execution.', 1, 100, 'medium', 1)
 ON DUPLICATE KEY UPDATE
   statement = VALUES(statement),
   max_score = VALUES(max_score),
@@ -174,6 +188,8 @@ ON DUPLICATE KEY UPDATE
   is_active = VALUES(is_active);
 
 UPDATE challenges SET whitebox_files_ref = '{"version":1,"verify_profile":"lab18_admin_role_request","files":[{"id":"admin_panel","display_name":"admin_panel.php","relative_path":"public/admin_panel.php","vulnerable_line":4}]}' WHERE challenge_id = 318;
+UPDATE challenges SET whitebox_files_ref = '{"version":1,"verify_profile":"lab20_reflected_xss","files":[{"id":"search","display_name":"search.php","relative_path":"search.php","vulnerable_line":6}]}' WHERE challenge_id = 320;
+UPDATE challenges SET whitebox_files_ref = '{"version":1,"verify_profile":"lab21_dom_xss","files":[{"id":"appjs","display_name":"app.js","relative_path":"app.js","vulnerable_line":4}]}' WHERE challenge_id = 321;
 
 INSERT INTO testcases (testcase_id, challenge_id, secret_flag_hash, secret_flag_plain, points, active, type)
 VALUES
@@ -183,7 +199,9 @@ VALUES
 (208, 208, 'FLAG{UNPROTECTED_ADMIN_PANEL}', 'FLAG{UNPROTECTED_ADMIN_PANEL}', 100, 1, 'flag_match'),
 (209, 209, 'FLAG{IDOR_ACCESS_CONTROL_BYPASS}', 'FLAG{IDOR_ACCESS_CONTROL_BYPASS}', 120, 1, 'flag_match'),
 (318, 318, 'FLAG{ACCESS_CONTROL_WHITEBOX_18}', 'FLAG{ACCESS_CONTROL_WHITEBOX_18}', 100, 1, 'flag_match'),
-(319, 319, 'FLAG{ACCESS_CONTROL_WHITEBOX_19}', 'FLAG{ACCESS_CONTROL_WHITEBOX_19}', 100, 1, 'flag_match')
+(319, 319, 'FLAG{ACCESS_CONTROL_WHITEBOX_19}', 'FLAG{ACCESS_CONTROL_WHITEBOX_19}', 100, 1, 'flag_match'),
+(320, 320, 'FLAG{XSS_WHITEBOX_REFLECTED_20}', 'FLAG{XSS_WHITEBOX_REFLECTED_20}', 100, 1, 'flag_match'),
+(321, 321, 'FLAG{XSS_WHITEBOX_DOM_21}', 'FLAG{XSS_WHITEBOX_DOM_21}', 100, 1, 'flag_match')
 ON DUPLICATE KEY UPDATE
   secret_flag_hash = VALUES(secret_flag_hash),
   secret_flag_plain = VALUES(secret_flag_plain),
@@ -191,7 +209,7 @@ ON DUPLICATE KEY UPDATE
   active = 1;
 
 -- 5) Hints (two per lab)
-DELETE FROM hints WHERE challenge_id IN (201, 205, 207, 208, 209, 318, 319);
+DELETE FROM hints WHERE challenge_id IN (201, 205, 207, 208, 209, 318, 319, 320, 321);
 
 INSERT INTO hints (challenge_id, text, penalty_points)
 VALUES
@@ -208,7 +226,11 @@ VALUES
 (318, 'Compare user vs admin API responses for the same endpoint.', 0),
 (318, 'If a feature is hidden in the UI, try calling its API path directly.', 0),
 (319, 'Try predictable or sequential IDs on object references.', 0),
-(319, 'Confirm whether the server re-checks ownership on every read.', 0);
+(319, 'Confirm whether the server re-checks ownership on every read.', 0),
+(320, 'Encode reflected user input before rendering in HTML response.', 0),
+(320, 'Avoid direct concatenation of untrusted query values into markup.', 0),
+(321, 'Do not pass untrusted data to innerHTML.', 0),
+(321, 'Use textContent/createTextNode for user-controlled values.', 0);
 
 -- Remove lab 11 from public listings (matches get_labs.php filter).
 UPDATE labs SET is_published = 0, visibility = 'private' WHERE lab_id = 11;

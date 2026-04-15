@@ -3,7 +3,7 @@
  * Used to group labs into folder-like categories (SQL Injection, XSS, Broken Access, etc.)
  */
 
-import { WHITEBOX_SQL_LAB_ID } from "../constants/labs";
+import { WHITEBOX_SQL_LAB_ID, WHITEBOX_XSS_LAB_IDS } from "../constants/labs";
 
 export const LAB_CATEGORIES = {
   SQL_INJECTION: {
@@ -48,6 +48,7 @@ export const LAB_CATEGORIES = {
 
 /** White-box access-control workbench labs (always grouped under Broken Access Control). */
 const WHITEBOX_ACCESS_LAB_IDS = new Set([18, 19]);
+const WHITEBOX_XSS_ID_SET = new Set(WHITEBOX_XSS_LAB_IDS);
 
 /** White-box category sidebar order (SQL Injection before Broken Access Control). */
 export const WHITEBOX_CATEGORY_ORDER = [
@@ -71,6 +72,9 @@ export function getCategoryFromLabTitle(labTitle, labId) {
   }
   if (!Number.isNaN(id) && id === WHITEBOX_SQL_LAB_ID) {
     return LAB_CATEGORIES.SQL_INJECTION.key;
+  }
+  if (!Number.isNaN(id) && WHITEBOX_XSS_ID_SET.has(id)) {
+    return LAB_CATEGORIES.XSS.key;
   }
   if (id === 1) {
     return LAB_CATEGORIES.SQL_INJECTION.key;

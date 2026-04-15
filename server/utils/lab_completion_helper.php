@@ -37,31 +37,27 @@ function hackme_record_lab_completion(
         $points = 100;
     }
 
-    if ($completionScope === 'whitebox') {
-        $points = 100;
-    } else {
-        $penaltyRes = $conn->query("
+    $penaltyRes = $conn->query("
       SELECT hint_viewed, solution_viewed
       FROM lab_resource_usage
       WHERE user_id = $userIdEsc AND lab_id = $labIdEsc
       LIMIT 1
     ");
-        if ($penaltyRes && $penaltyRes->num_rows > 0) {
-            $penaltyRow = $penaltyRes->fetch_assoc();
-            $hintViewed = ((int) ($penaltyRow['hint_viewed'] ?? 0) === 1);
-            $solutionViewed = ((int) ($penaltyRow['solution_viewed'] ?? 0) === 1);
-            $penaltyPercent = 0;
-            if ($hintViewed) {
-                $penaltyPercent += 25;
-            }
-            if ($solutionViewed) {
-                $penaltyPercent += 75;
-            }
-            if ($penaltyPercent > 100) {
-                $penaltyPercent = 100;
-            }
-            $points = (int) floor($points * (1 - ($penaltyPercent / 100)));
+    if ($penaltyRes && $penaltyRes->num_rows > 0) {
+        $penaltyRow = $penaltyRes->fetch_assoc();
+        $hintViewed = ((int) ($penaltyRow['hint_viewed'] ?? 0) === 1);
+        $solutionViewed = ((int) ($penaltyRow['solution_viewed'] ?? 0) === 1);
+        $penaltyPercent = 0;
+        if ($hintViewed) {
+            $penaltyPercent += 25;
         }
+        if ($solutionViewed) {
+            $penaltyPercent += 75;
+        }
+        if ($penaltyPercent > 100) {
+            $penaltyPercent = 100;
+        }
+        $points = (int) floor($points * (1 - ($penaltyPercent / 100)));
     }
 
     $chRes = $conn->query("SELECT challenge_id FROM challenges WHERE lab_id = $labIdEsc ORDER BY challenge_id ASC LIMIT 1");

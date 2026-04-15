@@ -61,4 +61,16 @@ $GLOBALS['LABS_REGISTRY'] = [
         'points' => 100,
         'compose_file' => 'docker-compose.access-control.yml',
     ],
+    [
+        'lab_id' => 20,
+        'folder' => 'XSS/reflected-xss-lab',
+        'port' => 4001,
+        'points' => 100,
+    ],
+    [
+        'lab_id' => 21,
+        'folder' => 'XSS/dom-xss-select-lab',
+        'port' => 4002,
+        'points' => 100,
+    ],
 ];

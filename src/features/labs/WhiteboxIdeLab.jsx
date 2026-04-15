@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FileCode, Folder, Play, ShieldCheck, Terminal } from "lucide-react";
 import { labService } from "../../services/labService";
-import { WHITEBOX_SQL_LAB_ID } from "../../constants/labs";
+import { WHITEBOX_SQL_LAB_ID, WHITEBOX_XSS_LAB_IDS } from "../../constants/labs";
 
 const splitLines = (text) => {
   if (text == null) return [""];
@@ -25,6 +25,8 @@ const WhiteboxIdeLab = ({
   const [replacement, setReplacement] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState(null);
+  const [xssPayload, setXssPayload] = useState("<img src=x onerror=\"document.getElementById('status').textContent='Payload executed';\">");
+  const [sandboxDoc, setSandboxDoc] = useState("");
 
   const gutterRef = useRef(null);
   const codeRef = useRef(null);
@@ -61,6 +63,12 @@ const WhiteboxIdeLab = ({
   }, [payload, activePath]);
 
   const lines = useMemo(() => splitLines(activeFile?.content ?? ""), [activeFile]);
+  const vulnerableLineNo = useMemo(() => {
+    const raw = Number(activeFile?.vulnerable_line ?? 0);
+    return Number.isFinite(raw) && raw > 0 ? raw : null;
+  }, [activeFile]);
+
+  const isXssWhitebox = WHITEBOX_XSS_LAB_IDS.includes(Number(labId));
 
   useEffect(() => {
     if (!activeFile) return;
@@ -254,8 +262,9 @@ const WhiteboxIdeLab = ({
             >
               {lines.map((_, i) => {
                 const n = i + 1;
+                const isVuln = vulnerableLineNo != null && n === vulnerableLineNo;
                 return (
-                  <div key={n}>
+                  <div key={n} className={isVuln ? "text-rose-300" : ""}>
                     {n}
                   </div>
                 );
@@ -266,9 +275,54 @@ const WhiteboxIdeLab = ({
               onScroll={syncScroll}
               className="flex-1 overflow-auto m-0 py-3 px-3 text-[11px] leading-5 font-mono text-slate-200 whitespace-pre"
             >
-              {activeFile?.content ?? ""}
+              {lines.map((line, idx) => {
+                const n = idx + 1;
+                const isVuln = vulnerableLineNo != null && n === vulnerableLineNo;
+                return (
+                  <div
+                    key={n}
+                    className={isVuln ? "bg-rose-500/15 border-l-2 border-rose-400 pl-2 -ml-2" : ""}
+                  >
+                    {line}
+                  </div>
+                );
+              })}
             </pre>
           </div>
+          {isXssWhitebox && (
+            <div className="border-t border-slate-800 p-4 bg-slate-950/80 space-y-3">
+              <div className="text-[10px] font-mono uppercase tracking-wider text-slate-500">
+                Controlled XSS sandbox
+              </div>
+              <div className="grid md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
+                <textarea
+                  value={xssPayload}
+                  onChange={(e) => setXssPayload(e.target.value)}
+                  rows={5}
+                  className="w-full rounded-lg bg-slate-950 border border-slate-700 px-3 py-2 text-xs font-mono text-slate-100 outline-none focus:border-emerald-500"
+                  placeholder="Enter payload to test in isolated iframe..."
+                />
+                <iframe
+                  title="xss-sandbox-runner"
+                  sandbox="allow-scripts allow-modals"
+                  className="w-full min-h-[150px] rounded-lg border border-slate-700 bg-slate-900"
+                  srcDoc={sandboxDoc}
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const escaped = String(xssPayload || "");
+                  const doc = `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: https: http:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"><title>Sandbox</title></head><body><h3>Sandbox Output</h3><p id="status" style="font-family:monospace;color:#93c5fd;">Waiting for payload...</p><div id="out"></div><script>const payload=${JSON.stringify(escaped)};document.getElementById('out').innerHTML=payload;<\/script></body></html>`;
+                  setSandboxDoc(doc);
+                }}
+                className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/50 bg-emerald-500/10 px-3 py-1.5 text-xs font-mono text-emerald-200"
+              >
+                Run payload in sandbox
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

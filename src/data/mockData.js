@@ -190,6 +190,52 @@ export const mockLabs = [
     icon: "💉",
   },
   {
+    lab_id: 20,
+    port: 4001,
+    title: "XSS_REFLECTED_WHITEBOX",
+    display_name: "XSS Lab 1 - Whitebox",
+    description:
+      "White-box reflected XSS: inspect vulnerable source code, test payloads in isolated sandbox, and submit a secure output-encoding fix.",
+    labtype_id: 1,
+    difficulty: "medium",
+    points_total: 100,
+    is_published: true,
+    visibility: "public",
+    progress: 0,
+    status: "NOT_STARTED",
+    icon: "⚡",
+    launch_path: "/",
+    hints: [
+      "Reflected user input must be encoded before output.",
+      "Avoid direct concatenation into HTML response.",
+    ],
+    solution:
+      "Use strict output encoding (for example htmlspecialchars with ENT_QUOTES and UTF-8) when rendering user-controlled values in HTML.",
+  },
+  {
+    lab_id: 21,
+    port: 4002,
+    title: "XSS_DOM_WHITEBOX",
+    display_name: "XSS Lab 2 - Whitebox",
+    description:
+      "White-box DOM XSS: review JavaScript sink usage and replace unsafe HTML injection with safe DOM text rendering.",
+    labtype_id: 1,
+    difficulty: "medium",
+    points_total: 100,
+    is_published: true,
+    visibility: "public",
+    progress: 0,
+    status: "NOT_STARTED",
+    icon: "⚡",
+    launch_path: "/",
+    hints: [
+      "Search for innerHTML assignments fed by user input.",
+      "Use textContent or createTextNode for untrusted content.",
+    ],
+    solution:
+      "Remove unsafe innerHTML sink and render untrusted data through textContent/createTextNode to prevent script execution.",
+  },
+  {
     lab_id: 18,
     port: 4003,
     title: "Access Control Bypass",

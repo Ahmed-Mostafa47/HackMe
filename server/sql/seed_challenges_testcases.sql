@@ -27,6 +27,8 @@ UNION ALL SELECT 5, 'ACCESS_CONTROL_BYPASS', 'Test role-based access control: by
 UNION ALL SELECT 10, 'SQL_INJECTION_ACADEMY', 'Exploit SQL injection on a programming academy site: use sqlmap to find tables and users, get admin email, login and delete a user', 2, 'medium', 150, @creator, 1, 'public', '', 3600
 UNION ALL SELECT 18, 'Access Control Bypass', 'Broken access control (white-box): bypass authorization via session/role; capture FLAG{ACCESS_CONTROL_WHITEBOX_18}.', 1, 'medium', 100, @creator, 1, 'public', 'cyberops/access-control-lab', 3600
 UNION ALL SELECT 19, 'ACCESS_CONTROL_WHITEBOX_19', 'Access control (WHITE_BOX listing): IDOR / horizontal access; capture FLAG{ACCESS_CONTROL_WHITEBOX_19}.', 1, 'medium', 100, @creator, 1, 'public', 'cyberops/access-control-lab', 3600
+UNION ALL SELECT 20, 'XSS Lab 1 - Whitebox', 'White-box reflected XSS: inspect vulnerable source, test payloads in isolated sandbox, and patch secure output encoding.', 1, 'medium', 100, @creator, 1, 'public', 'cyberops/xss-reflected-whitebox', 3600
+UNION ALL SELECT 21, 'XSS Lab 2 - Whitebox', 'White-box DOM XSS: inspect JavaScript sink and replace unsafe DOM injection with safe text rendering.', 1, 'medium', 100, @creator, 1, 'public', 'cyberops/xss-dom-whitebox', 3600
 ON DUPLICATE KEY UPDATE title = VALUES(title), description = VALUES(description), labtype_id = VALUES(labtype_id), difficulty = VALUES(difficulty), points_total = VALUES(points_total);
 
 -- 4. Challenges (linked to labs)
@@ -37,7 +39,9 @@ VALUES
 (6, 5, @creator, 'UNPROTECTED_ADMIN_PANEL', 'Access the admin panel without authorization', 1, 50, 'medium', 1, NULL),
 (8, 10, @creator, 'ACADEMY_SQLI_DELETED', 'Use SQL injection to access admin and delete a user', 1, 150, 'medium', 1, NULL),
 (318, 18, @creator, 'ACCESS_CONTROL_18', 'White-box: remove role-from-URL assignment and add a server-side admin gate before ADMIN_PANEL.', 1, 100, 'medium', 1, '{"version":1,"verify_profile":"lab18_admin_role_request","files":[{"id":"admin_panel","display_name":"admin_panel.php","relative_path":"public/admin_panel.php","vulnerable_line":4}]}'),
-(319, 19, @creator, 'ACCESS_CONTROL_19', 'Solve the access-control challenge and submit the flag.', 1, 100, 'medium', 1, NULL);
+(319, 19, @creator, 'ACCESS_CONTROL_19', 'Solve the access-control challenge and submit the flag.', 1, 100, 'medium', 1, NULL),
+(320, 20, @creator, 'REFLECTED_XSS_WHITEBOX_FIX', 'Patch reflected output to prevent script execution.', 1, 100, 'medium', 1, '{"version":1,"verify_profile":"lab20_reflected_xss","files":[{"id":"search","display_name":"search.php","relative_path":"search.php","vulnerable_line":6}]}'),
+(321, 21, @creator, 'DOM_XSS_WHITEBOX_FIX', 'Patch DOM sink to prevent unsafe HTML execution.', 1, 100, 'medium', 1, '{"version":1,"verify_profile":"lab21_dom_xss","files":[{"id":"appjs","display_name":"app.js","relative_path":"app.js","vulnerable_line":4}]}');
 
 -- Testcases (flags) - use ON DUPLICATE to fix flags even if rows exist
 INSERT INTO testcases (testcase_id, challenge_id, secret_flag_hash, secret_flag_plain, points, active, type)
@@ -47,5 +51,7 @@ VALUES
 (6, 6, 'FLAG{UNPROTECTED_ADMIN_PANEL}', 'FLAG{UNPROTECTED_ADMIN_PANEL}', 50, 1, 'flag_match'),
 (8, 8, 'FLAG{ACADEMY_SQLI_DELETED}', 'FLAG{ACADEMY_SQLI_DELETED}', 150, 1, 'flag_match'),
 (318, 318, 'FLAG{ACCESS_CONTROL_WHITEBOX_18}', 'FLAG{ACCESS_CONTROL_WHITEBOX_18}', 100, 1, 'flag_match'),
-(319, 319, 'FLAG{ACCESS_CONTROL_WHITEBOX_19}', 'FLAG{ACCESS_CONTROL_WHITEBOX_19}', 100, 1, 'flag_match')
+(319, 319, 'FLAG{ACCESS_CONTROL_WHITEBOX_19}', 'FLAG{ACCESS_CONTROL_WHITEBOX_19}', 100, 1, 'flag_match'),
+(320, 320, 'FLAG{XSS_WHITEBOX_REFLECTED_20}', 'FLAG{XSS_WHITEBOX_REFLECTED_20}', 100, 1, 'flag_match'),
+(321, 321, 'FLAG{XSS_WHITEBOX_DOM_21}', 'FLAG{XSS_WHITEBOX_DOM_21}', 100, 1, 'flag_match')
 ON DUPLICATE KEY UPDATE secret_flag_hash = VALUES(secret_flag_hash), secret_flag_plain = VALUES(secret_flag_plain), points = VALUES(points), active = 1;

@@ -14,7 +14,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { labService } from "../../services/labService";
-import { WHITEBOX_SQL_LAB_ID } from "../../constants/labs";
+import { WHITEBOX_WORKBENCH_LAB_IDS } from "../../constants/labs";
 
 // Use relative path when proxy exists (dev), else full URL (production)
 const API_BASE = import.meta.env.DEV ? "/api" : "http://localhost/HackMe/server/api";
@@ -25,7 +25,7 @@ const diffBadgeClasses = {
   hard: "bg-rose-500/10 text-rose-300 border-rose-400/50",
 };
 
-const whiteboxRouteLabIds = new Set([WHITEBOX_SQL_LAB_ID, 18, 19]);
+const whiteboxRouteLabIds = new Set(WHITEBOX_WORKBENCH_LAB_IDS);
 
 const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
   const navigate = useNavigate();

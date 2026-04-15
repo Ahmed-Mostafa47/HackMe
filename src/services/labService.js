@@ -2,7 +2,7 @@
  * Lab Service - API-only labs data source.
  */
 
-import { WHITEBOX_SQL_LAB_ID } from "../constants/labs";
+import { WHITEBOX_SQL_LAB_ID, WHITEBOX_WORKBENCH_LAB_IDS } from "../constants/labs";
 
 export const getHackMeBase = () => {
   if (typeof window === "undefined") return "http://localhost/HackMe";
@@ -81,7 +81,7 @@ export const labService = {
           (l) => !(Number(l?.lab_id) === 11 && WHITEBOX_SQL_LAB_ID !== 11)
         );
         const { mockLabs } = await import("../data/mockData");
-        for (const id of [1, WHITEBOX_SQL_LAB_ID]) {
+        for (const id of [1, ...WHITEBOX_WORKBENCH_LAB_IDS]) {
           if (!labs.some((l) => Number(l?.lab_id) === id)) {
             const fromMock = mockLabs.find((l) => Number(l.lab_id) === id);
             if (fromMock) {
@@ -92,11 +92,11 @@ export const labService = {
         labs.sort((a, b) => Number(a.lab_id) - Number(b.lab_id));
         for (const lab of labs) {
           const id = Number(lab?.lab_id);
-          if (id === WHITEBOX_SQL_LAB_ID || id === 18 || id === 19) {
+          if (WHITEBOX_WORKBENCH_LAB_IDS.includes(id)) {
             lab.labtype_id = 1;
           }
         }
-        for (const mid of [18, 19]) {
+        for (const mid of WHITEBOX_WORKBENCH_LAB_IDS) {
           if (!labs.some((l) => Number(l?.lab_id) === mid)) {
             const fromMock = mockLabs.find((l) => Number(l.lab_id) === mid);
             if (fromMock) {
@@ -121,7 +121,9 @@ export const labService = {
           l.lab_id === 9 ||
           l.lab_id === 10 ||
           l.lab_id === 18 ||
-          l.lab_id === 19
+          l.lab_id === 19 ||
+          l.lab_id === 20 ||
+          l.lab_id === 21
       );
       return {
         success: true,
@@ -140,7 +142,9 @@ export const labService = {
           l.lab_id === 9 ||
           l.lab_id === 10 ||
           l.lab_id === 18 ||
-          l.lab_id === 19
+          l.lab_id === 19 ||
+          l.lab_id === 20 ||
+          l.lab_id === 21
       );
       return {
         success: true,
@@ -216,6 +220,49 @@ export const labService = {
       }),
     });
     return response.json().catch(() => ({}));
+  },
+
+  async uploadLabZip({ file, userId }) {
+    const formData = new FormData();
+    formData.append("lab_zip", file);
+    formData.append("user_id", String(userId || 0));
+    const response = await fetch(`${getLabsBase()}/upload_lab_zip.php`, {
+      method: "POST",
+      body: formData,
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data?.success) {
+      throw new Error(data?.message || `Failed to upload ZIP (${response.status})`);
+    }
+    return data;
+  },
+
+  async finalizeLabUpload({ userId, uploadToken }) {
+    const response = await fetch(`${getLabsBase()}/finalize_lab_upload.php`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_id: userId,
+        upload_token: uploadToken,
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data?.success) {
+      throw new Error(data?.message || `Failed to finalize lab upload (${response.status})`);
+    }
+    return data;
+  },
+
+  async getLabDocument({ labId, kind }) {
+    const response = await fetch(
+      `${getLabsBase()}/get_lab_document.php?lab_id=${encodeURIComponent(labId)}&kind=${encodeURIComponent(kind)}`,
+      { cache: "no-store" }
+    );
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data?.success) {
+      throw new Error(data?.message || `Failed to load document (${response.status})`);
+    }
+    return data;
   },
 };
 

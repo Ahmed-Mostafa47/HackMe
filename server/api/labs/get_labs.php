@@ -127,6 +127,22 @@ $defaults = [
         'launch_path' => '/lab/2',
         'points_total' => 100,
     ],
+    20 => [
+        'title' => 'XSS Lab 1 - Whitebox',
+        'description' => 'White-box reflected XSS: review vulnerable source and apply output encoding fix.',
+        'icon' => '⚡',
+        'port' => 4001,
+        'launch_path' => '/',
+        'points_total' => 100,
+    ],
+    21 => [
+        'title' => 'XSS Lab 2 - Whitebox',
+        'description' => 'White-box DOM XSS: replace unsafe DOM sink with safe text rendering.',
+        'icon' => '⚡',
+        'port' => 4002,
+        'launch_path' => '/',
+        'points_total' => 100,
+    ],
 ];
 foreach ($defaults as $lid => $meta) {
     if (!isset($present[$lid])) {
