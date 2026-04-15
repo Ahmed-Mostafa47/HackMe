@@ -78,8 +78,12 @@ while ($row = $res->fetch_assoc()) {
         continue;
     }
     $labtypeId = (int) ($row['labtype_id'] ?? 0);
-    if ($labId === $wbSqlListId || $labId === 1 || $labId === 18 || $labId === 19) {
+    if ($labId === $wbSqlListId || $labId === 18 || $labId === 19) {
         $labtypeId = 1;
+    }
+    // Lab 1 is the black-box SQL injection lab (white-box SQL uses HACKME_WHITEBOX_SQL_LAB_ID).
+    if ($labId === 1) {
+        $labtypeId = 2;
     }
     $title = (string) ($row['title'] ?? '');
     if ($labId === 18) {

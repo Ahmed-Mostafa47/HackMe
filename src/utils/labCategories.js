@@ -3,6 +3,8 @@
  * Used to group labs into folder-like categories (SQL Injection, XSS, Broken Access, etc.)
  */
 
+import { WHITEBOX_SQL_LAB_ID } from "../constants/labs";
+
 export const LAB_CATEGORIES = {
   SQL_INJECTION: {
     key: "sql_injection",
@@ -47,6 +49,15 @@ export const LAB_CATEGORIES = {
 /** White-box access-control workbench labs (always grouped under Broken Access Control). */
 const WHITEBOX_ACCESS_LAB_IDS = new Set([18, 19]);
 
+/** White-box category sidebar order (SQL Injection before Broken Access Control). */
+export const WHITEBOX_CATEGORY_ORDER = [
+  "sql_injection",
+  "broken_access",
+  "xss",
+  "csrf",
+  "buffer_overflow",
+];
+
 /**
  * Derive category key from lab title/name (and optional lab_id for known workbenches).
  * @param {string} labTitle - Lab title or name
@@ -57,6 +68,9 @@ export function getCategoryFromLabTitle(labTitle, labId) {
   const id = labId != null && labId !== "" ? Number(labId) : NaN;
   if (!Number.isNaN(id) && WHITEBOX_ACCESS_LAB_IDS.has(id)) {
     return LAB_CATEGORIES.BROKEN_ACCESS.key;
+  }
+  if (!Number.isNaN(id) && id === WHITEBOX_SQL_LAB_ID) {
+    return LAB_CATEGORIES.SQL_INJECTION.key;
   }
   if (id === 1) {
     return LAB_CATEGORIES.SQL_INJECTION.key;

@@ -117,8 +117,11 @@ if ($labPubRes && $labPubRes->num_rows > 0) {
 }
 
 $lidRow = (int) ($lab['lab_id'] ?? 0);
-if ($isWbSql || $lidRow === 1 || $lidRow === 18 || $lidRow === 19) {
+if ($isWbSql || $lidRow === 18 || $lidRow === 19) {
     $lab['labtype_id'] = 1;
+}
+if ($lidRow === 1) {
+    $lab['labtype_id'] = 2;
 }
 if ($lidRow === 18) {
     $lab['title'] = 'Access Control Bypass';

@@ -10,6 +10,7 @@ import { labService } from "../../services/labService";
 import { LAB_TYPES } from "../../data/labTypes";
 import {
   getCategoriesWithLabs,
+  WHITEBOX_CATEGORY_ORDER,
 } from "../../utils/labCategories";
 import { WHITEBOX_SQL_LAB_ID } from "../../constants/labs";
 
@@ -40,6 +41,7 @@ const LabsCategoriesPage = ({
             return true;
           }
           if (labType === LAB_TYPES.WHITE_BOX) {
+            if (id === 1) return false;
             return lab.labtype_id === 1 || id === WHITEBOX_SQL_LAB_ID;
           }
           if (labType === LAB_TYPES.ACCESS_CONTROL) {
@@ -67,8 +69,10 @@ const LabsCategoriesPage = ({
   const categories =
     labType === LAB_TYPES.WHITE_BOX
       ? [...rawCategories].sort((a, b) => {
-          const rank = (k) =>
-            k === "sql_injection" ? 0 : k === "broken_access" ? 1 : 10;
+          const rank = (k) => {
+            const i = WHITEBOX_CATEGORY_ORDER.indexOf(k);
+            return i === -1 ? 50 : i;
+          };
           const d = rank(a.key) - rank(b.key);
           return d !== 0 ? d : a.label.localeCompare(b.label);
         })
