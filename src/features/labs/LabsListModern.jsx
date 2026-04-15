@@ -11,6 +11,7 @@ import {
   Plus,
 } from "lucide-react";
 import { labService } from "../../services/labService";
+import { WHITEBOX_SQL_LAB_ID } from "../../constants/labs";
 import { LAB_TYPES } from "../../data/labTypes";
 import { getCategoryFromLabTitle } from "../../utils/labCategories";
 
@@ -66,11 +67,11 @@ const LabsListModern = ({
 
   const labTypeId = labType === LAB_TYPES.WHITE_BOX ? 1 : labType === LAB_TYPES.BLACK_BOX ? 2 : labType === LAB_TYPES.ACCESS_CONTROL ? 3 : null;
   const filteredLabs = labs.filter((lab) => {
-    if (Number(lab.lab_id) === 11) return false;
+    const id = Number(lab.lab_id);
+    if (id === 11 && id !== WHITEBOX_SQL_LAB_ID) return false;
     if (labTypeId != null) {
-      const id = Number(lab.lab_id);
       if (labTypeId === 1) {
-        if (lab.labtype_id !== 1 && id !== 1) return false;
+        if (lab.labtype_id !== 1 && id !== WHITEBOX_SQL_LAB_ID) return false;
       } else if (labTypeId === 2) {
         if (lab.labtype_id !== 2 && lab.labtype_id !== 3) return false;
         if (id === 1) return false;
@@ -96,8 +97,7 @@ const LabsListModern = ({
       if (category) q.set("fromCategory", category);
       if (labType) q.set("labType", labType);
       const wid = Number(lab.lab_id);
-      const path =
-        wid === 1 || wid === 18 || wid === 19 ? "/lab-whitebox" : "/lab-modern";
+      const path = [WHITEBOX_SQL_LAB_ID, 18, 19].includes(wid) ? "/lab-whitebox" : "/lab-modern";
       window.location.href = `${path}?${q.toString()}`;
     }
   };

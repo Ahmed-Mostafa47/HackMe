@@ -11,6 +11,7 @@ import { LAB_TYPES } from "../../data/labTypes";
 import {
   getCategoriesWithLabs,
 } from "../../utils/labCategories";
+import { WHITEBOX_SQL_LAB_ID } from "../../constants/labs";
 
 const LabsCategoriesPage = ({
   labType,
@@ -36,11 +37,10 @@ const LabsCategoriesPage = ({
           const id = Number(lab.lab_id);
           if (labType === LAB_TYPES.BLACK_BOX) {
             if (lab.labtype_id !== 2 && lab.labtype_id !== 3) return false;
-            if (id === 1) return false;
             return true;
           }
           if (labType === LAB_TYPES.WHITE_BOX) {
-            return lab.labtype_id === 1 || id === 1;
+            return lab.labtype_id === 1 || id === WHITEBOX_SQL_LAB_ID;
           }
           if (labType === LAB_TYPES.ACCESS_CONTROL) {
             return lab.labtype_id === 3 || id === 18 || id === 19;

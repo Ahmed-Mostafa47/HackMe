@@ -4,7 +4,7 @@
  */
 
 import React, { useEffect } from 'react';
-import { Bell, Heart, MessageSquare, Reply, Mail, Shield, Check, CheckCheck, Loader2 } from 'lucide-react';
+import { Bell, Heart, MessageSquare, Reply, Mail, Shield, Check, CheckCheck, Loader2, AlertTriangle } from 'lucide-react';
 import { useNotifications } from '../../hooks/useNotifications';
 
 const NotificationsPage = ({ currentUser }) => {
@@ -33,6 +33,8 @@ const NotificationsPage = ({ currentUser }) => {
             case 'role_request':
             case 'update':
                 return <Shield className={iconClass} />;
+            case 'moderation':
+                return <AlertTriangle className={iconClass} />;
             default:
                 return <Bell className={iconClass} />;
         }
@@ -50,6 +52,7 @@ const NotificationsPage = ({ currentUser }) => {
             message: 'border-l-purple-500',
             role_request: 'border-l-green-500',
             update: 'border-l-green-500',
+            moderation: 'border-l-amber-500',
         }[type] || 'border-l-gray-500';
 
         return `${baseClasses} ${accentClasses}`;

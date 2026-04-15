@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, CheckCircle2, Shield, Terminal } from "lucide-react";
 import { labService } from "../../services/labService";
+import { WHITEBOX_SQL_LAB_ID } from "../../constants/labs";
 import WhiteboxIdeLab from "./WhiteboxIdeLab";
 
 const diffBadgeClasses = {
@@ -16,11 +17,13 @@ const diffBadgeClasses = {
 const LabWhiteboxPage = ({ currentUser, onFlagSuccess }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const labId = Number(searchParams.get("labId") || "1") || 1;
+  const labId =
+    Number(searchParams.get("labId") || String(WHITEBOX_SQL_LAB_ID)) || WHITEBOX_SQL_LAB_ID;
   const fromCategory = searchParams.get("fromCategory");
   const labType = searchParams.get("labType");
 
-  const isWhiteboxWorkbench = labId === 1 || labId === 18 || labId === 19;
+  const isWhiteboxWorkbench =
+    labId === WHITEBOX_SQL_LAB_ID || labId === 18 || labId === 19;
 
   useEffect(() => {
     if (!isWhiteboxWorkbench) {

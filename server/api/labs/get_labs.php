@@ -23,6 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 
 try {
     require_once __DIR__ . '/../../utils/db_connect.php';
+    require_once __DIR__ . '/../../utils/labs_config.php';
 } catch (Throwable $e) {
     http_response_code(500);
     echo json_encode(['success' => false, 'message' => 'Load error', 'data' => ['labs' => []]]);
@@ -36,6 +37,8 @@ if (!isset($conn) || !$conn) {
 }
 
 $conn->set_charset('utf8mb4');
+
+$wbSqlListId = (int) (defined('HACKME_WHITEBOX_SQL_LAB_ID') ? HACKME_WHITEBOX_SQL_LAB_ID : 11);
 
 $res = $conn->query("
     SELECT
@@ -71,12 +74,11 @@ if (!$res) {
 $labs = [];
 while ($row = $res->fetch_assoc()) {
     $labId = (int) ($row['lab_id'] ?? 0);
-    if ($labId === 11) {
+    if ($labId === 11 && $wbSqlListId !== 11) {
         continue;
     }
     $labtypeId = (int) ($row['labtype_id'] ?? 0);
-    // Lab 1 is the SQL white-box workbench; always expose as WHITE_BOX (labtype_id=1) even if DB row was not migrated yet.
-    if ($labId === 1 || $labId === 18 || $labId === 19) {
+    if ($labId === $wbSqlListId || $labId === 1 || $labId === 18 || $labId === 19) {
         $labtypeId = 1;
     }
     $title = (string) ($row['title'] ?? '');

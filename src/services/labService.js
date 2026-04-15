@@ -2,6 +2,8 @@
  * Lab Service - API-only labs data source.
  */
 
+import { WHITEBOX_SQL_LAB_ID } from "../constants/labs";
+
 export const getHackMeBase = () => {
   if (typeof window === "undefined") return "http://localhost/HackMe";
   const origin = window.location.origin;
@@ -75,23 +77,25 @@ export const labService = {
       }
 
       if (Array.isArray(data?.data?.labs) && data.data.labs.length > 0) {
-        const labs = data.data.labs.filter((l) => Number(l?.lab_id) !== 11);
-        const hasLab1 = labs.some((l) => Number(l?.lab_id) === 1);
-        if (!hasLab1) {
-          const { mockLabs } = await import("../data/mockData");
-          const fromMock = mockLabs.find((l) => Number(l.lab_id) === 1);
-          if (fromMock) {
-            labs.push({ ...fromMock });
-            labs.sort((a, b) => Number(a.lab_id) - Number(b.lab_id));
+        const labs = data.data.labs.filter(
+          (l) => !(Number(l?.lab_id) === 11 && WHITEBOX_SQL_LAB_ID !== 11)
+        );
+        const { mockLabs } = await import("../data/mockData");
+        for (const id of [1, WHITEBOX_SQL_LAB_ID]) {
+          if (!labs.some((l) => Number(l?.lab_id) === id)) {
+            const fromMock = mockLabs.find((l) => Number(l.lab_id) === id);
+            if (fromMock) {
+              labs.push({ ...fromMock });
+            }
           }
         }
+        labs.sort((a, b) => Number(a.lab_id) - Number(b.lab_id));
         for (const lab of labs) {
           const id = Number(lab?.lab_id);
-          if (id === 1 || id === 18 || id === 19) {
+          if (id === WHITEBOX_SQL_LAB_ID || id === 18 || id === 19) {
             lab.labtype_id = 1;
           }
         }
-        const { mockLabs } = await import("../data/mockData");
         for (const mid of [18, 19]) {
           if (!labs.some((l) => Number(l?.lab_id) === mid)) {
             const fromMock = mockLabs.find((l) => Number(l.lab_id) === mid);
@@ -101,6 +105,7 @@ export const labService = {
           }
         }
         labs.sort((a, b) => Number(a.lab_id) - Number(b.lab_id));
+        data.data.labs = labs;
         return data;
       }
 
@@ -109,6 +114,7 @@ export const labService = {
       const registered = mockLabs.filter(
         (l) =>
           l.lab_id === 1 ||
+          l.lab_id === WHITEBOX_SQL_LAB_ID ||
           l.lab_id === 5 ||
           l.lab_id === 7 ||
           l.lab_id === 8 ||
@@ -124,9 +130,10 @@ export const labService = {
     } catch (error) {
       console.warn("LabService: API unavailable, using mock data:", error?.message);
       const { mockLabs } = await import("../data/mockData");
-      const registered = mockLabs.filter(
+      const registeredFallback = mockLabs.filter(
         (l) =>
           l.lab_id === 1 ||
+          l.lab_id === WHITEBOX_SQL_LAB_ID ||
           l.lab_id === 5 ||
           l.lab_id === 7 ||
           l.lab_id === 8 ||
@@ -137,7 +144,7 @@ export const labService = {
       );
       return {
         success: true,
-        data: { labs: registered.length ? registered : mockLabs },
+        data: { labs: registeredFallback.length ? registeredFallback : mockLabs },
       };
     }
   },

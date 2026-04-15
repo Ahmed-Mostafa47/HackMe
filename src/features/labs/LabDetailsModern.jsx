@@ -14,6 +14,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { labService } from "../../services/labService";
+import { WHITEBOX_SQL_LAB_ID } from "../../constants/labs";
 
 // Use relative path when proxy exists (dev), else full URL (production)
 const API_BASE = import.meta.env.DEV ? "/api" : "http://localhost/HackMe/server/api";
@@ -24,15 +25,17 @@ const diffBadgeClasses = {
   hard: "bg-rose-500/10 text-rose-300 border-rose-400/50",
 };
 
+const whiteboxRouteLabIds = new Set([WHITEBOX_SQL_LAB_ID, 18, 19]);
+
 const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
   useEffect(() => {
-    const wid = String(labId);
-    if (wid !== "1" && wid !== "18" && wid !== "19") return;
+    const id = Number(labId);
+    if (!whiteboxRouteLabIds.has(id)) return;
     const q = new URLSearchParams();
-    q.set("labId", wid);
+    q.set("labId", String(id));
     const fc = searchParams.get("fromCategory");
     const ft = searchParams.get("labType");
     if (fc) q.set("fromCategory", fc);
@@ -62,8 +65,8 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
 
   // Reset labSolved when switching to a different lab (prevents stale state from previous lab)
   useEffect(() => {
-    const wid = String(labId);
-    if (wid === "1" || wid === "18" || wid === "19") {
+    const id = Number(labId);
+    if (whiteboxRouteLabIds.has(id)) {
       setLabLoading(false);
       setLab(null);
       setLabError("");
@@ -324,7 +327,7 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
     }
   };
 
-  if (String(labId) === "1" || String(labId) === "18" || String(labId) === "19") {
+  if (whiteboxRouteLabIds.has(Number(labId))) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black flex items-center justify-center">
         <p className="text-slate-400 font-mono text-sm">Opening white-box workspace…</p>

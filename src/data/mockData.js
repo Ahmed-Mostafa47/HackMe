@@ -36,23 +36,22 @@ export const mockLabTypes = [
 ];
 
 export const mockLabs = [
-  // Lab 1: white-box SQLi (sources served from Training Labs path via API when DB is up)
+  // Lab 1: black-box SQL injection (flag / running lab)
   {
     lab_id: 1,
     port: 4000,
-    title: "SQL_INJECTION_WHITEBOX",
+    title: "SQL_INJECTION",
     description:
-      "White-box: review vulnerable login source, submit file/line/fix; server validates syntax and parameterized SQL. One graded solve per user.",
-    labtype_id: 1,
+      "Black-box: exploit SQL injection in the training lab login flow, capture the flag. Separate from the white-box SQL lab (lab 11).",
+    labtype_id: 2,
     difficulty: "medium",
-    points_total: 150,
+    points_total: 100,
     is_published: true,
     visibility: "public",
-    docker_image: "cyberops/sql-injection-whitebox",
+    docker_image: "cyberops/sql-injection-lab",
     created_by: 1,
-    whitebox_files: ["login.php", "database_config.php", "user_management.php"],
-    progress: 80,
-    status: "IN_PROGRESS",
+    progress: 0,
+    status: "NOT_STARTED",
     icon: "💉",
     hints: [
       "Inspect authentication inputs for injectable query fragments.",
@@ -60,6 +59,31 @@ export const mockLabs = [
     ],
     solution:
       "The vulnerable login query is injectable through user-controlled input. Use a boolean-based SQL injection payload in the username field to bypass authentication, then enumerate database records with a UNION-based payload to complete the challenge path.",
+  },
+  // Lab 11: white-box SQL (same Training Labs sources; separate id and points from lab 1)
+  {
+    lab_id: 11,
+    port: 4000,
+    title: "SQL_INJECTION_WHITEBOX",
+    description:
+      "White-box: review vulnerable login source, submit file/line/fix; server validates syntax and parameterized SQL. One graded solve per user. Independent from black-box SQL lab 1.",
+    labtype_id: 1,
+    difficulty: "medium",
+    points_total: 100,
+    is_published: true,
+    visibility: "public",
+    docker_image: "",
+    created_by: 1,
+    whitebox_files: ["login.php", "database_config.php", "user_management.php"],
+    progress: 0,
+    status: "NOT_STARTED",
+    icon: "💉",
+    hints: [
+      "Inspect authentication inputs for injectable query fragments.",
+      "Use prepared statements with bound parameters instead of string concatenation.",
+    ],
+    solution:
+      "Replace the vulnerable dynamic SQL string with mysqli prepared statements and bind_param for username and password.",
   },
   {
     lab_id: 5,

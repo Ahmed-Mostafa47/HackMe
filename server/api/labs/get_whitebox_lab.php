@@ -30,6 +30,7 @@ try {
     require_once __DIR__ . '/../../utils/labs_config.php';
     require_once __DIR__ . '/../../utils/whitebox_lab1_defaults.php';
     require_once __DIR__ . '/../../utils/whitebox_lab18_defaults.php';
+    require_once __DIR__ . '/../../utils/lab_production_state.php';
 } catch (Throwable $e) {
     http_response_code(500);
     echo json_encode(['success' => false, 'message' => 'Load error']);
@@ -53,22 +54,30 @@ if ($labId < 1 || $userId < 1) {
 }
 
 $labIdEsc = (int) $labId;
-$labRes = $conn->query("
+$wbSqlId = hackme_whitebox_sql_lab_id();
+$isSqlWb = ($labIdEsc === $wbSqlId);
+$isLab18 = ($labIdEsc === 18);
+
+if (!$isSqlWb && !$isLab18) {
+    echo json_encode([
+        'success' => false,
+        'message' => 'White-box API is only for SQL white-box lab_id ' . $wbSqlId . ' or access-control lab_id 18.',
+    ]);
+    exit;
+}
+
+$prodState = hackme_whitebox_production_state($conn, $labIdEsc);
+$labUnregistered = !$prodState['lab_in_db'];
+$setupIncomplete = $prodState['setup_incomplete'];
+
+if ($isLab18) {
+    $labRes = $conn->query("
   SELECT lab_id, title, labtype_id, description
   FROM labs
   WHERE lab_id = $labIdEsc AND is_published = 1 AND visibility = 'public'
   LIMIT 1
 ");
-if (!$labRes || $labRes->num_rows === 0) {
-    // Built-in white-box labs: work without a DB row (fresh installs / empty labs table).
-    if ($labIdEsc === 1) {
-        $labRow = [
-            'lab_id' => 1,
-            'title' => 'SQL_INJECTION_WHITEBOX',
-            'labtype_id' => 1,
-            'description' => 'White-box: review login source and submit a fix (embedded sample if Training Labs path is unset).',
-        ];
-    } elseif ($labIdEsc === 18) {
+    if (!$labRes || $labRes->num_rows === 0) {
         $labRow = [
             'lab_id' => 18,
             'title' => 'Access Control Bypass',
@@ -76,18 +85,30 @@ if (!$labRes || $labRes->num_rows === 0) {
             'description' => 'White-box: fix admin route / session role (embedded sample if Training Labs path is unset).',
         ];
     } else {
-        echo json_encode(['success' => false, 'message' => 'Lab not found']);
-        exit;
-    }
-} else {
-    $labRow = $labRes->fetch_assoc();
-    if ($labIdEsc === 1 || $labIdEsc === 18) {
+        $labRow = $labRes->fetch_assoc();
         $labRow['labtype_id'] = 1;
-    }
-    if ($labIdEsc === 18) {
         $labRow['title'] = 'Access Control Bypass';
     }
+} else {
+    $labFullRes = $conn->query("
+  SELECT lab_id, title, labtype_id, description
+  FROM labs
+  WHERE lab_id = $labIdEsc
+  LIMIT 1
+");
+    if ($labFullRes && $labFullRes->num_rows > 0) {
+        $labRow = $labFullRes->fetch_assoc();
+        if (!$prodState['lab_public']) {
+            error_log('[HackMe WARNING] whitebox lab_id=' . $labIdEsc . ' exists in DB but is not published/public; UI shown, scoring disabled until fixed.');
+        }
+    } else {
+        error_log('[HackMe CRITICAL] whitebox lab_id=' . $labIdEsc . ' missing from labs table; serving UI fallback only (unregistered).');
+        $labRow = hackme_whitebox_sql_fallback_lab_row();
+    }
 }
+
+$labRow['lab_id'] = $labIdEsc;
+$labRow['labtype_id'] = 1;
 
 $chRes = $conn->query("
   SELECT challenge_id, title, whitebox_files_ref
@@ -96,33 +117,40 @@ $chRes = $conn->query("
   ORDER BY order_index ASC, challenge_id ASC
   LIMIT 1
 ");
-if (!$chRes || $chRes->num_rows === 0) {
-    if ($labIdEsc === 1) {
-        $ch = [
-            'challenge_id' => 0,
-            'title' => 'SECURE_LOGIN_ENDPOINT',
-            'whitebox_files_ref' => hackme_whitebox_lab1_meta_json(),
-        ];
-    } elseif ($labIdEsc === 18) {
+
+if ($isLab18) {
+    if (!$chRes || $chRes->num_rows === 0) {
         $ch = [
             'challenge_id' => 0,
             'title' => 'SECURE_ADMIN_PANEL_ROUTE',
             'whitebox_files_ref' => hackme_whitebox_lab18_meta_json(),
         ];
     } else {
-        echo json_encode(['success' => false, 'message' => 'No challenge for this lab']);
-        exit;
+        $ch = $chRes->fetch_assoc();
+    }
+    $rawRef = trim((string) ($ch['whitebox_files_ref'] ?? ''));
+    if ($rawRef === '') {
+        $rawRef = hackme_whitebox_lab18_meta_json();
     }
 } else {
-    $ch = $chRes->fetch_assoc();
-}
-
-$rawRef = trim((string) ($ch['whitebox_files_ref'] ?? ''));
-if ($rawRef === '' && $labIdEsc === 1) {
-    $rawRef = hackme_whitebox_lab1_meta_json();
-}
-if ($rawRef === '' && $labIdEsc === 18) {
-    $rawRef = hackme_whitebox_lab18_meta_json();
+    $ch = null;
+    if ($chRes && $chRes->num_rows > 0) {
+        $ch = $chRes->fetch_assoc();
+    }
+    $rawRef = '';
+    if ($prodState['scoring_allowed'] && $ch !== null) {
+        $rawRef = trim((string) ($ch['whitebox_files_ref'] ?? ''));
+    } elseif ($ch !== null) {
+        $rawRef = trim((string) ($ch['whitebox_files_ref'] ?? ''));
+    }
+    if ($rawRef === '' || !$prodState['scoring_allowed']) {
+        if ($prodState['lab_in_db'] && $prodState['challenge_row'] && !$prodState['whitebox_ref_valid']) {
+            error_log('[HackMe WARNING] whitebox lab_id=' . $labIdEsc . ' has challenge but invalid/empty whitebox_files_ref; using built-in meta for UI only.');
+        }
+        if ($rawRef === '') {
+            $rawRef = hackme_whitebox_lab1_meta_json();
+        }
+    }
 }
 
 if ($rawRef === '') {
@@ -131,16 +159,27 @@ if ($rawRef === '') {
 }
 
 $meta = json_decode($rawRef, true);
-if ((!is_array($meta) || empty($meta['files']) || !is_array($meta['files'])) && $labIdEsc === 1) {
+if ((!is_array($meta) || empty($meta['files']) || !is_array($meta['files'])) && $isSqlWb) {
+    if ($prodState['lab_in_db'] && trim($rawRef) !== '') {
+        error_log('[HackMe WARNING] whitebox lab_id=' . $labIdEsc . ' invalid whitebox_files_ref JSON; using built-in meta for UI.');
+    }
     $meta = hackme_whitebox_lab1_meta();
 }
-if ((!is_array($meta) || empty($meta['files']) || !is_array($meta['files'])) && $labIdEsc === 18) {
+if ((!is_array($meta) || empty($meta['files']) || !is_array($meta['files'])) && $isLab18) {
     $meta = hackme_whitebox_lab18_meta();
 }
 
 if (!is_array($meta) || empty($meta['files']) || !is_array($meta['files'])) {
     echo json_encode(['success' => false, 'message' => 'Invalid whitebox_files_ref JSON']);
     exit;
+}
+
+if ($ch === null) {
+    $ch = [
+        'challenge_id' => 0,
+        'title' => 'SECURE_LOGIN_ENDPOINT',
+        'whitebox_files_ref' => $rawRef,
+    ];
 }
 
 $labRoot = null;
@@ -159,7 +198,7 @@ foreach ($GLOBALS['LABS_REGISTRY'] ?? [] as $cfg) {
 }
 
 if ($labRoot === null || !is_dir($labRoot)) {
-    if ($labIdEsc !== 18 && $labIdEsc !== 1) {
+    if (!$isSqlWb && !$isLab18) {
         echo json_encode([
             'success' => false,
             'message' => 'Lab sources path is not available on the server. Set LABS_BASE_PATH in server/utils/labs_config.php to your Training Labs root.',
@@ -180,18 +219,18 @@ foreach ($meta['files'] as $f) {
     }
     $useStub = false;
     $content = '';
-    if (($labIdEsc === 18 || $labIdEsc === 1) && ($labRoot === null || !is_dir($labRoot))) {
+    if (($isSqlWb || $isLab18) && ($labRoot === null || !is_dir($labRoot))) {
         $useStub = true;
     } else {
         $abs = realpath($labRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $rel));
         if ($abs === false || !hackme_path_is_under_lab_root($abs, $labRoot)) {
-            if ($labIdEsc === 18 || $labIdEsc === 1) {
+            if ($isSqlWb || $isLab18) {
                 $useStub = true;
             } else {
                 continue;
             }
         } elseif (!is_file($abs) || !is_readable($abs)) {
-            if ($labIdEsc === 18 || $labIdEsc === 1) {
+            if ($isSqlWb || $isLab18) {
                 $useStub = true;
             } else {
                 continue;
@@ -201,7 +240,7 @@ foreach ($meta['files'] as $f) {
         }
     }
     if ($useStub) {
-        $content = $labIdEsc === 18
+        $content = $isLab18
             ? hackme_whitebox_lab18_stub_source()
             : hackme_whitebox_lab1_stub_login_source();
     }
@@ -240,9 +279,12 @@ echo json_encode([
             'title' => (string) ($ch['title'] ?? ''),
         ],
         'verify_profile' => (string) ($meta['verify_profile'] ?? ''),
-        'verification_help' => $labIdEsc === 18
+        'verification_help' => $isLab18
             ? 'Edit the highlighted line only. Replace the role-from-URL assignment with a server-side gate (403 + check role !== admin) before ADMIN_PANEL; php -l + static rules apply.'
             : 'Submissions are checked in an isolated temp file: PHP syntax (php -l) plus static rules ensuring SQL is parameterized (no username/password concatenated into query strings). If LABS_BASE_PATH is unset or wrong, an embedded api/login.php sample is used so the lab still loads.',
         'files' => $filesOut,
+        'lab_unregistered' => $labUnregistered,
+        'setup_incomplete' => $setupIncomplete,
+        'scoring_allowed' => $prodState['scoring_allowed'],
     ],
 ]);
