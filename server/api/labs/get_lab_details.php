@@ -87,10 +87,10 @@ if ($labPubRes && $labPubRes->num_rows > 0) {
         'data' => [
             'lab' => [
                 'lab_id' => $labId,
-                'title' => $is18 ? 'Access Control Bypass' : 'ACCESS_CONTROL_WHITEBOX_19',
+                'title' => $is18 ? 'Access Control Bypass' : 'IDOR (White-box)',
                 'description' => $is18
-                    ? 'White-box workbench: fix admin_panel.php — the URL ?role=admin poisons $_SESSION so anyone reaches ADMIN_PANEL. Patch the highlighted line in the source.'
-                    : 'Access control (WHITE_BOX listing): IDOR / horizontal access; capture the lab flag.',
+                    ? 'White-box: review the PHP bundle (public/ and includes/). Remove client-controlled session role assignment and enforce a server-side admin gate before ADMIN_PANEL output.'
+                    : 'White-box: review the PHP bundle. The profile endpoint trusts user_id from the URL — bind reads to the logged-in session user and block horizontal access (403).',
                 'icon' => '🔓',
                 'port' => 4003,
                 'launch_path' => $is18 ? '/lab/1' : '/lab/2',
@@ -100,15 +100,7 @@ if ($labPubRes && $labPubRes->num_rows > 0) {
                 'is_published' => true,
                 'visibility' => 'public',
                 'has_solution' => false,
-                'hints' => $is18
-                    ? [
-                        'Compare user vs admin API responses for the same endpoint.',
-                        'If a feature is hidden in the UI, try calling its API path directly.',
-                    ]
-                    : [
-                        'Try predictable or sequential IDs on object references.',
-                        'Confirm whether the server re-checks ownership on every read.',
-                    ],
+                'hints' => [],
             ],
         ],
     ]);
@@ -121,7 +113,7 @@ if ($labPubRes && $labPubRes->num_rows > 0) {
         'data' => [
             'lab' => [
                 'lab_id' => $labId,
-                'title' => (string) ($fallback['title'] ?? 'XSS Whitebox'),
+                'title' => (string) ($fallback['title'] ?? ($labId === 21 ? 'DOM XSS (White-box)' : 'Reflected XSS (White-box)')),
                 'description' => (string) ($fallback['description'] ?? 'White-box XSS lab.'),
                 'icon' => '⚡',
                 'port' => $labId === 21 ? 4002 : 4001,
@@ -160,6 +152,15 @@ if ($lidRow === 1) {
 if ($lidRow === 18) {
     $lab['title'] = 'Access Control Bypass';
 }
+if ($lidRow === 19) {
+    $lab['title'] = 'IDOR (White-box)';
+}
+if ($lidRow === 20) {
+    $lab['title'] = 'Reflected XSS (White-box)';
+}
+if ($lidRow === 21) {
+    $lab['title'] = 'DOM XSS (White-box)';
+}
 
 $hintsRes = $conn->query("
     SELECT h.text
@@ -178,6 +179,9 @@ if ($hintsRes) {
             $hints[] = $text;
         }
     }
+}
+if ($labId === 18 || $labId === 19) {
+    $hints = [];
 }
 
 $data = [

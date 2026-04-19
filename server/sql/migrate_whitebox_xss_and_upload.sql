@@ -7,12 +7,12 @@ INSERT INTO labs (
   labtype_id, difficulty, points_total, created_by, is_published, visibility, docker_image, reset_interval
 )
 VALUES
-(20, 'XSS Lab 1 - Whitebox',
+(20, 'Reflected XSS (White-box)',
  'White-box reflected XSS: inspect vulnerable source, test payloads in isolated sandbox, and patch secure output encoding.',
  'Render untrusted reflected input with strict context-aware encoding (e.g., htmlspecialchars ENT_QUOTES UTF-8).',
  '⚡', 4001, '/',
  1, 'medium', 100, @creator, 1, 'public', 'cyberops/xss-reflected-whitebox', 3600),
-(21, 'XSS Lab 2 - Whitebox',
+(21, 'DOM XSS (White-box)',
  'White-box DOM XSS: inspect JavaScript sink and replace unsafe DOM injection with safe text rendering.',
  'Remove innerHTML sink for untrusted input and use textContent/createTextNode instead.',
  '⚡', 4002, '/',

@@ -192,8 +192,8 @@ export const mockLabs = [
   {
     lab_id: 20,
     port: 4001,
-    title: "XSS_REFLECTED_WHITEBOX",
-    display_name: "XSS Lab 1 - Whitebox",
+    title: "Reflected XSS (White-box)",
+    display_name: "Reflected XSS (White-box)",
     description:
       "White-box reflected XSS: inspect vulnerable source code, test payloads in isolated sandbox, and submit a secure output-encoding fix.",
     labtype_id: 1,
@@ -215,8 +215,8 @@ export const mockLabs = [
   {
     lab_id: 21,
     port: 4002,
-    title: "XSS_DOM_WHITEBOX",
-    display_name: "XSS Lab 2 - Whitebox",
+    title: "DOM XSS (White-box)",
+    display_name: "DOM XSS (White-box)",
     description:
       "White-box DOM XSS: review JavaScript sink usage and replace unsafe HTML injection with safe DOM text rendering.",
     labtype_id: 1,
@@ -240,7 +240,7 @@ export const mockLabs = [
     port: 4003,
     title: "Access Control Bypass",
     description:
-      "White-box: admin_panel route trusts ?role= in the URL and writes it into the session — fix the source (remove client-controlled role + enforce server-side admin gate).",
+      "White-box: review the PHP bundle (public/ and includes/). Remove client-controlled session role and enforce a server-side admin gate before ADMIN_PANEL.",
     labtype_id: 1,
     difficulty: "medium",
     points_total: 100,
@@ -252,17 +252,14 @@ export const mockLabs = [
     status: "NOT_STARTED",
     icon: "🔓",
     launch_path: "/lab/1",
-    hints: [
-      "Compare user vs admin API responses for the same endpoint.",
-      "If a feature is hidden in the UI, try calling its API path directly.",
-    ],
+    hints: [],
   },
   {
     lab_id: 19,
     port: 4003,
-    title: "ACCESS_CONTROL_WHITEBOX_19",
+    title: "IDOR (White-box)",
     description:
-      "Access control (WHITE_BOX listing): IDOR / horizontal access; capture the lab flag.",
+      "White-box: the profile API trusts user_id from the URL — review the bundle and bind access to the logged-in user (session) with proper denial (403).",
     labtype_id: 1,
     difficulty: "medium",
     points_total: 100,
@@ -274,10 +271,7 @@ export const mockLabs = [
     status: "NOT_STARTED",
     icon: "🔓",
     launch_path: "/lab/2",
-    hints: [
-      "Try predictable or sequential IDs on object references.",
-      "Confirm whether the server re-checks ownership on every read.",
-    ],
+    hints: [],
   },
 ];
 

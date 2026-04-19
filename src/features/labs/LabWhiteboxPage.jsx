@@ -179,6 +179,7 @@ const LabWhiteboxPage = ({ currentUser, onFlagSuccess }) => {
   const penaltyPercent = Math.min(100, (hintViewed ? 25 : 0) + (solutionViewed ? 75 : 0));
   const maxPoints = Number(lab?.points_total ?? 0) || 0;
   const possiblePoints = Math.max(0, Math.floor(maxPoints * (1 - penaltyPercent / 100)));
+  const hideHints = Number(labId) === 18 || Number(labId) === 19;
   const derivedHints =
     Array.isArray(lab?.hints) && lab.hints.length > 0
       ? lab.hints
@@ -291,38 +292,40 @@ const LabWhiteboxPage = ({ currentUser, onFlagSuccess }) => {
           </section>
 
           <aside className="space-y-4">
-            <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-4 shadow-lg shadow-black/40">
-              <button
-                className="flex w-full items-center justify-between gap-2 text-sm font-mono text-slate-100"
-                onClick={() => {
-                  setHintsOpen((v) => !v);
-                  if (!hintViewed) {
-                    setHintViewed(true);
-                    markResourceViewed("hint");
-                  }
-                }}
-              >
-                <span className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-300" />
-                  Hints (-25%)
-                </span>
-                {hintsOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              </button>
+            {!hideHints && (
+              <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-4 shadow-lg shadow-black/40">
+                <button
+                  className="flex w-full items-center justify-between gap-2 text-sm font-mono text-slate-100"
+                  onClick={() => {
+                    setHintsOpen((v) => !v);
+                    if (!hintViewed) {
+                      setHintViewed(true);
+                      markResourceViewed("hint");
+                    }
+                  }}
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-300" />
+                    Hints (-25%)
+                  </span>
+                  {hintsOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
 
-              {hintsOpen && (
-                <div className="mt-3 space-y-2 text-xs text-slate-200 font-mono">
-                  {derivedHints.map((hint, idx) => (
-                    <div
-                      key={idx}
-                      className="rounded-lg border border-amber-400/40 bg-amber-500/10 px-3 py-2"
-                    >
-                      <span className="text-amber-300 text-[11px]">HINT_{idx + 1}</span>
-                      <p className="mt-1 text-amber-50 text-[11px]">{hint}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                {hintsOpen && (
+                  <div className="mt-3 space-y-2 text-xs text-slate-200 font-mono">
+                    {derivedHints.map((hint, idx) => (
+                      <div
+                        key={idx}
+                        className="rounded-lg border border-amber-400/40 bg-amber-500/10 px-3 py-2"
+                      >
+                        <span className="text-amber-300 text-[11px]">HINT_{idx + 1}</span>
+                        <p className="mt-1 text-amber-50 text-[11px]">{hint}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-4 shadow-lg shadow-black/40">
               <button

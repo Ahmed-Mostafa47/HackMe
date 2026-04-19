@@ -137,19 +137,19 @@ VALUES
  '🔓', 4003, '/lab/1',
  1, 'medium', 100, @creator, 1, 'public', 'cyberops/access-control-lab', 3600),
 
-(19, 'ACCESS_CONTROL_WHITEBOX_19',
- 'Access control (WHITE_BOX listing): IDOR / horizontal access; capture FLAG{ACCESS_CONTROL_WHITEBOX_19}.',
+(19, 'IDOR (White-box)',
+ 'White-box: profile follows user_id in the URL — patch sources to bind access to the session user and block horizontal access.',
  'Manipulate object identifiers and role boundaries; submit the flag in HackMe after solving the container lab.',
  '🔓', 4003, '/lab/2',
  1, 'medium', 100, @creator, 1, 'public', 'cyberops/access-control-lab', 3600),
 
-(20, 'XSS Lab 1 - Whitebox',
+(20, 'Reflected XSS (White-box)',
  'White-box reflected XSS: inspect vulnerable source, test payloads in isolated sandbox, and patch secure output encoding.',
  'Render untrusted reflected input with strict context-aware encoding (e.g., htmlspecialchars ENT_QUOTES UTF-8).',
  '⚡', 4001, '/',
  1, 'medium', 100, @creator, 1, 'public', 'cyberops/xss-reflected-whitebox', 3600),
 
-(21, 'XSS Lab 2 - Whitebox',
+(21, 'DOM XSS (White-box)',
  'White-box DOM XSS: inspect JavaScript sink and replace unsafe DOM injection with safe text rendering.',
  'Remove innerHTML sink for untrusted input and use textContent/createTextNode instead.',
  '⚡', 4002, '/',
@@ -178,7 +178,7 @@ VALUES
 (208, 8, @creator, 'ACCESS_CONTROL_BYPASS', 'Bypass role restrictions to access admin feature.', 1, 100, 'medium', 1),
 (209, 9, @creator, 'IDOR_BYPASS', 'Exploit IDOR for unauthorized access.', 1, 120, 'medium', 1),
 (318, 18, @creator, 'ACCESS_CONTROL_18', 'White-box: remove role-from-URL assignment and add a server-side admin gate before ADMIN_PANEL.', 1, 100, 'medium', 1),
-(319, 19, @creator, 'ACCESS_CONTROL_19', 'Solve the access-control challenge and submit the flag.', 1, 100, 'medium', 1),
+(319, 19, @creator, 'ACCESS_CONTROL_19', 'White-box: remove IDOR via user_id in URL; bind profile to session viewer + 403.', 1, 100, 'medium', 1),
 (320, 20, @creator, 'REFLECTED_XSS_WHITEBOX_FIX', 'Patch reflected output to prevent script execution.', 1, 100, 'medium', 1),
 (321, 21, @creator, 'DOM_XSS_WHITEBOX_FIX', 'Patch DOM sink to prevent unsafe HTML execution.', 1, 100, 'medium', 1)
 ON DUPLICATE KEY UPDATE
@@ -187,7 +187,8 @@ ON DUPLICATE KEY UPDATE
   difficulty = VALUES(difficulty),
   is_active = VALUES(is_active);
 
-UPDATE challenges SET whitebox_files_ref = '{"version":1,"verify_profile":"lab18_admin_role_request","files":[{"id":"admin_panel","display_name":"admin_panel.php","relative_path":"public/admin_panel.php","vulnerable_line":4}]}' WHERE challenge_id = 318;
+UPDATE challenges SET whitebox_files_ref = '{"version":1,"verify_profile":"lab18_admin_role_request","files":[{"id":"admin_panel","display_name":"admin_panel.php","relative_path":"public/admin_panel.php"},{"id":"index","display_name":"index.php","relative_path":"public/index.php"},{"id":"auth_bootstrap","display_name":"auth_bootstrap.php","relative_path":"includes/auth_bootstrap.php"}]}' WHERE challenge_id = 318;
+UPDATE challenges SET whitebox_files_ref = '{"version":1,"verify_profile":"lab19_idor_user_param","files":[{"id":"user_profile","display_name":"user_profile.php","relative_path":"public/user_profile.php"},{"id":"entry","display_name":"lab19_entry.php","relative_path":"public/lab19_entry.php"},{"id":"scaffold","display_name":"lab19_scaffold.php","relative_path":"includes/lab19_scaffold.php"}]}' WHERE challenge_id = 319;
 UPDATE challenges SET whitebox_files_ref = '{"version":1,"verify_profile":"lab20_reflected_xss","files":[{"id":"search","display_name":"search.php","relative_path":"search.php","vulnerable_line":6}]}' WHERE challenge_id = 320;
 UPDATE challenges SET whitebox_files_ref = '{"version":1,"verify_profile":"lab21_dom_xss","files":[{"id":"appjs","display_name":"app.js","relative_path":"app.js","vulnerable_line":4}]}' WHERE challenge_id = 321;
 
@@ -223,10 +224,6 @@ VALUES
 (208, 'Verify authorization on the server side, not only in UI.', 0),
 (209, 'Look for object IDs in URLs or API requests.', 0),
 (209, 'Switch identifiers to another user and test ownership checks.', 0),
-(318, 'Compare user vs admin API responses for the same endpoint.', 0),
-(318, 'If a feature is hidden in the UI, try calling its API path directly.', 0),
-(319, 'Try predictable or sequential IDs on object references.', 0),
-(319, 'Confirm whether the server re-checks ownership on every read.', 0),
 (320, 'Encode reflected user input before rendering in HTML response.', 0),
 (320, 'Avoid direct concatenation of untrusted query values into markup.', 0),
 (321, 'Do not pass untrusted data to innerHTML.', 0),

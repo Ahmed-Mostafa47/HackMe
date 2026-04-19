@@ -90,7 +90,7 @@ if ($solution === '' && $isWhitebox) {
     if ($labId === 18) {
         $solution = "Remove client-controlled role assignment from URL parameters and enforce server-side admin authorization before rendering ADMIN_PANEL (return 403 for non-admin).";
     } elseif ($labId === 19) {
-        $solution = "Enforce per-object ownership checks on every server-side read/write path; do not trust identifiers supplied by clients without authorization validation.";
+        $solution = 'Bind profile/user lookups to $_SESSION[\'user_id\'] (or equivalent server-side identity). Remove using $_GET[\'user_id\'] / $_REQUEST[\'user_id\'] as the primary key for another user\'s record; call http_response_code(403) when access is not allowed.';
     } elseif ($labId === 20) {
         $solution = "Reflected XSS fix: output-encode user-controlled values in HTML context (e.g., htmlspecialchars with ENT_QUOTES and UTF-8) before rendering.";
     } elseif ($labId === 21) {
