@@ -73,4 +73,10 @@ $GLOBALS['LABS_REGISTRY'] = [
         'port' => 4002,
         'points' => 100,
     ],
+    [
+        'lab_id' => 30,
+        'folder' => 'GameLabs/war-game',
+        'port' => 4005,
+        'points' => 100,
+    ],
 ];

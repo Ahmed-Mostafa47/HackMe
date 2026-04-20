@@ -6,6 +6,12 @@
 import { WHITEBOX_SQL_LAB_ID, WHITEBOX_XSS_LAB_IDS } from "../constants/labs";
 
 export const LAB_CATEGORIES = {
+  GAME_LABS: {
+    key: "game_labs",
+    label: "Game Labs",
+    icon: "🎮",
+    keywords: ["game", "games", "ctf", "arcade"],
+  },
   SQL_INJECTION: {
     key: "sql_injection",
     label: "SQL Injection",
@@ -96,9 +102,12 @@ export function getCategoryFromLabTitle(labTitle, labId) {
 /**
  * Get all category configs that have at least one lab
  * @param {Array} labs - List of labs
+ * @param {Object} [options]
+ * @param {string[]} [options.includeEmptyKeys] - Category keys to include even with 0 labs
  * @returns {Array} Category configs with lab count
  */
-export function getCategoriesWithLabs(labs) {
+export function getCategoriesWithLabs(labs, options = {}) {
+  const includeEmptyKeys = new Set(options.includeEmptyKeys || []);
   const counts = {};
   labs.forEach((lab) => {
     const key = getCategoryFromLabTitle(lab.title, lab.lab_id);
@@ -106,7 +115,7 @@ export function getCategoriesWithLabs(labs) {
   });
 
   return Object.entries(LAB_CATEGORIES)
-    .filter(([, config]) => (counts[config.key] || 0) > 0)
+    .filter(([, config]) => (counts[config.key] || 0) > 0 || includeEmptyKeys.has(config.key))
     .map(([, config]) => ({
       ...config,
       labCount: counts[config.key] || 0,

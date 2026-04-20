@@ -65,7 +65,9 @@ const LabsCategoriesPage = ({
     };
   }, [labType]);
 
-  const rawCategories = getCategoriesWithLabs(labs);
+  const rawCategories = getCategoriesWithLabs(labs, {
+    includeEmptyKeys: labType === LAB_TYPES.BLACK_BOX ? ["game_labs"] : [],
+  });
   const categories =
     labType === LAB_TYPES.WHITE_BOX
       ? [...rawCategories].sort((a, b) => {

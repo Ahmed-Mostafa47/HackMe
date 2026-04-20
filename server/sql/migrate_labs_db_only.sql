@@ -154,6 +154,12 @@ VALUES
  'Remove innerHTML sink for untrusted input and use textContent/createTextNode instead.',
  '⚡', 4002, '/',
  1, 'medium', 100, @creator, 1, 'public', 'cyberops/xss-dom-whitebox', 3600)
+, 
+(30, 'War game',
+ 'Game labs: complete a wargame-style challenge and submit the flag.',
+ 'Follow the objective in the lab and submit the correct flag to complete the challenge.',
+ '🎮', 4005, '/',
+ 2, 'medium', 100, @creator, 1, 'public', 'cyberops/war-game', 3600)
 ON DUPLICATE KEY UPDATE
   title = VALUES(title),
   description = VALUES(description),
@@ -181,6 +187,8 @@ VALUES
 (319, 19, @creator, 'ACCESS_CONTROL_19', 'White-box: remove IDOR via user_id in URL; bind profile to session viewer + 403.', 1, 100, 'medium', 1),
 (320, 20, @creator, 'REFLECTED_XSS_WHITEBOX_FIX', 'Patch reflected output to prevent script execution.', 1, 100, 'medium', 1),
 (321, 21, @creator, 'DOM_XSS_WHITEBOX_FIX', 'Patch DOM sink to prevent unsafe HTML execution.', 1, 100, 'medium', 1)
+, 
+(330, 30, @creator, 'WAR_GAME', 'Complete the War game and submit the flag.', 1, 100, 'medium', 1)
 ON DUPLICATE KEY UPDATE
   statement = VALUES(statement),
   max_score = VALUES(max_score),
@@ -203,6 +211,8 @@ VALUES
 (319, 319, 'FLAG{ACCESS_CONTROL_WHITEBOX_19}', 'FLAG{ACCESS_CONTROL_WHITEBOX_19}', 100, 1, 'flag_match'),
 (320, 320, 'FLAG{XSS_WHITEBOX_REFLECTED_20}', 'FLAG{XSS_WHITEBOX_REFLECTED_20}', 100, 1, 'flag_match'),
 (321, 321, 'FLAG{XSS_WHITEBOX_DOM_21}', 'FLAG{XSS_WHITEBOX_DOM_21}', 100, 1, 'flag_match')
+, 
+(330, 330, 'FLAG{WAR_GAME_30}', 'FLAG{WAR_GAME_30}', 100, 1, 'flag_match')
 ON DUPLICATE KEY UPDATE
   secret_flag_hash = VALUES(secret_flag_hash),
   secret_flag_plain = VALUES(secret_flag_plain),
