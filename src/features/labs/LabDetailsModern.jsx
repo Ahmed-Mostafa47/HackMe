@@ -513,7 +513,7 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
             </section>
 
             {/* Some labs are objective-based (no flag submission UI). */}
-            {![1, 5, 7, 10].includes(lab.lab_id) && (
+            {![1, 5, 7, 10, 40].includes(lab.lab_id) && (
             <section className="rounded-2xl border border-slate-700 bg-slate-900/70 p-5 shadow-lg shadow-black/40">
               <h2 className="text-sm font-mono text-slate-300 mb-2 flex items-center gap-2">
                 <Flag className="w-4 h-4 text-amber-400" />
