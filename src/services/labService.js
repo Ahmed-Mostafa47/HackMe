@@ -264,6 +264,43 @@ export const labService = {
     }
     return data;
   },
+
+  async updateLabMetadata({
+    userId,
+    labId,
+    title,
+    description,
+    difficulty,
+    pointsTotal,
+    visibility,
+    isPublished,
+    icon,
+    launchPath,
+    port,
+  }) {
+    const response = await fetch(`${getLabsBase()}/update_lab_metadata.php`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_id: userId,
+        lab_id: labId,
+        title,
+        description,
+        difficulty,
+        points_total: pointsTotal,
+        visibility,
+        is_published: isPublished,
+        icon: icon ?? "",
+        launch_path: launchPath ?? "",
+        port: port ?? null,
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data?.success) {
+      throw new Error(data?.message || `Failed to update lab metadata (${response.status})`);
+    }
+    return data;
+  },
 };
 
 export default labService;
