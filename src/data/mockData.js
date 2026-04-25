@@ -206,11 +206,11 @@ export const mockLabs = [
     status: "NOT_STARTED",
     icon: "🐸",
     hints: [
-      "Level 3 pulls speed from an API request.",
-      "Level 4 reads game speed from localStorage.",
+      "Car speed is loaded from an API request.",
+      "Use DevTools to override the response and set carSpeed to 1.",
     ],
     solution:
-      "Use browser DevTools to intercept/override speed inputs (network response or localStorage gameSpeed) so car speed becomes low enough to cross.",
+      "Use browser DevTools to intercept/override the game-config response so carSpeed becomes low enough to cross.",
   },
   {
     lab_id: 20,
