@@ -47,6 +47,36 @@ if ($labId < 1) {
     exit;
 }
 
+// Lab 40: Frogger (DevTools) — canonical row for UI; DB may still hold an older placeholder title.
+if ($labId === 40) {
+    echo json_encode([
+        'success' => true,
+        'message' => 'OK',
+        'data' => [
+            'lab' => [
+                'lab_id' => 40,
+                'title' => 'Frogger',
+                'description' =>
+                    'Frogger challenge: your goal is to win by crossing the road safely. To make that possible, you must use DevTools to modify runtime game settings.',
+                'icon' => '🐸',
+                'port' => 4010,
+                'launch_path' => '/',
+                'labtype_id' => 2,
+                'difficulty' => 'hard',
+                'points_total' => 200,
+                'is_published' => true,
+                'visibility' => 'public',
+                'has_solution' => true,
+                'hints' => [
+                    'Car speed is loaded from an API request.',
+                    'Use DevTools to override the response and adjust carSpeed as needed.',
+                ],
+            ],
+        ],
+    ]);
+    exit;
+}
+
 $wbSqlId = hackme_whitebox_sql_lab_id();
 $isWbXss = hackme_whitebox_xss_is_supported($labId);
 // Legacy duplicate listing row: hide lab 11 only when it is not the configured SQL white-box id.

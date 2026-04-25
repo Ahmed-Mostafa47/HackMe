@@ -191,13 +191,13 @@ export const mockLabs = [
   },
   {
     lab_id: 40,
-    title: "FROGGER_DEVTOOLS_OVERRIDE",
-    display_name: "Game DevTools Override Lab",
+    title: "Frogger",
+    display_name: "Frogger",
     description:
-      "Black-box isolated game lab (Docker). Normal gameplay is intentionally unwinnable unless you manipulate browser runtime settings using DevTools.",
+      "Frogger challenge: your goal is to win by crossing the road safely. To make that possible, you must use DevTools to modify runtime game settings.",
     labtype_id: 2,
     difficulty: "hard",
-    points_total: 300,
+    points_total: 200,
     is_published: true,
     visibility: "public",
     port: 4010,
@@ -358,3 +358,4 @@ export const mockSubmissions = [
     submitted_at: "2024-01-15T10:30:00Z",
   },
 ];
+

@@ -74,6 +74,7 @@ const LabsListModern = ({
         if (id === 1) return false;
         if (lab.labtype_id !== 1 && id !== WHITEBOX_SQL_LAB_ID && !WHITEBOX_WORKBENCH_LAB_IDS.includes(id)) return false;
       } else if (labTypeId === 2) {
+        if (id === 40) return true;
         if (lab.labtype_id !== 2 && lab.labtype_id !== 3) return false;
       } else if (labTypeId === 3) {
         if (lab.labtype_id !== 3 && id !== 18 && id !== 19) return false;
@@ -88,6 +89,21 @@ const LabsListModern = ({
   const canAddLab =
     (labType === LAB_TYPES.WHITE_BOX || labType === LAB_TYPES.BLACK_BOX) &&
     (isAdmin || isInstructor);
+
+  const getLabUiMeta = (lab) => {
+    if (Number(lab?.lab_id) !== 40) return lab;
+    return {
+      ...lab,
+      title: "Frogger",
+      description:
+        "Frogger challenge: your goal is to win by crossing the road safely. To make that possible, you must use DevTools to modify runtime game settings.",
+      difficulty: "hard",
+      points_total: 200,
+      port: 4010,
+      launch_path: "/",
+      labtype_id: 2,
+    };
+  };
 
   const handleOpenLab = (lab) => {
     if (onLabClick) {
@@ -171,7 +187,9 @@ const LabsListModern = ({
           </div>
         ) : (
         <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-          {(labType != null || category != null ? filteredLabs : labs).map((lab) => (
+          {(labType != null || category != null ? filteredLabs : labs).map((rawLab) => {
+            const lab = getLabUiMeta(rawLab);
+            return (
             <article
               key={lab.lab_id}
               onClick={() => handleOpenLab(lab)}
@@ -268,7 +286,8 @@ const LabsListModern = ({
                 </div>
               )}
             </article>
-          ))}
+          );
+          })}
         </div>
         )}
       </div>
@@ -277,3 +296,4 @@ const LabsListModern = ({
 };
 
 export default LabsListModern;
+
