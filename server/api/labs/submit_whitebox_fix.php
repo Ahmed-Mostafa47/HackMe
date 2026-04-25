@@ -29,8 +29,10 @@ try {
     require_once __DIR__ . '/../../utils/db_connect.php';
     require_once __DIR__ . '/../../utils/labs_config.php';
     require_once __DIR__ . '/../../utils/whitebox_lab1_defaults.php';
+    require_once __DIR__ . '/../../utils/whitebox_lab12_defaults.php';
     require_once __DIR__ . '/../../utils/whitebox_lab18_defaults.php';
     require_once __DIR__ . '/../../utils/whitebox_sqli_verify.php';
+    require_once __DIR__ . '/../../utils/whitebox_academy_sqli_verify.php';
     require_once __DIR__ . '/../../utils/whitebox_lab18_access_verify.php';
     require_once __DIR__ . '/../../utils/lab_completion_helper.php';
     require_once __DIR__ . '/../../utils/lab_production_state.php';
@@ -82,11 +84,12 @@ if ($labId < 1 || $userId < 1) {
 
 $wbSqlId = hackme_whitebox_sql_lab_id();
 $isSqlWb = ($labId === $wbSqlId);
+$isLab12 = ($labId === 12);
 $isLab18 = ($labId === 18);
-if (!$isSqlWb && !$isLab18) {
+if (!$isSqlWb && !$isLab12 && !$isLab18) {
     echo json_encode([
         'success' => false,
-        'message' => 'White-box submission is only for lab_id ' . $wbSqlId . ' (SQL white-box) or lab_id 18 (access control).',
+        'message' => 'White-box submission is only for lab_id ' . $wbSqlId . ' (SQL white-box), lab_id 12 (academy white-box), or lab_id 18 (access control).',
         'data' => ['points_earned' => 0],
     ]);
     exit;
@@ -144,7 +147,7 @@ if ($isLab18) {
         $meta = json_decode($rawMeta, true);
     }
     if (!is_array($meta) || empty($meta['files']) || !is_array($meta['files'])) {
-        $meta = hackme_whitebox_lab1_meta();
+        $meta = $isLab12 ? hackme_whitebox_lab12_meta() : hackme_whitebox_lab1_meta();
         if (!$prodState['lab_in_db']) {
             error_log('[HackMe CRITICAL] submit_whitebox_fix: lab_id=' . $labIdEsc . ' not in DB; verification may run in demo mode only.');
         } elseif (!$prodState['whitebox_ref_valid']) {
@@ -246,6 +249,8 @@ if ($profile === 'lab18_admin_role_request') {
     $v = whitebox_lab18_apply_and_verify($original, $line, $replacement);
 } elseif ($profile === 'lab1_sqli_login') {
     $v = whitebox_lab1_apply_and_verify($original, $line, $replacement);
+} elseif ($profile === 'lab10_academy_member') {
+    $v = whitebox_academy_apply_and_verify_member($original, $line, $replacement);
 } else {
     echo json_encode(['success' => false, 'message' => 'Unsupported verify_profile', 'data' => ['points_earned' => 0]]);
     exit;
@@ -263,7 +268,7 @@ if ($isSqlWb && !$prodState['lab_in_db']) {
     error_log('[HackMe WARNING] submit_whitebox_fix: lab_id=' . $labIdEsc . ' has no labs row yet; recording completion anyway (helper may INSERT lab/challenge).');
 }
 
-$wbPayload = $isLab18 ? 'whitebox_access_lab18' : hackme_whitebox_sql_payload_mark();
+$wbPayload = $isLab18 ? 'whitebox_access_lab18' : ('whitebox_sqli_lab' . $labIdEsc);
 $result = hackme_record_lab_completion($conn, $labId, $userId, $wbPayload, 'whitebox');
 
 echo json_encode([

@@ -53,8 +53,9 @@ if ($labId === 11 && $wbSqlId !== 11) {
     exit;
 }
 
-$isWbSql = ($labId === $wbSqlId);
-$wbState = $isWbSql ? hackme_whitebox_production_state($conn, $labId) : null;
+$mapped = function_exists('hackme_whitebox_of_lab_id') ? hackme_whitebox_of_lab_id($labId) : null;
+$isMappedWhitebox = is_int($mapped) && $mapped > 0;
+$wbState = $isMappedWhitebox ? hackme_whitebox_production_state($conn, $labId) : null;
 
 $labSelect = "
     SELECT
@@ -68,14 +69,28 @@ $labPubRes = $conn->query($labSelect . " WHERE lab_id = $labId AND is_published 
 
 if ($labPubRes && $labPubRes->num_rows > 0) {
     $lab = $labPubRes->fetch_assoc();
-} elseif ($isWbSql) {
+} elseif ($isMappedWhitebox) {
     $labAnyRes = $conn->query($labSelect . " WHERE lab_id = $labId LIMIT 1");
     if ($labAnyRes && $labAnyRes->num_rows > 0) {
         error_log('[HackMe WARNING] get_lab_details: whitebox lab_id=' . $labId . ' exists but is not published/public; UI fallback row.');
         $lab = $labAnyRes->fetch_assoc();
     } else {
         error_log('[HackMe CRITICAL] get_lab_details: whitebox lab_id=' . $labId . ' missing from labs; UI fallback only.');
-        $lab = hackme_whitebox_sql_fallback_lab_row();
+        // Generic fallback; title/description may be overridden from mapped black-box lab below.
+        $lab = [
+            'lab_id' => $labId,
+            'title' => 'WHITEBOX_LAB_' . $labId,
+            'description' => '',
+            'icon' => '💉',
+            'port' => null,
+            'launch_path' => '',
+            'labtype_id' => 1,
+            'difficulty' => 'medium',
+            'points_total' => 0,
+            'is_published' => 1,
+            'visibility' => 'public',
+            'has_solution' => 0,
+        ];
     }
 } elseif ($labId === 18 || $labId === 19) {
     $is18 = $labId === 18;
@@ -117,7 +132,7 @@ if ($labPubRes && $labPubRes->num_rows > 0) {
 }
 
 $lidRow = (int) ($lab['lab_id'] ?? 0);
-if ($isWbSql || $lidRow === 18 || $lidRow === 19) {
+if ($isMappedWhitebox || $lidRow === 18 || $lidRow === 19) {
     $lab['labtype_id'] = 1;
 }
 if ($lidRow === 1) {
@@ -125,6 +140,23 @@ if ($lidRow === 1) {
 }
 if ($lidRow === 18) {
     $lab['title'] = 'Access Control Bypass';
+}
+
+// White-box display: unify title/description with mapped black-box lab (e.g. lab 11 -> lab 1).
+if (is_int($mapped) && $mapped > 0) {
+    $mid = (int) $mapped;
+    $mRes = $conn->query("SELECT title, description FROM labs WHERE lab_id = $mid LIMIT 1");
+    if ($mRes && $mRes->num_rows > 0) {
+        $mrow = $mRes->fetch_assoc();
+        $mt = trim((string) ($mrow['title'] ?? ''));
+        $md = trim((string) ($mrow['description'] ?? ''));
+        if ($mt !== '') {
+            $lab['title'] = $mt;
+        }
+        if ($md !== '') {
+            $lab['description'] = $md;
+        }
+    }
 }
 
 $hintsRes = $conn->query("
@@ -164,7 +196,7 @@ $data = [
     ],
 ];
 
-if ($isWbSql && $wbState !== null) {
+if ($isMappedWhitebox && $wbState !== null) {
     $data['lab_unregistered'] = !$wbState['lab_in_db'];
     $data['setup_incomplete'] = $wbState['setup_incomplete'];
     $data['scoring_allowed'] = $wbState['scoring_allowed'];

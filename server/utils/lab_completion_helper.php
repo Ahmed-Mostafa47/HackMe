@@ -37,9 +37,7 @@ function hackme_record_lab_completion(
         $points = 100;
     }
 
-    if ($completionScope === 'whitebox') {
-        $points = 100;
-    } else {
+    if ($completionScope !== 'whitebox') {
         $penaltyRes = $conn->query("
       SELECT hint_viewed, solution_viewed
       FROM lab_resource_usage

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, CheckCircle2, Shield, Terminal } from "lucide-react";
 import { labService } from "../../services/labService";
-import { WHITEBOX_SQL_LAB_ID } from "../../constants/labs";
+import { WHITEBOX_SQL_EXTRA_LAB_IDS, WHITEBOX_SQL_LAB_ID } from "../../constants/labs";
 import WhiteboxIdeLab from "./WhiteboxIdeLab";
 
 const diffBadgeClasses = {
@@ -23,7 +23,7 @@ const LabWhiteboxPage = ({ currentUser, onFlagSuccess }) => {
   const labType = searchParams.get("labType");
 
   const isWhiteboxWorkbench =
-    labId === WHITEBOX_SQL_LAB_ID || labId === 18 || labId === 19;
+    labId === WHITEBOX_SQL_LAB_ID || WHITEBOX_SQL_EXTRA_LAB_IDS.includes(labId) || labId === 18 || labId === 19;
 
   useEffect(() => {
     if (!isWhiteboxWorkbench) {

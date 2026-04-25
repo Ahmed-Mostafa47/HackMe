@@ -4,7 +4,7 @@
  * LABS_BASE_PATH: Root folder containing all Training Labs (e.g. D:\Graduation_project\Training Labs).
  * If this path is wrong or missing SQL/, white-box lab 1 still loads using an embedded api/login.php sample.
  */
-define('LABS_BASE_PATH', 'C:\Users\ahmed\Desktop\4th cs\Labs');
+define('LABS_BASE_PATH', 'E:\Level 4\Semester1\graduation\Labs');
 
 /** White-box SQL source lab (separate from black-box SQL lab_id = 1). */
 define('HACKME_WHITEBOX_SQL_LAB_ID', 11);
@@ -21,6 +21,16 @@ $GLOBALS['LABS_REGISTRY'] = [
         'folder' => 'SQL',
         'port' => 4000,
         'points' => 100,
+        // Display-only: white-box SQL shares the same UI card content as black-box SQL (lab 1).
+        'whitebox_of_lab_id' => 1,
+    ],
+    [
+        'lab_id' => 12,
+        'folder' => 'SQL',
+        'port' => 4000,
+        'points' => 150,
+        // Display-only: this white-box card mirrors the academy SQL lab (lab 10).
+        'whitebox_of_lab_id' => 10,
     ],
     [
         'lab_id' => 5,
@@ -48,6 +58,12 @@ $GLOBALS['LABS_REGISTRY'] = [
         'points' => 150,
     ],
     [
+        'lab_id' => 40,
+        'folder' => 'BLACK_BOX/game',
+        'port' => 4010,
+        'points' => 300,
+    ],
+    [
         'lab_id' => 18,
         'folder' => 'BA',
         'port' => 4003,
@@ -62,3 +78,22 @@ $GLOBALS['LABS_REGISTRY'] = [
         'compose_file' => 'docker-compose.access-control.yml',
     ],
 ];
+
+/**
+ * Display-only: map white-box lab_id -> black-box lab_id for unified UI text.
+ */
+function hackme_whitebox_of_lab_id(int $whiteboxLabId): ?int
+{
+    $wid = (int) $whiteboxLabId;
+    foreach ($GLOBALS['LABS_REGISTRY'] ?? [] as $cfg) {
+        if (!is_array($cfg)) {
+            continue;
+        }
+        if ((int) ($cfg['lab_id'] ?? 0) !== $wid) {
+            continue;
+        }
+        $of = (int) ($cfg['whitebox_of_lab_id'] ?? 0);
+        return $of > 0 ? $of : null;
+    }
+    return null;
+}

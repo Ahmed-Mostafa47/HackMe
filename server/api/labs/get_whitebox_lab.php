@@ -29,6 +29,7 @@ try {
     require_once __DIR__ . '/../../utils/db_connect.php';
     require_once __DIR__ . '/../../utils/labs_config.php';
     require_once __DIR__ . '/../../utils/whitebox_lab1_defaults.php';
+    require_once __DIR__ . '/../../utils/whitebox_lab12_defaults.php';
     require_once __DIR__ . '/../../utils/whitebox_lab18_defaults.php';
     require_once __DIR__ . '/../../utils/lab_production_state.php';
 } catch (Throwable $e) {
@@ -56,12 +57,13 @@ if ($labId < 1 || $userId < 1) {
 $labIdEsc = (int) $labId;
 $wbSqlId = hackme_whitebox_sql_lab_id();
 $isSqlWb = ($labIdEsc === $wbSqlId);
+$isLab12 = ($labIdEsc === 12);
 $isLab18 = ($labIdEsc === 18);
 
-if (!$isSqlWb && !$isLab18) {
+if (!$isSqlWb && !$isLab12 && !$isLab18) {
     echo json_encode([
         'success' => false,
-        'message' => 'White-box API is only for SQL white-box lab_id ' . $wbSqlId . ' or access-control lab_id 18.',
+        'message' => 'White-box API is only for SQL white-box lab_id ' . $wbSqlId . ' / 12 or access-control lab_id 18.',
     ]);
     exit;
 }
@@ -110,6 +112,24 @@ if ($isLab18) {
 $labRow['lab_id'] = $labIdEsc;
 $labRow['labtype_id'] = 1;
 
+// White-box display: unify title/description with mapped black-box lab (lab 11 -> lab 1).
+$mapped = function_exists('hackme_whitebox_of_lab_id') ? hackme_whitebox_of_lab_id($labIdEsc) : null;
+if (!$isLab18 && is_int($mapped) && $mapped > 0) {
+    $mid = (int) $mapped;
+    $mRes = $conn->query("SELECT title, description FROM labs WHERE lab_id = $mid LIMIT 1");
+    if ($mRes && $mRes->num_rows > 0) {
+        $mrow = $mRes->fetch_assoc();
+        $mt = trim((string) ($mrow['title'] ?? ''));
+        $md = trim((string) ($mrow['description'] ?? ''));
+        if ($mt !== '') {
+            $labRow['title'] = $mt;
+        }
+        if ($md !== '') {
+            $labRow['description'] = $md;
+        }
+    }
+}
+
 $chRes = $conn->query("
   SELECT challenge_id, title, whitebox_files_ref
   FROM challenges
@@ -148,7 +168,7 @@ if ($isLab18) {
             error_log('[HackMe WARNING] whitebox lab_id=' . $labIdEsc . ' has challenge but invalid/empty whitebox_files_ref; using built-in meta for UI only.');
         }
         if ($rawRef === '') {
-            $rawRef = hackme_whitebox_lab1_meta_json();
+            $rawRef = $isLab12 ? hackme_whitebox_lab12_meta_json() : hackme_whitebox_lab1_meta_json();
         }
     }
 }
