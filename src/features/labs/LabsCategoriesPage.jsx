@@ -37,6 +37,7 @@ const LabsCategoriesPage = ({
         const filtered = all.filter((lab) => {
           const id = Number(lab.lab_id);
           if (labType === LAB_TYPES.BLACK_BOX) {
+            if (id === 40) return true;
             if (lab.labtype_id !== 2 && lab.labtype_id !== 3) return false;
             return true;
           }
@@ -65,7 +66,9 @@ const LabsCategoriesPage = ({
     };
   }, [labType]);
 
-  const rawCategories = getCategoriesWithLabs(labs);
+  const rawCategories = getCategoriesWithLabs(labs, {
+    includeEmptyKeys: labType === LAB_TYPES.BLACK_BOX ? ["game_labs"] : [],
+  });
   const categories =
     labType === LAB_TYPES.WHITE_BOX
       ? [...rawCategories].sort((a, b) => {

@@ -16,14 +16,14 @@ function hackme_whitebox_xss_fallback_lab_row(int $labId): array
     if ($labId === 21) {
         return [
             'lab_id' => 21,
-            'title' => 'DOM XSS - Whitebox',
+            'title' => 'DOM XSS (White-box)',
             'labtype_id' => 1,
             'description' => 'White-box DOM XSS lab: inspect source and fix unsafe sink.',
         ];
     }
     return [
         'lab_id' => 20,
-        'title' => 'Reflected XSS - Whitebox',
+        'title' => 'Reflected XSS (White-box)',
         'labtype_id' => 1,
         'description' => 'White-box reflected XSS lab: inspect source and fix reflected output.',
     ];

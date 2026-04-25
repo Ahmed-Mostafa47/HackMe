@@ -185,6 +185,43 @@ if ($labId === 10 && $flag === 'FLAG{ACADEMY_SQLI_DELETED}') {
     }
 }
 
+// Lab 40 + FLAG{FROGGER_DEVTOOLS_OVERRIDE}: Frogger lab, 200 points
+// Ensure lab/challenge/testcase rows exist so valid flag does not fail with INVALID_FLAG.
+if ($labId === 40 && $flag === 'FLAG{FROGGER_DEVTOOLS_OVERRIDE}') {
+    $conn->query("INSERT IGNORE INTO lab_types (labtype_id, name, description) VALUES (2, 'BLACK_BOX', 'Black Box Testing Labs')");
+    $creator = $userId > 0 ? (int) $userId : 0;
+    if ($creator < 1) {
+        $ur = $conn->query("SELECT user_id FROM users ORDER BY user_id ASC LIMIT 1");
+        $creator = $ur && ($r = $ur->fetch_assoc()) ? (int) $r['user_id'] : 0;
+    }
+    if ($creator > 0) {
+        $c = (int) $creator;
+        $conn->query(
+            "INSERT INTO labs (lab_id, title, description, labtype_id, difficulty, points_total, created_by, is_published, visibility, docker_image, reset_interval) " .
+            "VALUES (40, 'Frogger', 'Frogger challenge: win by crossing the road safely. To do that, use browser DevTools to modify runtime game settings.', 2, 'hard', 200, $c, 1, 'public', '', 3600) " .
+            "ON DUPLICATE KEY UPDATE title = VALUES(title), description = VALUES(description), labtype_id = VALUES(labtype_id), " .
+            "difficulty = VALUES(difficulty), points_total = VALUES(points_total), created_by = VALUES(created_by)"
+        );
+        $conn->query(
+            "INSERT INTO challenges (challenge_id, lab_id, created_by, title, statement, order_index, max_score, difficulty, is_active) " .
+            "VALUES (340, 40, $c, 'Frogger', 'Win by crossing the road; use browser DevTools to adjust runtime settings.', 1, 200, 'hard', 1) " .
+            "ON DUPLICATE KEY UPDATE lab_id = VALUES(lab_id), created_by = VALUES(created_by), title = VALUES(title), " .
+            "statement = VALUES(statement), order_index = VALUES(order_index), max_score = VALUES(max_score), " .
+            "difficulty = VALUES(difficulty), is_active = VALUES(is_active)"
+        );
+        $conn->query(
+            "INSERT INTO testcases (testcase_id, challenge_id, secret_flag_hash, secret_flag_plain, points, active, type) " .
+            "VALUES (340, 340, 'FLAG{FROGGER_DEVTOOLS_OVERRIDE}', 'FLAG{FROGGER_DEVTOOLS_OVERRIDE}', 200, 1, 'flag_match') " .
+            "ON DUPLICATE KEY UPDATE challenge_id = VALUES(challenge_id), secret_flag_hash = VALUES(secret_flag_hash), " .
+            "secret_flag_plain = VALUES(secret_flag_plain), points = VALUES(points), active = VALUES(active), type = VALUES(type)"
+        );
+        $conn->query(
+            "UPDATE testcases t INNER JOIN challenges c ON c.challenge_id = t.challenge_id AND c.lab_id = 40 AND c.challenge_id = 340 " .
+            "SET t.secret_flag_plain = 'FLAG{FROGGER_DEVTOOLS_OVERRIDE}', t.secret_flag_hash = 'FLAG{FROGGER_DEVTOOLS_OVERRIDE}', t.points = 200, t.active = 1"
+        );
+    }
+}
+
 // Labs 18 / 19: white-box listed access-control labs (ensure rows so flags validate without manual seed).
 if ($labId === 18 || $labId === 19) {
     $conn->query("INSERT IGNORE INTO lab_types (labtype_id, name, description) VALUES (1, 'WHITE_BOX', 'White Box Testing Labs')");
@@ -212,18 +249,18 @@ if ($labId === 18 || $labId === 19) {
                 "VALUES (318, 318, 'FLAG{ACCESS_CONTROL_WHITEBOX_18}', 'FLAG{ACCESS_CONTROL_WHITEBOX_18}', 100, 1, 'flag_match') " .
                 "ON DUPLICATE KEY UPDATE challenge_id = 318, secret_flag_plain = VALUES(secret_flag_plain), secret_flag_hash = VALUES(secret_flag_hash), points = 100, active = 1"
             );
-            $wb18 = $conn->real_escape_string('{"version":1,"verify_profile":"lab18_admin_role_request","files":[{"id":"admin_panel","display_name":"admin_panel.php","relative_path":"public/admin_panel.php","vulnerable_line":4}]}');
+            $wb18 = $conn->real_escape_string('{"version":1,"verify_profile":"lab18_admin_role_request","files":[{"id":"admin_panel","display_name":"admin_panel.php","relative_path":"public/admin_panel.php"},{"id":"index","display_name":"index.php","relative_path":"public/index.php"},{"id":"auth_bootstrap","display_name":"auth_bootstrap.php","relative_path":"includes/auth_bootstrap.php"}]}');
             $conn->query("UPDATE challenges SET whitebox_files_ref = '$wb18' WHERE challenge_id = 318 AND lab_id = 18");
         } else {
             $conn->query(
                 "INSERT INTO labs (lab_id, title, description, labtype_id, difficulty, points_total, created_by, is_published, visibility, docker_image, reset_interval) " .
-                "VALUES (19, 'ACCESS_CONTROL_WHITEBOX_19', 'Access control (WHITE_BOX listing): IDOR / horizontal access; capture FLAG{ACCESS_CONTROL_WHITEBOX_19}.', 1, 'medium', 100, $c, 1, 'public', 'cyberops/access-control-lab', 3600) " .
+                "VALUES (19, 'IDOR (White-box)', 'White-box: profile follows user_id in the URL — patch sources to bind access to the session user and block horizontal access.', 1, 'medium', 100, $c, 1, 'public', 'cyberops/access-control-lab', 3600) " .
                 "ON DUPLICATE KEY UPDATE title = VALUES(title), description = VALUES(description), labtype_id = 1, " .
                 "difficulty = VALUES(difficulty), points_total = VALUES(points_total)"
             );
             $conn->query(
                 "INSERT INTO challenges (challenge_id, lab_id, created_by, title, statement, order_index, max_score, difficulty, is_active) " .
-                "VALUES (319, 19, $c, 'ACCESS_CONTROL_19', 'Solve the access-control challenge and submit the flag.', 1, 100, 'medium', 1) " .
+                "VALUES (319, 19, $c, 'ACCESS_CONTROL_19', 'White-box: remove IDOR via user_id in URL; bind profile to session viewer + 403.', 1, 100, 'medium', 1) " .
                 "ON DUPLICATE KEY UPDATE lab_id = 19, is_active = 1, title = VALUES(title), statement = VALUES(statement), max_score = VALUES(max_score)"
             );
             $conn->query(
@@ -231,6 +268,8 @@ if ($labId === 18 || $labId === 19) {
                 "VALUES (319, 319, 'FLAG{ACCESS_CONTROL_WHITEBOX_19}', 'FLAG{ACCESS_CONTROL_WHITEBOX_19}', 100, 1, 'flag_match') " .
                 "ON DUPLICATE KEY UPDATE challenge_id = 319, secret_flag_plain = VALUES(secret_flag_plain), secret_flag_hash = VALUES(secret_flag_hash), points = 100, active = 1"
             );
+            $wb19 = $conn->real_escape_string('{"version":1,"verify_profile":"lab19_idor_user_param","files":[{"id":"user_profile","display_name":"user_profile.php","relative_path":"public/user_profile.php"},{"id":"entry","display_name":"lab19_entry.php","relative_path":"public/lab19_entry.php"},{"id":"scaffold","display_name":"lab19_scaffold.php","relative_path":"includes/lab19_scaffold.php"}]}');
+            $conn->query("UPDATE challenges SET whitebox_files_ref = '$wb19' WHERE challenge_id = 319 AND lab_id = 19");
         }
     }
 }
@@ -347,3 +386,4 @@ if (!$ok1) {
 $conn->query("INSERT INTO leaderboard (user_id, total_points, last_update) VALUES ($userId, $points, NOW()) ON DUPLICATE KEY UPDATE total_points = total_points + $points, last_update = NOW()");
 
 echo json_encode(['success' => true, 'message' => 'FLAG_CAPTURED', 'points' => $points]);
+
