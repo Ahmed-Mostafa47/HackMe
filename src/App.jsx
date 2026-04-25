@@ -33,7 +33,6 @@ import { useAuth } from "./hooks/useAuth";
 import { useLabs } from "./hooks/useLabs";
 import "./styles/animations.css";
 import { WHITEBOX_WORKBENCH_LAB_IDS } from "./constants/labs";
-import { WHITEBOX_WORKBENCH_LAB_IDS } from "./constants/labs";
 
 const API_BASE = "http://localhost/HackMe/server/api";
 

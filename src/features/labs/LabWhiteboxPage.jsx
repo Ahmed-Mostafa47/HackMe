@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import { labService } from "../../services/labService";
 import { WHITEBOX_WORKBENCH_LAB_IDS } from "../../constants/labs";
-import { WHITEBOX_WORKBENCH_LAB_IDS } from "../../constants/labs";
 import WhiteboxIdeLab from "./WhiteboxIdeLab";
 
 const diffBadgeClasses = {
@@ -31,7 +30,6 @@ const LabWhiteboxPage = ({ currentUser, onFlagSuccess }) => {
   const fromCategory = searchParams.get("fromCategory");
   const labType = searchParams.get("labType");
 
-  const isWhiteboxWorkbench = WHITEBOX_WORKBENCH_LAB_IDS.includes(Number(labId));
   const isWhiteboxWorkbench = WHITEBOX_WORKBENCH_LAB_IDS.includes(Number(labId));
 
   useEffect(() => {
