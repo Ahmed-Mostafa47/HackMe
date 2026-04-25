@@ -14,7 +14,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { labService } from "../../services/labService";
-import { WHITEBOX_SQL_EXTRA_LAB_IDS, WHITEBOX_SQL_LAB_ID } from "../../constants/labs";
+import { WHITEBOX_WORKBENCH_LAB_IDS } from "../../constants/labs";
 
 // Use relative path when proxy exists (dev), else full URL (production)
 const API_BASE = import.meta.env.DEV ? "/api" : "http://localhost/HackMe/server/api";
@@ -25,7 +25,7 @@ const diffBadgeClasses = {
   hard: "bg-rose-500/10 text-rose-300 border-rose-400/50",
 };
 
-const whiteboxRouteLabIds = new Set([WHITEBOX_SQL_LAB_ID, ...WHITEBOX_SQL_EXTRA_LAB_IDS, 18, 19]);
+const whiteboxRouteLabIds = new Set(WHITEBOX_WORKBENCH_LAB_IDS);
 
 const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
   const navigate = useNavigate();
@@ -117,7 +117,18 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
 
   // Listen for lab solved from Training Labs (postMessage)
   // Only accept from lab origins (localhost:4001, 4002) to prevent false solves from extensions/other tabs.
-  const labOrigins = ["http://localhost:4000", "http://localhost:4001", "http://localhost:4002", "http://localhost:4003", "http://127.0.0.1:4000", "http://127.0.0.1:4001", "http://127.0.0.1:4002", "http://127.0.0.1:4003"];
+  const labOrigins = [
+    "http://localhost:4000",
+    "http://localhost:4001",
+    "http://localhost:4002",
+    "http://localhost:4003",
+    "http://localhost:4010",
+    "http://127.0.0.1:4000",
+    "http://127.0.0.1:4001",
+    "http://127.0.0.1:4002",
+    "http://127.0.0.1:4003",
+    "http://127.0.0.1:4010",
+  ];
   useEffect(() => {
     const handler = (e) => {
       if (!labOrigins.includes(e?.origin ?? "")) return;
@@ -513,7 +524,7 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
             </section>
 
             {/* Some labs are objective-based (no flag submission UI). */}
-            {![1, 5, 7, 10].includes(lab.lab_id) && (
+            {![1, 5, 7, 10, 40].includes(lab.lab_id) && (
             <section className="rounded-2xl border border-slate-700 bg-slate-900/70 p-5 shadow-lg shadow-black/40">
               <h2 className="text-sm font-mono text-slate-300 mb-2 flex items-center gap-2">
                 <Flag className="w-4 h-4 text-amber-400" />

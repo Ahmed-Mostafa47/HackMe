@@ -42,7 +42,14 @@ if (!isset($conn) || !$conn) {
 
 $wbSqlId = hackme_whitebox_sql_lab_id();
 if ($scope === '') {
-    $scope = ($labId === $wbSqlId || $labId === 12 || $labId === 18) ? 'whitebox' : 'standard';
+    $scope = (
+        $labId === $wbSqlId ||
+        $labId === 12 ||
+        $labId === 18 ||
+        $labId === 19 ||
+        $labId === 20 ||
+        $labId === 21
+    ) ? 'whitebox' : 'standard';
 }
 
 $labIdEsc = (int)$labId;
@@ -51,8 +58,24 @@ $userIdEsc = (int)$userId;
 if ($scope === 'whitebox') {
     if ($labIdEsc === 18) {
         $wb = $conn->real_escape_string('whitebox_access_lab18');
-    } elseif ($labIdEsc === $wbSqlId || $labIdEsc === 12) {
-        $wb = $conn->real_escape_string('whitebox_sqli_lab' . $labIdEsc);
+    } elseif ($labIdEsc === 19) {
+        $wb = $conn->real_escape_string('whitebox_idor_lab19');
+    } elseif ($labIdEsc === 20) {
+        $wb = $conn->real_escape_string('whitebox_xss_lab20');
+    } elseif ($labIdEsc === 21) {
+        $wb = $conn->real_escape_string('whitebox_xss_lab21');
+    } elseif ($labIdEsc === $wbSqlId) {
+        $wb = $conn->real_escape_string(hackme_whitebox_sql_payload_mark());
+    } elseif ($labIdEsc === 12) {
+        $wb = $conn->real_escape_string('whitebox_sqli_lab12');
+    } elseif ($labIdEsc === 19) {
+        $wb = $conn->real_escape_string('whitebox_idor_lab19');
+    } elseif ($labIdEsc === 20) {
+        $wb = $conn->real_escape_string('whitebox_xss_lab20');
+    } elseif ($labIdEsc === 21) {
+        $wb = $conn->real_escape_string('whitebox_xss_lab21');
+    } elseif ($labIdEsc === $wbSqlId) {
+        $wb = $conn->real_escape_string(hackme_whitebox_sql_payload_mark());
     } else {
         echo json_encode(['solved' => false, 'scope' => $scope]);
         exit;

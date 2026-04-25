@@ -32,7 +32,7 @@ import axios from "axios";
 import { useAuth } from "./hooks/useAuth";
 import { useLabs } from "./hooks/useLabs";
 import "./styles/animations.css";
-import { WHITEBOX_SQL_EXTRA_LAB_IDS, WHITEBOX_SQL_LAB_ID } from "./constants/labs";
+import { WHITEBOX_WORKBENCH_LAB_IDS } from "./constants/labs";
 
 const API_BASE = "http://localhost/HackMe/server/api";
 
@@ -499,7 +499,7 @@ function AppContent() {
               onRemoveLab={() => {}}
               onLabClick={(lab) =>
                 navigate(
-                  [WHITEBOX_SQL_LAB_ID, ...WHITEBOX_SQL_EXTRA_LAB_IDS, 18, 19].includes(Number(lab.lab_id))
+                  WHITEBOX_WORKBENCH_LAB_IDS.includes(Number(lab.lab_id))
                     ? `/lab-whitebox?labId=${encodeURIComponent(String(lab.lab_id))}`
                     : `/lab-modern?labId=${lab.lab_id}`
                 )
@@ -536,7 +536,7 @@ function AppContent() {
             onAddLab={() => navigate("/instructor-labs")}
             onLabClick={(lab) =>
               navigate(
-                [WHITEBOX_SQL_LAB_ID, ...WHITEBOX_SQL_EXTRA_LAB_IDS, 18, 19].includes(Number(lab.lab_id))
+                WHITEBOX_WORKBENCH_LAB_IDS.includes(Number(lab.lab_id))
                   ? `/lab-whitebox?labId=${encodeURIComponent(String(lab.lab_id))}&fromCategory=${encodeURIComponent(categoryParam)}&labType=${encodeURIComponent(labTypeParam)}`
                   : `/lab-modern?labId=${lab.lab_id}&fromCategory=${categoryParam}&labType=${labTypeParam}`
               )
@@ -545,7 +545,7 @@ function AppContent() {
         );
       }
       case "/lab-whitebox": {
-        const wbLabId = params.get("labId") || String(WHITEBOX_SQL_LAB_ID);
+        const wbLabId = params.get("labId") || String(WHITEBOX_WORKBENCH_LAB_IDS[0]);
         return (
           <LabWhiteboxPage
             key={wbLabId}

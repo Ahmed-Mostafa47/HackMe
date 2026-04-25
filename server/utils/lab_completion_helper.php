@@ -37,13 +37,14 @@ function hackme_record_lab_completion(
         $points = 100;
     }
 
+    // Penalties apply to standard flag-based labs. White-box scoring is based on secure fix submission.
     if ($completionScope !== 'whitebox') {
         $penaltyRes = $conn->query("
-      SELECT hint_viewed, solution_viewed
-      FROM lab_resource_usage
-      WHERE user_id = $userIdEsc AND lab_id = $labIdEsc
-      LIMIT 1
-    ");
+          SELECT hint_viewed, solution_viewed
+          FROM lab_resource_usage
+          WHERE user_id = $userIdEsc AND lab_id = $labIdEsc
+          LIMIT 1
+        ");
         if ($penaltyRes && $penaltyRes->num_rows > 0) {
             $penaltyRow = $penaltyRes->fetch_assoc();
             $hintViewed = ((int) ($penaltyRow['hint_viewed'] ?? 0) === 1);

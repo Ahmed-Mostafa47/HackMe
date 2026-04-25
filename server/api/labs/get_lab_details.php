@@ -25,6 +25,7 @@ try {
     require_once __DIR__ . '/../../utils/db_connect.php';
     require_once __DIR__ . '/../../utils/labs_config.php';
     require_once __DIR__ . '/../../utils/whitebox_lab1_defaults.php';
+    require_once __DIR__ . '/../../utils/whitebox_xss_defaults.php';
     require_once __DIR__ . '/../../utils/lab_production_state.php';
 } catch (Throwable $e) {
     http_response_code(500);
@@ -47,6 +48,7 @@ if ($labId < 1) {
 }
 
 $wbSqlId = hackme_whitebox_sql_lab_id();
+$isWbXss = hackme_whitebox_xss_is_supported($labId);
 // Legacy duplicate listing row: hide lab 11 only when it is not the configured SQL white-box id.
 if ($labId === 11 && $wbSqlId !== 11) {
     echo json_encode(['success' => false, 'message' => 'Lab not found']);
@@ -100,10 +102,10 @@ if ($labPubRes && $labPubRes->num_rows > 0) {
         'data' => [
             'lab' => [
                 'lab_id' => $labId,
-                'title' => $is18 ? 'Access Control Bypass' : 'ACCESS_CONTROL_WHITEBOX_19',
+                'title' => $is18 ? 'Access Control Bypass' : 'IDOR (White-box)',
                 'description' => $is18
-                    ? 'White-box workbench: fix admin_panel.php — the URL ?role=admin poisons $_SESSION so anyone reaches ADMIN_PANEL. Patch the highlighted line in the source.'
-                    : 'Access control (WHITE_BOX listing): IDOR / horizontal access; capture the lab flag.',
+                    ? 'White-box: review the PHP bundle (public/ and includes/). Remove client-controlled session role assignment and enforce a server-side admin gate before ADMIN_PANEL output.'
+                    : 'White-box: review the PHP bundle. The profile endpoint trusts user_id from the URL — bind reads to the logged-in session user and block horizontal access (403).',
                 'icon' => '🔓',
                 'port' => 4003,
                 'launch_path' => $is18 ? '/lab/1' : '/lab/2',
@@ -113,14 +115,38 @@ if ($labPubRes && $labPubRes->num_rows > 0) {
                 'is_published' => true,
                 'visibility' => 'public',
                 'has_solution' => false,
-                'hints' => $is18
+                'hints' => [],
+            ],
+        ],
+    ]);
+    exit;
+} elseif ($isWbXss) {
+    $fallback = hackme_whitebox_xss_fallback_lab_row($labId);
+    echo json_encode([
+        'success' => true,
+        'message' => 'OK',
+        'data' => [
+            'lab' => [
+                'lab_id' => $labId,
+                'title' => (string) ($fallback['title'] ?? ($labId === 21 ? 'DOM XSS (White-box)' : 'Reflected XSS (White-box)')),
+                'description' => (string) ($fallback['description'] ?? 'White-box XSS lab.'),
+                'icon' => '⚡',
+                'port' => $labId === 21 ? 4002 : 4001,
+                'launch_path' => '/',
+                'labtype_id' => 1,
+                'difficulty' => 'medium',
+                'points_total' => 100,
+                'is_published' => true,
+                'visibility' => 'public',
+                'has_solution' => false,
+                'hints' => $labId === 21
                     ? [
-                        'Compare user vs admin API responses for the same endpoint.',
-                        'If a feature is hidden in the UI, try calling its API path directly.',
+                        'Search for unsafe innerHTML usage in JavaScript.',
+                        'Replace sink with textContent or createTextNode.',
                     ]
                     : [
-                        'Try predictable or sequential IDs on object references.',
-                        'Confirm whether the server re-checks ownership on every read.',
+                        'Reflected user input must be output-encoded.',
+                        'Use htmlspecialchars for HTML context.',
                     ],
             ],
         ],
@@ -140,6 +166,32 @@ if ($lidRow === 1) {
 }
 if ($lidRow === 18) {
     $lab['title'] = 'Access Control Bypass';
+}
+if ($lidRow === 19) {
+    $lab['title'] = 'IDOR (White-box)';
+}
+if ($lidRow === 20) {
+    $lab['title'] = 'Reflected XSS (White-box)';
+}
+if ($lidRow === 21) {
+    $lab['title'] = 'DOM XSS (White-box)';
+}
+
+// White-box display: unify title/description with mapped black-box lab (e.g. lab 11 -> lab 1).
+if (is_int($mapped) && $mapped > 0) {
+    $mid = (int) $mapped;
+    $mRes = $conn->query("SELECT title, description FROM labs WHERE lab_id = $mid LIMIT 1");
+    if ($mRes && $mRes->num_rows > 0) {
+        $mrow = $mRes->fetch_assoc();
+        $mt = trim((string) ($mrow['title'] ?? ''));
+        $md = trim((string) ($mrow['description'] ?? ''));
+        if ($mt !== '') {
+            $lab['title'] = $mt;
+        }
+        if ($md !== '') {
+            $lab['description'] = $md;
+        }
+    }
 }
 
 // White-box display: unify title/description with mapped black-box lab (e.g. lab 11 -> lab 1).
@@ -176,6 +228,9 @@ if ($hintsRes) {
             $hints[] = $text;
         }
     }
+}
+if ($labId === 18 || $labId === 19) {
+    $hints = [];
 }
 
 $data = [

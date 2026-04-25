@@ -3,14 +3,14 @@
  * Used to group labs into folder-like categories (SQL Injection, XSS, Broken Access, etc.)
  */
 
-import { WHITEBOX_SQL_LAB_ID } from "../constants/labs";
+import { WHITEBOX_SQL_LAB_ID, WHITEBOX_XSS_LAB_IDS } from "../constants/labs";
 
 export const LAB_CATEGORIES = {
   GAME: {
     key: "game",
-    label: "game",
+    label: "Game",
     icon: "🎮",
-    keywords: ["frogger", "devtools", "override"],
+    keywords: ["frogger", "devtools", "override", "game", "games", "ctf", "arcade"],
   },
   SQL_INJECTION: {
     key: "sql_injection",
@@ -54,6 +54,7 @@ export const LAB_CATEGORIES = {
 
 /** White-box access-control workbench labs (always grouped under Broken Access Control). */
 const WHITEBOX_ACCESS_LAB_IDS = new Set([18, 19]);
+const WHITEBOX_XSS_ID_SET = new Set(WHITEBOX_XSS_LAB_IDS);
 
 /** White-box category sidebar order (SQL Injection before Broken Access Control). */
 export const WHITEBOX_CATEGORY_ORDER = [
@@ -82,6 +83,9 @@ export function getCategoryFromLabTitle(labTitle, labId) {
   if (!Number.isNaN(id) && id === WHITEBOX_SQL_LAB_ID) {
     return LAB_CATEGORIES.SQL_INJECTION.key;
   }
+  if (!Number.isNaN(id) && WHITEBOX_XSS_ID_SET.has(id)) {
+    return LAB_CATEGORIES.XSS.key;
+  }
   if (id === 1) {
     return LAB_CATEGORIES.SQL_INJECTION.key;
   }
@@ -102,9 +106,12 @@ export function getCategoryFromLabTitle(labTitle, labId) {
 /**
  * Get all category configs that have at least one lab
  * @param {Array} labs - List of labs
+ * @param {Object} [options]
+ * @param {string[]} [options.includeEmptyKeys] - Category keys to include even with 0 labs
  * @returns {Array} Category configs with lab count
  */
-export function getCategoriesWithLabs(labs) {
+export function getCategoriesWithLabs(labs, options = {}) {
+  const includeEmptyKeys = new Set(options.includeEmptyKeys || []);
   const counts = {};
   labs.forEach((lab) => {
     const key = getCategoryFromLabTitle(lab.title, lab.lab_id);
@@ -112,7 +119,7 @@ export function getCategoriesWithLabs(labs) {
   });
 
   return Object.entries(LAB_CATEGORIES)
-    .filter(([, config]) => (counts[config.key] || 0) > 0)
+    .filter(([, config]) => (counts[config.key] || 0) > 0 || includeEmptyKeys.has(config.key))
     .map(([, config]) => ({
       ...config,
       labCount: counts[config.key] || 0,

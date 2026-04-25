@@ -107,6 +107,12 @@ while ($row = $res->fetch_assoc()) {
     if ($labId === 18) {
         $title = 'Access Control Bypass';
     }
+    if ($labId === 20) {
+        $title = 'Reflected XSS (White-box)';
+    }
+    if ($labId === 21) {
+        $title = 'DOM XSS (White-box)';
+    }
     $labs[] = [
         'lab_id' => $labId,
         'title' => $title,
@@ -140,18 +146,34 @@ $defaults = [
     ],
     18 => [
         'title' => 'Access Control Bypass',
-        'description' => 'White-box: fix admin_panel — ?role= in the URL must not set $_SESSION before ADMIN_PANEL.',
+        'description' => 'White-box: review the PHP bundle; client input must not set session role before ADMIN_PANEL.',
         'icon' => '🔓',
         'port' => 4003,
         'launch_path' => '/lab/1',
         'points_total' => 100,
     ],
     19 => [
-        'title' => 'ACCESS_CONTROL_WHITEBOX_19',
-        'description' => 'Access control (WHITE_BOX listing): IDOR / horizontal access; capture the lab flag.',
+        'title' => 'IDOR (White-box)',
+        'description' => 'White-box: URL user_id switches profiles — patch sources to bind access to the session user and deny horizontal access.',
         'icon' => '🔓',
         'port' => 4003,
         'launch_path' => '/lab/2',
+        'points_total' => 100,
+    ],
+    20 => [
+        'title' => 'Reflected XSS (White-box)',
+        'description' => 'White-box reflected XSS: review vulnerable source and apply output encoding fix.',
+        'icon' => '⚡',
+        'port' => 4001,
+        'launch_path' => '/',
+        'points_total' => 100,
+    ],
+    21 => [
+        'title' => 'DOM XSS (White-box)',
+        'description' => 'White-box DOM XSS: replace unsafe DOM sink with safe text rendering.',
+        'icon' => '⚡',
+        'port' => 4002,
+        'launch_path' => '/',
         'points_total' => 100,
     ],
 ];

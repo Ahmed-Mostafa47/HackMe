@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from "react";
 import {
   Plus,
+  Upload,
+  FileArchive,
+  AlertTriangle,
   CheckCircle2,
   XCircle,
   Clock,
@@ -32,6 +35,11 @@ const InstructorLabsDashboard = () => {
     solution: "",
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [zipFile, setZipFile] = useState(null);
+  const [uploadingZip, setUploadingZip] = useState(false);
+  const [finalizingZip, setFinalizingZip] = useState(false);
+  const [zipResult, setZipResult] = useState(null);
+  const [zipError, setZipError] = useState("");
   const getLabTypeLabel = (labtypeId) => {
     if (labtypeId === 1) return "WHITE_BOX";
     if (labtypeId === 2) return "BLACK_BOX";
@@ -62,6 +70,87 @@ const InstructorLabsDashboard = () => {
     e.preventDefault();
     // UI only
     console.log("Instructor submitted lab:", form);
+  };
+
+  const currentUser = (() => {
+    try {
+      const parsed = JSON.parse(localStorage.getItem("currentUser") || "{}");
+      return parsed && typeof parsed === "object" ? parsed : {};
+    } catch {
+      return {};
+    }
+  })();
+  const currentUserId = Number(currentUser?.user_id || currentUser?.id || 0);
+
+  const onZipPicked = (file) => {
+    setZipError("");
+    setZipResult(null);
+    if (!file) {
+      setZipFile(null);
+      return;
+    }
+    if (!file.name.toLowerCase().endsWith(".zip")) {
+      setZipFile(null);
+      setZipError("Only .zip files are accepted.");
+      return;
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      setZipFile(null);
+      setZipError("ZIP exceeds 20 MB size limit.");
+      return;
+    }
+    setZipFile(file);
+  };
+
+  const handleValidateZip = async () => {
+    if (!zipFile) {
+      setZipError("Please select a ZIP file first.");
+      return;
+    }
+    if (!currentUserId) {
+      setZipError("Missing logged-in user id.");
+      return;
+    }
+    setUploadingZip(true);
+    setZipError("");
+    setZipResult(null);
+    try {
+      const res = await labService.uploadLabZip({ file: zipFile, userId: currentUserId });
+      setZipResult(res?.data || null);
+    } catch (err) {
+      setZipError(err?.message || "ZIP validation failed.");
+    } finally {
+      setUploadingZip(false);
+    }
+  };
+
+  const handleFinalizeZip = async () => {
+    if (!zipResult?.upload_token) {
+      setZipError("Validate ZIP first to get an upload token.");
+      return;
+    }
+    if (!currentUserId) {
+      setZipError("Missing logged-in user id.");
+      return;
+    }
+    setFinalizingZip(true);
+    setZipError("");
+    try {
+      const done = await labService.finalizeLabUpload({
+        userId: currentUserId,
+        uploadToken: zipResult.upload_token,
+      });
+      const labId = done?.data?.lab_id;
+      setZipResult((prev) => ({ ...(prev || {}), finalized_lab_id: labId }));
+      setZipFile(null);
+      // refresh list
+      const fresh = await labService.getLabs();
+      setLabs(fresh?.data?.labs || []);
+    } catch (err) {
+      setZipError(err?.message || "Failed to save lab package.");
+    } finally {
+      setFinalizingZip(false);
+    }
   };
 
   return (
@@ -101,12 +190,88 @@ const InstructorLabsDashboard = () => {
               </div>
               <div>
                 <h2 className="text-base sm:text-lg font-mono font-semibold text-slate-50">
-                  Add New Lab (UI Preview)
+                  Add New Lab (Secure ZIP Upload)
                 </h2>
                 <p className="text-xs text-slate-400">
-                  Preview form only. Persisting lab creation is not wired to API yet.
+                  Upload a lab package ZIP and validate it before creating the lab entry.
                 </p>
               </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-700/80 bg-slate-900/70 p-4 mb-5 space-y-4">
+              <div className="flex items-center gap-2 text-xs font-mono text-slate-300">
+                <FileArchive className="w-4 h-4 text-emerald-300" />
+                ZIP Package Required Structure:
+                <span className="text-slate-500">lab-files/ only (metadata/PDFs optional)</span>
+              </div>
+              <label
+                className="block rounded-xl border-2 border-dashed border-slate-600 hover:border-emerald-400/70 transition-colors p-5 cursor-pointer bg-slate-900/40"
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const dropped = e.dataTransfer?.files?.[0];
+                  if (dropped) onZipPicked(dropped);
+                }}
+              >
+                <input
+                  type="file"
+                  accept=".zip,application/zip,application/x-zip-compressed"
+                  className="hidden"
+                  onChange={(e) => onZipPicked(e.target.files?.[0] || null)}
+                />
+                <div className="flex items-center gap-3">
+                  <Upload className="w-5 h-5 text-emerald-300" />
+                  <div className="text-xs font-mono">
+                    <p className="text-slate-200">Drag and drop ZIP here, or click to choose</p>
+                    <p className="text-slate-500 mt-1">Max size: 20MB, extension: .zip only</p>
+                    {zipFile && <p className="text-emerald-300 mt-1">Selected: {zipFile.name}</p>}
+                  </div>
+                </div>
+              </label>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={!zipFile || uploadingZip}
+                  onClick={handleValidateZip}
+                  className="inline-flex items-center gap-2 rounded-lg bg-emerald-500/15 border border-emerald-400/60 px-3 py-1.5 text-[11px] font-mono text-emerald-200 disabled:opacity-50"
+                >
+                  {uploadingZip ? "Validating..." : "Validate ZIP"}
+                </button>
+                <button
+                  type="button"
+                  disabled={!zipResult?.upload_token || finalizingZip}
+                  onClick={handleFinalizeZip}
+                  className="inline-flex items-center gap-2 rounded-lg bg-sky-500/15 border border-sky-400/60 px-3 py-1.5 text-[11px] font-mono text-sky-200 disabled:opacity-50"
+                >
+                  {finalizingZip ? "Saving..." : "Save Lab Package"}
+                </button>
+              </div>
+
+              {zipError && (
+                <div className="rounded-lg border border-rose-600/60 bg-rose-500/10 px-3 py-2 text-[11px] font-mono text-rose-200 flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                  <span>{zipError}</span>
+                </div>
+              )}
+
+              {zipResult && (
+                <div className="rounded-lg border border-emerald-600/60 bg-emerald-500/10 px-3 py-3 text-[11px] font-mono text-emerald-100 space-y-2">
+                  <p className="text-emerald-300">Validation passed</p>
+                  <p>Title: {zipResult?.metadata?.title || "N/A"}</p>
+                  <p>Difficulty: {String(zipResult?.metadata?.difficulty || "N/A").toUpperCase()}</p>
+                  <p>Category: {zipResult?.metadata?.category || "N/A"}</p>
+                  <p>Type: {String(zipResult?.metadata?.type || "N/A").toUpperCase()}</p>
+                  {!!zipResult?.warnings?.length && (
+                    <div className="text-amber-200">
+                      Warnings: {zipResult.warnings.join(" | ")}
+                    </div>
+                  )}
+                  {zipResult?.finalized_lab_id ? (
+                    <p className="text-sky-200">Saved as lab ID: {zipResult.finalized_lab_id}</p>
+                  ) : null}
+                </div>
+              )}
             </div>
 
             <form

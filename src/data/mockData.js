@@ -206,18 +206,64 @@ export const mockLabs = [
     status: "NOT_STARTED",
     icon: "🐸",
     hints: [
-      "Level 3 pulls speed from an API request.",
-      "Level 4 reads game speed from localStorage.",
+      "Car speed is loaded from an API request.",
+      "Use DevTools to override the response and set carSpeed to 1.",
     ],
     solution:
-      "Use browser DevTools to intercept/override speed inputs (network response or localStorage gameSpeed) so car speed becomes low enough to cross.",
+      "Use browser DevTools to intercept/override the game-config response so carSpeed becomes low enough to cross.",
+  },
+  {
+    lab_id: 20,
+    port: 4001,
+    title: "Reflected XSS (White-box)",
+    display_name: "Reflected XSS (White-box)",
+    description:
+      "White-box reflected XSS: inspect vulnerable source code, test payloads in isolated sandbox, and submit a secure output-encoding fix.",
+    labtype_id: 1,
+    difficulty: "medium",
+    points_total: 100,
+    is_published: true,
+    visibility: "public",
+    progress: 0,
+    status: "NOT_STARTED",
+    icon: "⚡",
+    launch_path: "/",
+    hints: [
+      "Reflected user input must be encoded before output.",
+      "Avoid direct concatenation into HTML response.",
+    ],
+    solution:
+      "Use strict output encoding (for example htmlspecialchars with ENT_QUOTES and UTF-8) when rendering user-controlled values in HTML.",
+  },
+  {
+    lab_id: 21,
+    port: 4002,
+    title: "DOM XSS (White-box)",
+    display_name: "DOM XSS (White-box)",
+    description:
+      "White-box DOM XSS: review JavaScript sink usage and replace unsafe HTML injection with safe DOM text rendering.",
+    labtype_id: 1,
+    difficulty: "medium",
+    points_total: 100,
+    is_published: true,
+    visibility: "public",
+    progress: 0,
+    status: "NOT_STARTED",
+    icon: "⚡",
+    launch_path: "/",
+    hints: [
+      "Search for innerHTML assignments fed by user input.",
+      "Use textContent or createTextNode for untrusted content.",
+    ],
+    solution:
+      "Remove unsafe innerHTML sink and render untrusted data through textContent/createTextNode to prevent script execution.",
   },
   {
     lab_id: 18,
     port: 4003,
     title: "Access Control Bypass",
     description:
-      "White-box: admin_panel route trusts ?role= in the URL and writes it into the session — fix the source (remove client-controlled role + enforce server-side admin gate).",
+      "White-box: review the PHP bundle (public/ and includes/). Remove client-controlled session role and enforce a server-side admin gate before ADMIN_PANEL.",
     labtype_id: 1,
     difficulty: "medium",
     points_total: 100,
@@ -229,17 +275,14 @@ export const mockLabs = [
     status: "NOT_STARTED",
     icon: "🔓",
     launch_path: "/lab/1",
-    hints: [
-      "Compare user vs admin API responses for the same endpoint.",
-      "If a feature is hidden in the UI, try calling its API path directly.",
-    ],
+    hints: [],
   },
   {
     lab_id: 19,
     port: 4003,
-    title: "ACCESS_CONTROL_WHITEBOX_19",
+    title: "IDOR (White-box)",
     description:
-      "Access control (WHITE_BOX listing): IDOR / horizontal access; capture the lab flag.",
+      "White-box: the profile API trusts user_id from the URL — review the bundle and bind access to the logged-in user (session) with proper denial (403).",
     labtype_id: 1,
     difficulty: "medium",
     points_total: 100,
@@ -251,10 +294,7 @@ export const mockLabs = [
     status: "NOT_STARTED",
     icon: "🔓",
     launch_path: "/lab/2",
-    hints: [
-      "Try predictable or sequential IDs on object references.",
-      "Confirm whether the server re-checks ownership on every read.",
-    ],
+    hints: [],
   },
 ];
 
