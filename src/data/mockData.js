@@ -178,7 +178,7 @@ export const mockLabs = [
     port: 4000,
     title: "SQL_INJECTION_ACADEMY",
     description:
-      "Exploit SQL injection on a programming academy site. Use sqlmap to discover tables and users, get the admin email, log in as admin, and delete a user to capture the flag.",
+      "Exploit SQL injection on a programming academy site. Use sqlmap (or manual SQLi) to reach admin capabilities, then delete the designated user to complete the lab.",
     labtype_id: 2,
     difficulty: "medium",
     points_total: 150,
@@ -188,6 +188,29 @@ export const mockLabs = [
     progress: 0,
     status: "NOT_STARTED",
     icon: "💉",
+  },
+  {
+    lab_id: 40,
+    title: "FROGGER_DEVTOOLS_OVERRIDE",
+    display_name: "Game DevTools Override Lab",
+    description:
+      "Black-box isolated game lab (Docker). Normal gameplay is intentionally unwinnable unless you manipulate browser runtime settings using DevTools.",
+    labtype_id: 2,
+    difficulty: "hard",
+    points_total: 300,
+    is_published: true,
+    visibility: "public",
+    port: 4010,
+    launch_path: "/",
+    progress: 0,
+    status: "NOT_STARTED",
+    icon: "🐸",
+    hints: [
+      "Level 3 pulls speed from an API request.",
+      "Level 4 reads game speed from localStorage.",
+    ],
+    solution:
+      "Use browser DevTools to intercept/override speed inputs (network response or localStorage gameSpeed) so car speed becomes low enough to cross.",
   },
   {
     lab_id: 20,

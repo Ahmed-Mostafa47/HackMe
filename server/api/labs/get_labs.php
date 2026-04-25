@@ -86,6 +86,24 @@ while ($row = $res->fetch_assoc()) {
         $labtypeId = 2;
     }
     $title = (string) ($row['title'] ?? '');
+    $description = (string) ($row['description'] ?? '');
+    // White-box display: for mapped labs, show the same title/description as the black-box lab.
+    $mapped = function_exists('hackme_whitebox_of_lab_id') ? hackme_whitebox_of_lab_id($labId) : null;
+    if (is_int($mapped) && $mapped > 0) {
+        $mid = (int) $mapped;
+        $mRes = $conn->query("SELECT title, description FROM labs WHERE lab_id = $mid LIMIT 1");
+        if ($mRes && $mRes->num_rows > 0) {
+            $mrow = $mRes->fetch_assoc();
+            $mt = trim((string) ($mrow['title'] ?? ''));
+            $md = trim((string) ($mrow['description'] ?? ''));
+            if ($mt !== '') {
+                $title = $mt;
+            }
+            if ($md !== '') {
+                $description = $md;
+            }
+        }
+    }
     if ($labId === 18) {
         $title = 'Access Control Bypass';
     }
@@ -98,7 +116,7 @@ while ($row = $res->fetch_assoc()) {
     $labs[] = [
         'lab_id' => $labId,
         'title' => $title,
-        'description' => (string)($row['description'] ?? ''),
+        'description' => $description,
         'icon' => (string)($row['icon'] ?? 'LAB'),
         'port' => isset($row['port']) ? (int)$row['port'] : null,
         'launch_path' => (string)($row['launch_path'] ?? ''),
@@ -117,6 +135,15 @@ foreach ($labs as $L) {
     $present[(int) ($L['lab_id'] ?? 0)] = true;
 }
 $defaults = [
+    // White-box SQL card mirroring lab 10 (academy) even if DB row isn't seeded.
+    12 => [
+        'title' => 'SQL_INJECTION_ACADEMY',
+        'description' => 'Exploit SQL injection on a programming academy site: reach admin, then delete the designated user to complete the lab.',
+        'icon' => '💉',
+        'port' => 4000,
+        'launch_path' => '',
+        'points_total' => 150,
+    ],
     18 => [
         'title' => 'Access Control Bypass',
         'description' => 'White-box: review the PHP bundle; client input must not set session role before ADMIN_PANEL.',
@@ -152,6 +179,23 @@ $defaults = [
 ];
 foreach ($defaults as $lid => $meta) {
     if (!isset($present[$lid])) {
+        // If this is a mapped white-box lab, try to pull title/description from its black-box lab.
+        $mapped = function_exists('hackme_whitebox_of_lab_id') ? hackme_whitebox_of_lab_id((int) $lid) : null;
+        if (is_int($mapped) && $mapped > 0) {
+            $mid = (int) $mapped;
+            $mRes = $conn->query("SELECT title, description FROM labs WHERE lab_id = $mid LIMIT 1");
+            if ($mRes && $mRes->num_rows > 0) {
+                $mrow = $mRes->fetch_assoc();
+                $mt = trim((string) ($mrow['title'] ?? ''));
+                $md = trim((string) ($mrow['description'] ?? ''));
+                if ($mt !== '') {
+                    $meta['title'] = $mt;
+                }
+                if ($md !== '') {
+                    $meta['description'] = $md;
+                }
+            }
+        }
         $labs[] = [
             'lab_id' => $lid,
             'title' => $meta['title'],

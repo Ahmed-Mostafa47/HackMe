@@ -6,11 +6,11 @@
 import { WHITEBOX_SQL_LAB_ID, WHITEBOX_XSS_LAB_IDS } from "../constants/labs";
 
 export const LAB_CATEGORIES = {
-  GAME_LABS: {
-    key: "game_labs",
-    label: "Game Labs",
+  GAME: {
+    key: "game",
+    label: "Game",
     icon: "🎮",
-    keywords: ["game", "games", "ctf", "arcade"],
+    keywords: ["frogger", "devtools", "override", "game", "games", "ctf", "arcade"],
   },
   SQL_INJECTION: {
     key: "sql_injection",
@@ -58,6 +58,7 @@ const WHITEBOX_XSS_ID_SET = new Set(WHITEBOX_XSS_LAB_IDS);
 
 /** White-box category sidebar order (SQL Injection before Broken Access Control). */
 export const WHITEBOX_CATEGORY_ORDER = [
+  "game",
   "sql_injection",
   "broken_access",
   "xss",
@@ -73,6 +74,9 @@ export const WHITEBOX_CATEGORY_ORDER = [
  */
 export function getCategoryFromLabTitle(labTitle, labId) {
   const id = labId != null && labId !== "" ? Number(labId) : NaN;
+  if (id === 40) {
+    return LAB_CATEGORIES.GAME.key;
+  }
   if (!Number.isNaN(id) && WHITEBOX_ACCESS_LAB_IDS.has(id)) {
     return LAB_CATEGORIES.BROKEN_ACCESS.key;
   }

@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { labService } from "../../services/labService";
 import { WHITEBOX_WORKBENCH_LAB_IDS } from "../../constants/labs";
+import { WHITEBOX_WORKBENCH_LAB_IDS } from "../../constants/labs";
 
 // Use relative path when proxy exists (dev), else full URL (production)
 const API_BASE = import.meta.env.DEV ? "/api" : "http://localhost/HackMe/server/api";
@@ -25,6 +26,7 @@ const diffBadgeClasses = {
   hard: "bg-rose-500/10 text-rose-300 border-rose-400/50",
 };
 
+const whiteboxRouteLabIds = new Set(WHITEBOX_WORKBENCH_LAB_IDS);
 const whiteboxRouteLabIds = new Set(WHITEBOX_WORKBENCH_LAB_IDS);
 
 const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
@@ -512,7 +514,8 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
               </p>
             </section>
 
-            {![1, 5, 7].includes(lab.lab_id) && (
+            {/* Some labs are objective-based (no flag submission UI). */}
+            {![1, 5, 7, 10].includes(lab.lab_id) && (
             <section className="rounded-2xl border border-slate-700 bg-slate-900/70 p-5 shadow-lg shadow-black/40">
               <h2 className="text-sm font-mono text-slate-300 mb-2 flex items-center gap-2">
                 <Flag className="w-4 h-4 text-amber-400" />

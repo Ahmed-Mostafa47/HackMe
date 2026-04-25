@@ -3,6 +3,7 @@
  */
 
 import { WHITEBOX_SQL_LAB_ID, WHITEBOX_WORKBENCH_LAB_IDS } from "../constants/labs";
+import { WHITEBOX_SQL_LAB_ID, WHITEBOX_WORKBENCH_LAB_IDS } from "../constants/labs";
 
 export const getHackMeBase = () => {
   if (typeof window === "undefined") return "http://localhost/HackMe";
@@ -81,7 +82,7 @@ export const labService = {
           (l) => !(Number(l?.lab_id) === 11 && WHITEBOX_SQL_LAB_ID !== 11)
         );
         const { mockLabs } = await import("../data/mockData");
-        for (const id of [1, ...WHITEBOX_WORKBENCH_LAB_IDS]) {
+        for (const id of [1, ...WHITEBOX_WORKBENCH_LAB_IDS, 40]) {
           if (!labs.some((l) => Number(l?.lab_id) === id)) {
             const fromMock = mockLabs.find((l) => Number(l.lab_id) === id);
             if (fromMock) {
@@ -92,6 +93,7 @@ export const labService = {
         labs.sort((a, b) => Number(a.lab_id) - Number(b.lab_id));
         for (const lab of labs) {
           const id = Number(lab?.lab_id);
+          if (WHITEBOX_WORKBENCH_LAB_IDS.includes(id)) {
           if (WHITEBOX_WORKBENCH_LAB_IDS.includes(id)) {
             lab.labtype_id = 1;
           }
@@ -120,6 +122,7 @@ export const labService = {
           l.lab_id === 8 ||
           l.lab_id === 9 ||
           l.lab_id === 10 ||
+          l.lab_id === 40 ||
           l.lab_id === 18 ||
           l.lab_id === 19 ||
           l.lab_id === 20 ||
@@ -141,6 +144,7 @@ export const labService = {
           l.lab_id === 8 ||
           l.lab_id === 9 ||
           l.lab_id === 10 ||
+          l.lab_id === 40 ||
           l.lab_id === 18 ||
           l.lab_id === 19 ||
           l.lab_id === 20 ||
