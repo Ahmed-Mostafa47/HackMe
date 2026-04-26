@@ -194,6 +194,23 @@ if (is_int($mapped) && $mapped > 0) {
     }
 }
 
+// White-box display: unify title/description with mapped black-box lab (e.g. lab 11 -> lab 1).
+if (is_int($mapped) && $mapped > 0) {
+    $mid = (int) $mapped;
+    $mRes = $conn->query("SELECT title, description FROM labs WHERE lab_id = $mid LIMIT 1");
+    if ($mRes && $mRes->num_rows > 0) {
+        $mrow = $mRes->fetch_assoc();
+        $mt = trim((string) ($mrow['title'] ?? ''));
+        $md = trim((string) ($mrow['description'] ?? ''));
+        if ($mt !== '') {
+            $lab['title'] = $mt;
+        }
+        if ($md !== '') {
+            $lab['description'] = $md;
+        }
+    }
+}
+
 $hintsRes = $conn->query("
     SELECT h.text
     FROM hints h

@@ -67,7 +67,7 @@ try {
  * - Get all users with their roles and permissions
  * - Get single user details
  */
-function handle_get_request(mysqli $conn)
+function handle_get_request(PdoMysqliShim $conn)
 {
     $userId = isset($_GET['user_id']) ? (int)$_GET['user_id'] : null;
     $currentUserId = isset($_GET['current_user_id']) ? (int)$_GET['current_user_id'] : null;
@@ -126,7 +126,7 @@ function handle_get_request(mysqli $conn)
  * POST Request Handler
  * - Assign role to user
  */
-function handle_post_request(mysqli $conn)
+function handle_post_request(PdoMysqliShim $conn)
 {
     $data = json_decode(file_get_contents('php://input'), true);
     
@@ -268,7 +268,7 @@ function handle_post_request(mysqli $conn)
  * PUT Request Handler
  * - Remove role from user
  */
-function handle_put_request(mysqli $conn)
+function handle_put_request(PdoMysqliShim $conn)
 {
     $data = json_decode(file_get_contents('php://input'), true);
     
@@ -370,7 +370,7 @@ function handle_put_request(mysqli $conn)
  * DELETE Request Handler
  * - Delete user account (SuperAdmin only)
  */
-function handle_delete_request(mysqli $conn)
+function handle_delete_request(PdoMysqliShim $conn)
 {
     $data = json_decode(file_get_contents('php://input'), true);
     
@@ -558,7 +558,7 @@ function handle_delete_request(mysqli $conn)
 /**
  * Get all users with their roles
  */
-function getAllUsersWithRoles(mysqli $conn): array
+function getAllUsersWithRoles(PdoMysqliShim $conn): array
 {
     $stmt = $conn->prepare("
         SELECT 
@@ -613,7 +613,7 @@ function getAllUsersWithRoles(mysqli $conn): array
 /**
  * Get user details with roles and permissions
  */
-function getUserDetails(mysqli $conn, int $userId): ?array
+function getUserDetails(PdoMysqliShim $conn, int $userId): ?array
 {
     $stmt = $conn->prepare("
         SELECT 
@@ -670,7 +670,7 @@ function getUserDetails(mysqli $conn, int $userId): ?array
  * Check if user is the owner (only owner can modify superadmins)
  * Owner is defined as user_id = 9 (protected user)
  */
-function isOwner(mysqli $conn, int $userId): bool
+function isOwner(PdoMysqliShim $conn, int $userId): bool
 {
     // Owner is user_id = 9 (the protected user)
     return $userId === 9;
@@ -679,7 +679,7 @@ function isOwner(mysqli $conn, int $userId): bool
 /**
  * Count superadmins excluding a specific user
  */
-function countSuperAdmins(mysqli $conn, int $excludeUserId): int
+function countSuperAdmins(PdoMysqliShim $conn, int $excludeUserId): int
 {
     $stmt = $conn->prepare("
         SELECT COUNT(DISTINCT ur.user_id) as count

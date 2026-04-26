@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/pdo_mysqli_shim.php';
 require_once __DIR__ . '/labs_config.php';
 
 /**
@@ -10,7 +11,7 @@ require_once __DIR__ . '/labs_config.php';
  * @return array{success:bool,message:string,points_earned:int,already_solved:bool}
  */
 function hackme_record_lab_completion(
-    mysqli $conn,
+    PdoMysqliShim $conn,
     int $labId,
     int $userId,
     string $payloadText = 'lab_completed',

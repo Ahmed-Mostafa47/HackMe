@@ -97,11 +97,11 @@ try {
             $sql = file_get_contents($sqlDir);
             // Remove USE statement, we're already connected
             $sql = preg_replace('/^USE\s+\w+;\s*/i', '', $sql);
-            $ok = $conn->multi_query($sql);
+            $ok = hackme_pdo_drain_multistatement($pdo, $sql);
             if (!$ok) {
-                $out['fix_error'] = $conn->error;
+                $e = $pdo->errorInfo();
+                $out['fix_error'] = (string) ($e[2] ?? $e[0] ?? 'unknown');
             } else {
-                while ($conn->more_results()) $conn->next_result();
                 $out['fix_applied'] = true;
                 $out['message'] = 'Seed data applied. Try submit_flag again.';
             }

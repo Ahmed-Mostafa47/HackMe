@@ -91,6 +91,7 @@ const LabsListModern = ({
         if (id === 1) return false;
         if (lab.labtype_id !== 1 && id !== WHITEBOX_SQL_LAB_ID && !WHITEBOX_WORKBENCH_LAB_IDS.includes(id)) return false;
       } else if (labTypeId === 2) {
+        if (id === 40) return true;
         if (lab.labtype_id !== 2 && lab.labtype_id !== 3) return false;
       } else if (labTypeId === 3) {
         if (lab.labtype_id !== 3 && id !== 18 && id !== 19) return false;
@@ -197,7 +198,8 @@ const LabsListModern = ({
           </div>
         ) : (
         <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-          {(labType != null || category != null ? filteredLabs : labs).map((lab) => (
+          {(labType != null || category != null ? filteredLabs : labs).map((lab) => {
+            return (
             <article
               key={lab.lab_id}
               onClick={() => handleOpenLab(lab)}
@@ -308,7 +310,8 @@ const LabsListModern = ({
                 </div>
               )}
             </article>
-          ))}
+          );
+          })}
         </div>
         )}
       </div>
@@ -484,3 +487,4 @@ const LabsListModern = ({
 };
 
 export default LabsListModern;
+

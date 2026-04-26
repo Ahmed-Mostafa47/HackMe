@@ -1,8 +1,6 @@
 <?php
 declare(strict_types=1);
 
-use mysqli;
-
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
@@ -50,7 +48,7 @@ if ($userId > 0) {
 
 echo json_encode(['success' => false, 'message' => 'Token or user_id is required']);
 
-function handle_token_reset(mysqli $conn, string $token, string $password): array
+function handle_token_reset(PdoMysqliShim $conn, string $token, string $password): array
 {
     $tokenHash = hash('sha256', $token);
     $stmt = $conn->prepare('SELECT user_id FROM password_resets WHERE token_hash = ? AND expires_at > NOW() AND is_used = 0 LIMIT 1');
@@ -77,7 +75,7 @@ function handle_token_reset(mysqli $conn, string $token, string $password): arra
     return ['success' => true, 'message' => 'Password updated successfully. You can now login with your new password.'];
 }
 
-function handle_authenticated_reset(mysqli $conn, int $userId, string $password): array
+function handle_authenticated_reset(PdoMysqliShim $conn, int $userId, string $password): array
 {
     $userStmt = $conn->prepare('SELECT user_id FROM users WHERE user_id = ? LIMIT 1');
     $userStmt->bind_param('i', $userId);
@@ -98,7 +96,7 @@ function handle_authenticated_reset(mysqli $conn, int $userId, string $password)
     return ['success' => true, 'message' => 'Password updated successfully'];
 }
 
-function update_user_password(mysqli $conn, int $userId, string $password): array
+function update_user_password(PdoMysqliShim $conn, int $userId, string $password): array
 {
     $passwordHash = password_hash($password, PASSWORD_BCRYPT);
     $stmt = $conn->prepare('UPDATE users SET password_hash = ? WHERE user_id = ?');

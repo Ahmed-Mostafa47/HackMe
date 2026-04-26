@@ -123,11 +123,13 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
     "http://localhost:4002",
     "http://localhost:4003",
     "http://localhost:4010",
+    "http://localhost:4011",
     "http://127.0.0.1:4000",
     "http://127.0.0.1:4001",
     "http://127.0.0.1:4002",
     "http://127.0.0.1:4003",
     "http://127.0.0.1:4010",
+    "http://127.0.0.1:4011",
   ];
   useEffect(() => {
     const handler = (e) => {

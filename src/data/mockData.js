@@ -191,13 +191,36 @@ export const mockLabs = [
   },
   {
     lab_id: 40,
-    title: "FROGGER_DEVTOOLS_OVERRIDE",
-    display_name: "Game DevTools Override Lab",
+    title: "Hack The Sudoku",
+    display_name: "Hack The Sudoku",
     description:
-      "Black-box isolated game lab (Docker). Normal gameplay is intentionally unwinnable unless you manipulate browser runtime settings using DevTools.",
+      "Hack this intentionally vulnerable Sudoku game: exploit client-side logic, hidden functions, or API secrets to trigger a win without normal play.",
+    labtype_id: 2,
+    difficulty: "medium",
+    points_total: 150,
+    is_published: true,
+    visibility: "public",
+    port: 4011,
+    launch_path: "/",
+    progress: 0,
+    status: "NOT_STARTED",
+    icon: "🎮",
+    hints: [
+      "Check localStorage and DevTools for hidden state.",
+      "The API may expose more than the UI shows.",
+    ],
+    solution:
+      "Bypass client trust (localStorage / hidden functions / secret API) to force a win state, then submit the platform flag if required.",
+  },
+  {
+    lab_id: 41,
+    title: "Frogger",
+    display_name: "Frogger",
+    description:
+      "Frogger challenge: your goal is to win by crossing the road safely. To make that possible, you must use DevTools to modify runtime game settings.",
     labtype_id: 2,
     difficulty: "hard",
-    points_total: 300,
+    points_total: 200,
     is_published: true,
     visibility: "public",
     port: 4010,
@@ -358,3 +381,4 @@ export const mockSubmissions = [
     submitted_at: "2024-01-15T10:30:00Z",
   },
 ];
+

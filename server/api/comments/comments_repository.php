@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/../../utils/pdo_mysqli_shim.php';
+
 require_once __DIR__ . '/../../utils/permissions.php';
 
 function sanitize_comment_text(string $text): string
@@ -86,7 +88,7 @@ function format_comment_row(array $row): array
     ];
 }
 
-function fetch_comment_by_id(mysqli $conn, int $commentId, ?int $currentUserId = null): ?array
+function fetch_comment_by_id(PdoMysqliShim $conn, int $commentId, ?int $currentUserId = null): ?array
 {
     if ($currentUserId) {
         $sql = "

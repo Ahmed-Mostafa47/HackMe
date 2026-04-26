@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/pdo_mysqli_shim.php';
 /**
  * Notification Helper
  * Utility functions for sending notifications
@@ -6,7 +7,7 @@
 
 /**
  * Send a notification
- * @param mysqli $conn Database connection
+ * @param PdoMysqliShim $conn Database connection
  * @param int $userId User who receives the notification
  * @param int|null $fromUserId User who triggered the notification
  * @param string $type Notification type (like, comment, reply, message, update, role_request)
@@ -16,7 +17,7 @@
  * @return bool Success status
  */
 function send_notification(
-    mysqli $conn,
+    PdoMysqliShim $conn,
     int $userId,
     ?int $fromUserId,
     string $type,
