@@ -35,7 +35,7 @@ function whitebox_lab18_apply_and_verify(string $original, int $line1Based, stri
     if (!whitebox_lab18_line_is_vulnerable_fingerprint($current)) {
         return [
             'ok' => false,
-            'message' => 'This line is not the vulnerable role assignment. Use the highlighted line that assigns $_SESSION[\'role\'] from $_GET / $_REQUEST / $_POST.',
+            'message' => 'This line is not the vulnerable role assignment. Find the line in admin_panel.php that assigns $_SESSION[\'role\'] from $_GET / $_REQUEST / $_POST and replace it with a safe patch.',
             'patched' => '',
         ];
     }

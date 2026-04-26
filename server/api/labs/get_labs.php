@@ -86,13 +86,37 @@ while ($row = $res->fetch_assoc()) {
         $labtypeId = 2;
     }
     $title = (string) ($row['title'] ?? '');
+    $description = (string) ($row['description'] ?? '');
+    // White-box display: for mapped labs, show the same title/description as the black-box lab.
+    $mapped = function_exists('hackme_whitebox_of_lab_id') ? hackme_whitebox_of_lab_id($labId) : null;
+    if (is_int($mapped) && $mapped > 0) {
+        $mid = (int) $mapped;
+        $mRes = $conn->query("SELECT title, description FROM labs WHERE lab_id = $mid LIMIT 1");
+        if ($mRes && $mRes->num_rows > 0) {
+            $mrow = $mRes->fetch_assoc();
+            $mt = trim((string) ($mrow['title'] ?? ''));
+            $md = trim((string) ($mrow['description'] ?? ''));
+            if ($mt !== '') {
+                $title = $mt;
+            }
+            if ($md !== '') {
+                $description = $md;
+            }
+        }
+    }
     if ($labId === 18) {
         $title = 'Access Control Bypass';
+    }
+    if ($labId === 20) {
+        $title = 'Reflected XSS (White-box)';
+    }
+    if ($labId === 21) {
+        $title = 'DOM XSS (White-box)';
     }
     $labs[] = [
         'lab_id' => $labId,
         'title' => $title,
-        'description' => (string)($row['description'] ?? ''),
+        'description' => $description,
         'icon' => (string)($row['icon'] ?? 'LAB'),
         'port' => isset($row['port']) ? (int)$row['port'] : null,
         'launch_path' => (string)($row['launch_path'] ?? ''),
@@ -111,24 +135,33 @@ foreach ($labs as $L) {
     $present[(int) ($L['lab_id'] ?? 0)] = true;
 }
 $defaults = [
+    // White-box SQL card mirroring lab 10 (academy) even if DB row isn't seeded.
+    12 => [
+        'title' => 'SQL_INJECTION_ACADEMY',
+        'description' => 'Exploit SQL injection on a programming academy site: reach admin, then delete the designated user to complete the lab.',
+        'icon' => '💉',
+        'port' => 4000,
+        'launch_path' => '',
+        'points_total' => 150,
+    ],
     18 => [
         'title' => 'Access Control Bypass',
-        'description' => 'White-box: fix admin_panel — ?role= in the URL must not set $_SESSION before ADMIN_PANEL.',
+        'description' => 'White-box: review the PHP bundle; client input must not set session role before ADMIN_PANEL.',
         'icon' => '🔓',
         'port' => 4003,
         'launch_path' => '/lab/1',
         'points_total' => 100,
     ],
     19 => [
-        'title' => 'ACCESS_CONTROL_WHITEBOX_19',
-        'description' => 'Access control (WHITE_BOX listing): IDOR / horizontal access; capture the lab flag.',
+        'title' => 'IDOR (White-box)',
+        'description' => 'White-box: URL user_id switches profiles — patch sources to bind access to the session user and deny horizontal access.',
         'icon' => '🔓',
         'port' => 4003,
         'launch_path' => '/lab/2',
         'points_total' => 100,
     ],
     20 => [
-        'title' => 'XSS Lab 1 - Whitebox',
+        'title' => 'Reflected XSS (White-box)',
         'description' => 'White-box reflected XSS: review vulnerable source and apply output encoding fix.',
         'icon' => '⚡',
         'port' => 4001,
@@ -136,7 +169,7 @@ $defaults = [
         'points_total' => 100,
     ],
     21 => [
-        'title' => 'XSS Lab 2 - Whitebox',
+        'title' => 'DOM XSS (White-box)',
         'description' => 'White-box DOM XSS: replace unsafe DOM sink with safe text rendering.',
         'icon' => '⚡',
         'port' => 4002,
@@ -146,6 +179,23 @@ $defaults = [
 ];
 foreach ($defaults as $lid => $meta) {
     if (!isset($present[$lid])) {
+        // If this is a mapped white-box lab, try to pull title/description from its black-box lab.
+        $mapped = function_exists('hackme_whitebox_of_lab_id') ? hackme_whitebox_of_lab_id((int) $lid) : null;
+        if (is_int($mapped) && $mapped > 0) {
+            $mid = (int) $mapped;
+            $mRes = $conn->query("SELECT title, description FROM labs WHERE lab_id = $mid LIMIT 1");
+            if ($mRes && $mRes->num_rows > 0) {
+                $mrow = $mRes->fetch_assoc();
+                $mt = trim((string) ($mrow['title'] ?? ''));
+                $md = trim((string) ($mrow['description'] ?? ''));
+                if ($mt !== '') {
+                    $meta['title'] = $mt;
+                }
+                if ($md !== '') {
+                    $meta['description'] = $md;
+                }
+            }
+        }
         $labs[] = [
             'lab_id' => $lid,
             'title' => $meta['title'],

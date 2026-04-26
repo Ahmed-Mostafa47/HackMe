@@ -29,10 +29,14 @@ try {
     require_once __DIR__ . '/../../utils/db_connect.php';
     require_once __DIR__ . '/../../utils/labs_config.php';
     require_once __DIR__ . '/../../utils/whitebox_lab1_defaults.php';
+    require_once __DIR__ . '/../../utils/whitebox_lab12_defaults.php';
     require_once __DIR__ . '/../../utils/whitebox_lab18_defaults.php';
+    require_once __DIR__ . '/../../utils/whitebox_lab19_defaults.php';
     require_once __DIR__ . '/../../utils/whitebox_xss_defaults.php';
     require_once __DIR__ . '/../../utils/whitebox_sqli_verify.php';
+    require_once __DIR__ . '/../../utils/whitebox_academy_sqli_verify.php';
     require_once __DIR__ . '/../../utils/whitebox_lab18_access_verify.php';
+    require_once __DIR__ . '/../../utils/whitebox_lab19_idor_verify.php';
     require_once __DIR__ . '/../../utils/whitebox_xss_verify.php';
     require_once __DIR__ . '/../../utils/lab_completion_helper.php';
     require_once __DIR__ . '/../../utils/lab_production_state.php';
@@ -84,9 +88,13 @@ if ($labId < 1 || $userId < 1) {
 
 $wbSqlId = hackme_whitebox_sql_lab_id();
 $isSqlWb = ($labId === $wbSqlId);
+$isLab12 = ($labId === 12);
 $isLab18 = ($labId === 18);
+$isLab19 = ($labId === 19);
+$isAccessWb = ($isLab18 || $isLab19);
 $isXssWb = hackme_whitebox_xss_is_supported($labId);
-if (!$isSqlWb && !$isLab18 && !$isXssWb) {
+
+if (!$isSqlWb && !$isLab12 && !$isAccessWb && !$isXssWb) {
     echo json_encode([
         'success' => false,
         'message' => 'White-box submission is only for configured white-box labs.',
@@ -140,6 +148,18 @@ if ($isLab18) {
     if (!is_array($meta) || empty($meta['files']) || !is_array($meta['files'])) {
         $meta = hackme_whitebox_lab18_meta();
     }
+} elseif ($isLab19) {
+    if ($chRow === null) {
+        $chRow = ['challenge_id' => 0, 'whitebox_files_ref' => hackme_whitebox_lab19_meta_json()];
+    }
+    $rawMeta = trim((string) ($chRow['whitebox_files_ref'] ?? ''));
+    if ($rawMeta === '') {
+        $rawMeta = hackme_whitebox_lab19_meta_json();
+    }
+    $meta = json_decode($rawMeta, true);
+    if (!is_array($meta) || empty($meta['files']) || !is_array($meta['files'])) {
+        $meta = hackme_whitebox_lab19_meta();
+    }
 } elseif ($isSqlWb) {
     $meta = null;
     $rawMeta = $chRow !== null ? trim((string) ($chRow['whitebox_files_ref'] ?? '')) : '';
@@ -147,7 +167,7 @@ if ($isLab18) {
         $meta = json_decode($rawMeta, true);
     }
     if (!is_array($meta) || empty($meta['files']) || !is_array($meta['files'])) {
-        $meta = hackme_whitebox_lab1_meta();
+        $meta = $isLab12 ? hackme_whitebox_lab12_meta() : hackme_whitebox_lab1_meta();
         if (!$prodState['lab_in_db']) {
             error_log('[HackMe CRITICAL] submit_whitebox_fix: lab_id=' . $labIdEsc . ' not in DB; verification may run in demo mode only.');
         } elseif (!$prodState['whitebox_ref_valid']) {
@@ -228,7 +248,7 @@ foreach ($GLOBALS['LABS_REGISTRY'] ?? [] as $cfg) {
     $labRoot = realpath($joined) ?: null;
     break;
 }
-if ($labRoot === null && !$isLab18 && !$isSqlWb && !$isXssWb) {
+if ($labRoot === null && !$isAccessWb && !$isSqlWb && !$isXssWb) {
     echo json_encode(['success' => false, 'message' => 'Lab root not configured', 'data' => ['points_earned' => 0]]);
     exit;
 }
@@ -236,6 +256,14 @@ if ($labRoot === null && !$isLab18 && !$isSqlWb && !$isXssWb) {
 $original = '';
 if ($isLab18) {
     $original = hackme_whitebox_lab18_stub_source();
+    if ($labRoot !== null && is_dir($labRoot)) {
+        $absTry = realpath($labRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $allowed));
+        if ($absTry !== false && hackme_path_is_under_lab_root($absTry, $labRoot) && is_readable($absTry) && is_file($absTry)) {
+            $original = (string) file_get_contents($absTry);
+        }
+    }
+} elseif ($isLab19) {
+    $original = hackme_whitebox_lab19_stub_for_relative_path($allowed);
     if ($labRoot !== null && is_dir($labRoot)) {
         $absTry = realpath($labRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $allowed));
         if ($absTry !== false && hackme_path_is_under_lab_root($absTry, $labRoot) && is_readable($absTry) && is_file($absTry)) {
@@ -269,15 +297,25 @@ if ($isLab18) {
 
 $profile = (string) ($meta['verify_profile'] ?? '');
 if ($profile === '') {
-    $profile = $isLab18 ? 'lab18_admin_role_request' : 'lab1_sqli_login';
+    if ($isLab18) {
+        $profile = 'lab18_admin_role_request';
+    } elseif ($isLab19) {
+        $profile = 'lab19_idor_user_param';
+    } else {
+        $profile = 'lab1_sqli_login';
+    }
 }
 
 if ($profile === 'lab18_admin_role_request') {
     $v = whitebox_lab18_apply_and_verify($original, $line, $replacement);
+} elseif ($profile === 'lab19_idor_user_param') {
+    $v = whitebox_lab19_apply_and_verify($original, $line, $replacement);
 } elseif ($profile === 'lab1_sqli_login') {
     $v = whitebox_lab1_apply_and_verify($original, $line, $replacement);
 } elseif ($profile === 'lab20_reflected_xss' || $profile === 'lab21_dom_xss') {
     $v = whitebox_xss_apply_and_verify($labId, $original, $line, $replacement);
+} elseif ($profile === 'lab10_academy_member') {
+    $v = whitebox_academy_apply_and_verify_member($original, $line, $replacement);
 } else {
     echo json_encode(['success' => false, 'message' => 'Unsupported verify_profile', 'data' => ['points_earned' => 0]]);
     exit;
@@ -297,9 +335,16 @@ if ($isSqlWb && !$prodState['lab_in_db']) {
 
 $wbPayload = $isLab18
     ? 'whitebox_access_lab18'
-    : ($isXssWb
-        ? ($labId === 21 ? 'whitebox_xss_lab21' : 'whitebox_xss_lab20')
-        : hackme_whitebox_sql_payload_mark());
+    : ($isLab19
+        ? 'whitebox_idor_lab19'
+        : ($isXssWb
+            ? ($labId === 21 ? 'whitebox_xss_lab21' : 'whitebox_xss_lab20')
+            : ($isLab12
+                ? 'whitebox_sqli_lab12'
+                : hackme_whitebox_sql_payload_mark()
+            )
+        )
+    );
 $result = hackme_record_lab_completion($conn, $labId, $userId, $wbPayload, 'whitebox');
 
 echo json_encode([

@@ -89,7 +89,7 @@ const LabsListModern = ({
     if (labTypeId != null) {
       if (labTypeId === 1) {
         if (id === 1) return false;
-        if (lab.labtype_id !== 1 && id !== WHITEBOX_SQL_LAB_ID) return false;
+        if (lab.labtype_id !== 1 && id !== WHITEBOX_SQL_LAB_ID && !WHITEBOX_WORKBENCH_LAB_IDS.includes(id)) return false;
       } else if (labTypeId === 2) {
         if (lab.labtype_id !== 2 && lab.labtype_id !== 3) return false;
       } else if (labTypeId === 3) {

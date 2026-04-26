@@ -29,7 +29,9 @@ try {
     require_once __DIR__ . '/../../utils/db_connect.php';
     require_once __DIR__ . '/../../utils/labs_config.php';
     require_once __DIR__ . '/../../utils/whitebox_lab1_defaults.php';
+    require_once __DIR__ . '/../../utils/whitebox_lab12_defaults.php';
     require_once __DIR__ . '/../../utils/whitebox_lab18_defaults.php';
+    require_once __DIR__ . '/../../utils/whitebox_lab19_defaults.php';
     require_once __DIR__ . '/../../utils/whitebox_xss_defaults.php';
     require_once __DIR__ . '/../../utils/lab_production_state.php';
 } catch (Throwable $e) {
@@ -57,10 +59,13 @@ if ($labId < 1 || $userId < 1) {
 $labIdEsc = (int) $labId;
 $wbSqlId = hackme_whitebox_sql_lab_id();
 $isSqlWb = ($labIdEsc === $wbSqlId);
+$isLab12 = ($labIdEsc === 12);
 $isLab18 = ($labIdEsc === 18);
+$isLab19 = ($labIdEsc === 19);
+$isAccessWb = ($isLab18 || $isLab19);
 $isXssWb = hackme_whitebox_xss_is_supported($labIdEsc);
 
-if (!$isSqlWb && !$isLab18 && !$isXssWb) {
+if (!$isSqlWb && !$isLab12 && !$isAccessWb && !$isXssWb) {
     echo json_encode([
         'success' => false,
         'message' => 'White-box API is only for configured white-box labs.',
@@ -90,6 +95,25 @@ if ($isLab18) {
         $labRow = $labRes->fetch_assoc();
         $labRow['labtype_id'] = 1;
         $labRow['title'] = 'Access Control Bypass';
+    }
+} elseif ($isLab19) {
+    $labRes = $conn->query("
+  SELECT lab_id, title, labtype_id, description
+  FROM labs
+  WHERE lab_id = $labIdEsc AND is_published = 1 AND visibility = 'public'
+  LIMIT 1
+");
+    if (!$labRes || $labRes->num_rows === 0) {
+        $labRow = [
+            'lab_id' => 19,
+            'title' => 'IDOR (White-box)',
+            'labtype_id' => 1,
+            'description' => 'White-box: profile data follows user_id in the URL — bind access to the logged-in user.',
+        ];
+    } else {
+        $labRow = $labRes->fetch_assoc();
+        $labRow['labtype_id'] = 1;
+        $labRow['title'] = 'IDOR (White-box)';
     }
 } elseif ($isSqlWb) {
     $labFullRes = $conn->query("
@@ -123,6 +147,31 @@ if ($isLab18) {
 
 $labRow['lab_id'] = $labIdEsc;
 $labRow['labtype_id'] = 1;
+if ($labIdEsc === 19) {
+    $labRow['title'] = 'IDOR (White-box)';
+} elseif ($labIdEsc === 20) {
+    $labRow['title'] = 'Reflected XSS (White-box)';
+} elseif ($labIdEsc === 21) {
+    $labRow['title'] = 'DOM XSS (White-box)';
+}
+
+// White-box display: unify title/description with mapped black-box lab (lab 11 -> lab 1).
+$mapped = function_exists('hackme_whitebox_of_lab_id') ? hackme_whitebox_of_lab_id($labIdEsc) : null;
+if (!$isLab18 && is_int($mapped) && $mapped > 0) {
+    $mid = (int) $mapped;
+    $mRes = $conn->query("SELECT title, description FROM labs WHERE lab_id = $mid LIMIT 1");
+    if ($mRes && $mRes->num_rows > 0) {
+        $mrow = $mRes->fetch_assoc();
+        $mt = trim((string) ($mrow['title'] ?? ''));
+        $md = trim((string) ($mrow['description'] ?? ''));
+        if ($mt !== '') {
+            $labRow['title'] = $mt;
+        }
+        if ($md !== '') {
+            $labRow['description'] = $md;
+        }
+    }
+}
 
 $chRes = $conn->query("
   SELECT challenge_id, title, whitebox_files_ref
@@ -146,6 +195,20 @@ if ($isLab18) {
     if ($rawRef === '') {
         $rawRef = hackme_whitebox_lab18_meta_json();
     }
+} elseif ($isLab19) {
+    if (!$chRes || $chRes->num_rows === 0) {
+        $ch = [
+            'challenge_id' => 0,
+            'title' => 'SECURE_PROFILE_USER_SCOPE',
+            'whitebox_files_ref' => hackme_whitebox_lab19_meta_json(),
+        ];
+    } else {
+        $ch = $chRes->fetch_assoc();
+    }
+    $rawRef = trim((string) ($ch['whitebox_files_ref'] ?? ''));
+    if ($rawRef === '') {
+        $rawRef = hackme_whitebox_lab19_meta_json();
+    }
 } elseif ($isSqlWb) {
     $ch = null;
     if ($chRes && $chRes->num_rows > 0) {
@@ -162,7 +225,7 @@ if ($isLab18) {
             error_log('[HackMe WARNING] whitebox lab_id=' . $labIdEsc . ' has challenge but invalid/empty whitebox_files_ref; using built-in meta for UI only.');
         }
         if ($rawRef === '') {
-            $rawRef = hackme_whitebox_lab1_meta_json();
+            $rawRef = $isLab12 ? hackme_whitebox_lab12_meta_json() : hackme_whitebox_lab1_meta_json();
         }
     }
 } else {
@@ -195,6 +258,9 @@ if ((!is_array($meta) || empty($meta['files']) || !is_array($meta['files'])) && 
 }
 if ((!is_array($meta) || empty($meta['files']) || !is_array($meta['files'])) && $isLab18) {
     $meta = hackme_whitebox_lab18_meta();
+}
+if ((!is_array($meta) || empty($meta['files']) || !is_array($meta['files'])) && $isLab19) {
+    $meta = hackme_whitebox_lab19_meta();
 }
 if ((!is_array($meta) || empty($meta['files']) || !is_array($meta['files'])) && $isXssWb) {
     $meta = hackme_whitebox_xss_meta_for_lab($labIdEsc);
@@ -229,7 +295,7 @@ foreach ($GLOBALS['LABS_REGISTRY'] ?? [] as $cfg) {
 }
 
 if ($labRoot === null || !is_dir($labRoot)) {
-    if (!$isSqlWb && !$isLab18 && !$isXssWb) {
+    if (!$isSqlWb && !$isAccessWb && !$isXssWb) {
         echo json_encode([
             'success' => false,
             'message' => 'Lab sources path is not available on the server. Set LABS_BASE_PATH in server/utils/labs_config.php to your Training Labs root.',
@@ -250,18 +316,18 @@ foreach ($meta['files'] as $f) {
     }
     $useStub = false;
     $content = '';
-    if (($isSqlWb || $isLab18 || $isXssWb) && ($labRoot === null || !is_dir($labRoot))) {
+    if (($isSqlWb || $isAccessWb || $isXssWb) && ($labRoot === null || !is_dir($labRoot))) {
         $useStub = true;
     } else {
         $abs = realpath($labRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $rel));
         if ($abs === false || !hackme_path_is_under_lab_root($abs, $labRoot)) {
-            if ($isSqlWb || $isLab18 || $isXssWb) {
+            if ($isSqlWb || $isAccessWb || $isXssWb) {
                 $useStub = true;
             } else {
                 continue;
             }
         } elseif (!is_file($abs) || !is_readable($abs)) {
-            if ($isSqlWb || $isLab18 || $isXssWb) {
+            if ($isSqlWb || $isAccessWb || $isXssWb) {
                 $useStub = true;
             } else {
                 continue;
@@ -272,7 +338,9 @@ foreach ($meta['files'] as $f) {
     }
     if ($useStub) {
         if ($isLab18) {
-            $content = hackme_whitebox_lab18_stub_source();
+            $content = hackme_whitebox_lab18_stub_for_relative_path($rel);
+        } elseif ($isLab19) {
+            $content = hackme_whitebox_lab19_stub_for_relative_path($rel);
         } elseif ($isXssWb) {
             $content = hackme_whitebox_xss_stub_source($labIdEsc);
         } else {
@@ -315,10 +383,12 @@ echo json_encode([
         ],
         'verify_profile' => (string) ($meta['verify_profile'] ?? ''),
         'verification_help' => $isLab18
-            ? 'Edit the highlighted line only. Replace the role-from-URL assignment with a server-side gate (403 + check role !== admin) before ADMIN_PANEL; php -l + static rules apply.'
-            : ($isXssWb
-                ? 'Submit a secure patch for the highlighted sink. Reflected lab expects escaped output; DOM lab expects safe text sink (no innerHTML). Testing runs inside a sandboxed iframe.'
-                : 'Submissions are checked in an isolated temp file: PHP syntax (php -l) plus static rules ensuring SQL is parameterized (no username/password concatenated into query strings). If LABS_BASE_PATH is unset or wrong, an embedded api/login.php sample is used so the lab still loads.'),
+            ? 'Inspect the bundle (multiple files). Remove assigning $_SESSION[\'role\'] from $_GET / $_REQUEST / $_POST, add a server-side 403 gate before ADMIN_PANEL output, and keep valid PHP (php -l).'
+            : ($isLab19
+                ? 'Inspect public/user_profile.php with the rest of the bundle. Stop trusting user_id from the URL for horizontal access: bind the lookup to $_SESSION[\'user_id\'], return 403 on mismatch, keep PROFILE_SECRET_* markers, php -l.'
+                : ($isXssWb
+                    ? 'Submit a secure patch for the highlighted sink. Reflected lab expects escaped output; DOM lab expects safe text sink (no innerHTML). Testing runs inside a sandboxed iframe.'
+                    : 'Submissions are checked in an isolated temp file: PHP syntax (php -l) plus static rules ensuring SQL is parameterized (no username/password concatenated into query strings). If LABS_BASE_PATH is unset or wrong, an embedded api/login.php sample is used so the lab still loads.')),
         'sandbox_profile' => $labIdEsc === 21 ? 'dom_xss' : ($labIdEsc === 20 ? 'reflected_xss' : ''),
         'files' => $filesOut,
         'lab_unregistered' => $labUnregistered,
