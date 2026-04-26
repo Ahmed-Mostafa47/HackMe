@@ -147,7 +147,7 @@ try {
         'message' => 'Failed to delete account: ' . $e->getMessage()
     ]);
 }
-
 $conn->close();
 ?>
+
 

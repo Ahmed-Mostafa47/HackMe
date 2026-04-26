@@ -97,8 +97,8 @@ try {
         'message' => 'Migration failed: ' . $e->getMessage()
     ]);
 }
-
 $conn->close();
 ?>
+
 
 

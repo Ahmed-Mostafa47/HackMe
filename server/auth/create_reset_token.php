@@ -32,6 +32,6 @@ echo "For Testing:\n";
 echo "1. Copy the Reset Link and open in browser\n";
 echo "2. Enter a new password\n";
 echo "3. Click UPDATE_PASSWORD\n";
-
 $stmt->close();
 ?>
+

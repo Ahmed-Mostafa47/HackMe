@@ -165,7 +165,7 @@ function fetch_comment_by_id(mysqli $conn, int $commentId, ?int $currentUserId =
     $comment['replies'] = [];
     return $comment;
 }
-
 // user_is_admin function is now provided by permissions.php
 // This file includes permissions.php at the top, so the function is available here
+
 

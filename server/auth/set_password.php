@@ -115,5 +115,5 @@ $del->close();
 
 echo json_encode(['success'=>true,'message'=>'Account created','user_id'=>$userid]);
 exit;
-
 ?>
+

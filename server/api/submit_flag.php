@@ -22,6 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 try {
     require_once __DIR__ . '/../utils/db_connect.php';
+    require_once __DIR__ . '/../utils/lab_access_token_bind.php';
 } catch (Throwable $e) {
     http_response_code(500);
     echo json_encode(['success' => false, 'message' => 'Load error: ' . $e->getMessage()]);
@@ -47,6 +48,11 @@ $labId = (int) ($input['lab_id'] ?? 0);
 $flag = trim((string) ($input['flag'] ?? ''));
 $flag = preg_replace('/[\r\n]+/', '', $flag);
 $userId = (int) ($input['user_id'] ?? 0);
+$deviceBindInput = trim((string) ($input['device_bind'] ?? ''));
+$macInput = trim((string) ($input['mac_address'] ?? $input['mac'] ?? ''));
+$localInput = trim((string) ($input['client_local_ip'] ?? $input['local_ipv4'] ?? ''));
+
+hackme_lab_access_tokens_ensure_bind_columns($conn);
 
 // Labs opened in a new tab may send user_id=0; resolve HackMe user from lab access token (same rules as verify_lab_token.php)
 $accessToken = trim((string) ($input['access_token'] ?? ''));
@@ -54,10 +60,23 @@ if ($userId < 1 && $accessToken !== '' && $labId >= 1) {
     $atEsc = $conn->real_escape_string($accessToken);
     $labIdInt = (int) $labId;
     $tr = $conn->query(
-        "SELECT user_id FROM lab_access_tokens WHERE token = '$atEsc' AND lab_id = $labIdInt " .
+        "SELECT user_id, client_ip, device_bind, client_mac, client_local_ip FROM lab_access_tokens WHERE token = '$atEsc' AND lab_id = $labIdInt " .
         "AND used_at IS NULL AND expires_at > NOW() LIMIT 1"
     );
     if ($tr && ($trow = $tr->fetch_assoc())) {
+        if (!hackme_lab_token_bind_row_matches($trow, [
+            'ip' => hackme_request_client_ip(),
+            'device_bind' => $deviceBindInput,
+            'mac_address' => $macInput,
+            'client_local_ip' => $localInput,
+        ])) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'LAB_TOKEN_BIND_MISMATCH',
+                'detail' => 'This access token was issued for a different IP or browser session.',
+            ]);
+            exit;
+        }
         $rawUid = $trow['user_id'] ?? null;
         if ($rawUid !== null && (int) $rawUid > 0) {
             $userId = (int) $rawUid;

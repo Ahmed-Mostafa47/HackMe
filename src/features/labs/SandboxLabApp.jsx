@@ -9,8 +9,15 @@ const SandboxLabApp = () => {
     const params = new URLSearchParams(window.location.search);
     const labId = params.get("labId");
     const token = params.get("token");
+    const deviceBind = params.get("device_bind") || "";
+    const macAddr = params.get("mac_address") || "";
+    const localIp = params.get("client_local_ip") || "";
+    const bindQ =
+      (deviceBind ? `&device_bind=${encodeURIComponent(deviceBind)}` : "") +
+      (macAddr ? `&mac_address=${encodeURIComponent(macAddr)}` : "") +
+      (localIp ? `&client_local_ip=${encodeURIComponent(localIp)}` : "");
     const targetUrl = labId && token
-      ? `http://localhost:4000/?labId=${labId}&token=${encodeURIComponent(token)}`
+      ? `http://localhost:4000/?labId=${labId}&token=${encodeURIComponent(token)}${bindQ}`
       : `http://localhost:4000/?${params.toString()}`;
     window.location.href = targetUrl;
   }, []);
