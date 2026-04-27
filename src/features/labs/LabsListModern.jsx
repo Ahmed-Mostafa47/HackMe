@@ -116,21 +116,6 @@ const LabsListModern = ({
   })();
   const currentUserId = Number(currentUser?.user_id || currentUser?.id || 0);
 
-  const getLabUiMeta = (lab) => {
-    if (Number(lab?.lab_id) !== 40) return lab;
-    return {
-      ...lab,
-      title: "Frogger",
-      description:
-        "Frogger challenge: your goal is to win by crossing the road safely. To make that possible, you must use DevTools to modify runtime game settings.",
-      difficulty: "hard",
-      points_total: 200,
-      port: 4010,
-      launch_path: "/",
-      labtype_id: 2,
-    };
-  };
-
   const handleOpenLab = (lab) => {
     if (onLabClick) {
       onLabClick(lab);
@@ -213,8 +198,7 @@ const LabsListModern = ({
           </div>
         ) : (
         <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-          {(labType != null || category != null ? filteredLabs : labs).map((rawLab) => {
-            const lab = getLabUiMeta(rawLab);
+          {(labType != null || category != null ? filteredLabs : labs).map((lab) => {
             return (
             <article
               key={lab.lab_id}

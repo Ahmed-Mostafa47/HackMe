@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/pdo_mysqli_shim.php';
+
 function hackme_lab_storage_root(): string
 {
     return dirname(__DIR__) . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'labs';
@@ -296,7 +298,7 @@ function hackme_load_staged_manifest(string $token): ?array
     return $data;
 }
 
-function hackme_user_is_instructor_or_admin(mysqli $conn, int $userId): bool
+function hackme_user_is_instructor_or_admin(PdoMysqliShim $conn, int $userId): bool
 {
     $uid = (int) $userId;
     if ($uid < 1) {

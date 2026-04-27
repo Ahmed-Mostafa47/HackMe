@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/pdo_mysqli_shim.php';
+
 /**
  * Production consistency: DB is the source of truth for scoring.
  * Use these flags for UI fallbacks vs graded submissions.
@@ -16,7 +18,7 @@ declare(strict_types=1);
  *   setup_incomplete: bool
  * }
  */
-function hackme_whitebox_production_state(mysqli $conn, int $labId): array
+function hackme_whitebox_production_state(PdoMysqliShim $conn, int $labId): array
 {
     $id = (int) $labId;
     $labInDb = false;

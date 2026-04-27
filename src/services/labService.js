@@ -51,22 +51,6 @@ function mockLabToDetailsPayload(lab) {
   };
 }
 
-function normalizeFroggerDetailsLab(lab) {
-  if (!lab || Number(lab.lab_id) !== 40) return lab;
-  return {
-    ...lab,
-    title: "Frogger",
-    description:
-      "Frogger challenge: your goal is to win by crossing the road safely. To make that possible, you must use DevTools to modify runtime game settings.",
-    icon: "🐸",
-    port: 4010,
-    launch_path: "/",
-    labtype_id: 2,
-    difficulty: "hard",
-    points_total: 200,
-  };
-}
-
 async function getLabDetailsFromMock(labId) {
   const { mockLabs } = await import("../data/mockData");
   const id = Number(labId);
@@ -74,9 +58,6 @@ async function getLabDetailsFromMock(labId) {
   const payload = mockLabToDetailsPayload(lab);
   if (!payload) {
     throw new Error("Lab not found");
-  }
-  if (id === 40 && payload?.data?.lab) {
-    payload.data.lab = normalizeFroggerDetailsLab(payload.data.lab);
   }
   return payload;
 }
@@ -182,9 +163,6 @@ export const labService = {
       );
       const data = await response.json().catch(() => ({}));
       if (response.ok && data?.success) {
-        if (Number(labId) === 40 && data?.data?.lab) {
-          data.data.lab = normalizeFroggerDetailsLab(data.data.lab);
-        }
         return data;
       }
       // DB down, or lab missing from DB while list came from mock — use mock details

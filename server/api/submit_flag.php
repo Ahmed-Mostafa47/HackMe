@@ -204,9 +204,9 @@ if ($labId === 10 && $flag === 'FLAG{ACADEMY_SQLI_DELETED}') {
     }
 }
 
-// Lab 40 + FLAG{FROGGER_DEVTOOLS_OVERRIDE}: Frogger lab, 200 points
+// Lab 41 + FLAG{FROGGER_DEVTOOLS_OVERRIDE}: optional bootstrap for Frogger; canonical id is 41 in migrate_labs_db_only.sql
 // Ensure lab/challenge/testcase rows exist so valid flag does not fail with INVALID_FLAG.
-if ($labId === 40 && $flag === 'FLAG{FROGGER_DEVTOOLS_OVERRIDE}') {
+if ($labId === 41 && $flag === 'FLAG{FROGGER_DEVTOOLS_OVERRIDE}') {
     $conn->query("INSERT IGNORE INTO lab_types (labtype_id, name, description) VALUES (2, 'BLACK_BOX', 'Black Box Testing Labs')");
     $creator = $userId > 0 ? (int) $userId : 0;
     if ($creator < 1) {
@@ -217,25 +217,25 @@ if ($labId === 40 && $flag === 'FLAG{FROGGER_DEVTOOLS_OVERRIDE}') {
         $c = (int) $creator;
         $conn->query(
             "INSERT INTO labs (lab_id, title, description, labtype_id, difficulty, points_total, created_by, is_published, visibility, docker_image, reset_interval) " .
-            "VALUES (40, 'Frogger', 'Frogger challenge: win by crossing the road safely. To do that, use browser DevTools to modify runtime game settings.', 2, 'hard', 200, $c, 1, 'public', '', 3600) " .
+            "VALUES (41, 'Frogger', 'Frogger challenge: win by crossing the road safely. To do that, use browser DevTools to modify runtime game settings.', 2, 'hard', 200, $c, 1, 'public', '', 3600) " .
             "ON DUPLICATE KEY UPDATE title = VALUES(title), description = VALUES(description), labtype_id = VALUES(labtype_id), " .
             "difficulty = VALUES(difficulty), points_total = VALUES(points_total), created_by = VALUES(created_by)"
         );
         $conn->query(
             "INSERT INTO challenges (challenge_id, lab_id, created_by, title, statement, order_index, max_score, difficulty, is_active) " .
-            "VALUES (340, 40, $c, 'Frogger', 'Win by crossing the road; use browser DevTools to adjust runtime settings.', 1, 200, 'hard', 1) " .
+            "VALUES (401, 41, $c, 'FROGGER_DEVTOOLS', 'Win by crossing the road; use browser DevTools to adjust runtime settings.', 1, 200, 'hard', 1) " .
             "ON DUPLICATE KEY UPDATE lab_id = VALUES(lab_id), created_by = VALUES(created_by), title = VALUES(title), " .
             "statement = VALUES(statement), order_index = VALUES(order_index), max_score = VALUES(max_score), " .
             "difficulty = VALUES(difficulty), is_active = VALUES(is_active)"
         );
         $conn->query(
             "INSERT INTO testcases (testcase_id, challenge_id, secret_flag_hash, secret_flag_plain, points, active, type) " .
-            "VALUES (340, 340, 'FLAG{FROGGER_DEVTOOLS_OVERRIDE}', 'FLAG{FROGGER_DEVTOOLS_OVERRIDE}', 200, 1, 'flag_match') " .
+            "VALUES (401, 401, 'FLAG{FROGGER_DEVTOOLS_OVERRIDE}', 'FLAG{FROGGER_DEVTOOLS_OVERRIDE}', 200, 1, 'flag_match') " .
             "ON DUPLICATE KEY UPDATE challenge_id = VALUES(challenge_id), secret_flag_hash = VALUES(secret_flag_hash), " .
             "secret_flag_plain = VALUES(secret_flag_plain), points = VALUES(points), active = VALUES(active), type = VALUES(type)"
         );
         $conn->query(
-            "UPDATE testcases t INNER JOIN challenges c ON c.challenge_id = t.challenge_id AND c.lab_id = 40 AND c.challenge_id = 340 " .
+            "UPDATE testcases t INNER JOIN challenges c ON c.challenge_id = t.challenge_id AND c.lab_id = 41 AND c.challenge_id = 401 " .
             "SET t.secret_flag_plain = 'FLAG{FROGGER_DEVTOOLS_OVERRIDE}', t.secret_flag_hash = 'FLAG{FROGGER_DEVTOOLS_OVERRIDE}', t.points = 200, t.active = 1"
         );
     }
