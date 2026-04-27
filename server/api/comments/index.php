@@ -60,7 +60,7 @@ try {
     ob_end_flush();
 }
 
-function handle_get_comments(mysqli $conn): void
+function handle_get_comments(PdoMysqliShim $conn): void
 {
     $currentUserId = isset($_GET['user_id']) ? (int)$_GET['user_id'] : null;
 
@@ -235,7 +235,7 @@ function handle_get_comments(mysqli $conn): void
     ob_end_flush();
 }
 
-function handle_create_comment(mysqli $conn): void
+function handle_create_comment(PdoMysqliShim $conn): void
 {
     $payload = json_decode(file_get_contents('php://input') ?: '[]', true);
 
@@ -426,7 +426,7 @@ function handle_create_comment(mysqli $conn): void
     ob_end_flush();
 }
 
-function handle_delete_comment(mysqli $conn, array $segments): void
+function handle_delete_comment(PdoMysqliShim $conn, array $segments): void
 {
     $commentId = extract_comment_id($segments);
 

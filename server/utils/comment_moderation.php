@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/pdo_mysqli_shim.php';
 require_once __DIR__ . '/comment_moderation_local.php';
 
 /**
@@ -8,7 +9,7 @@ require_once __DIR__ . '/comment_moderation_local.php';
  * + always-on local wordlist (works without API keys).
  */
 
-function hackme_users_has_comment_moderation_columns(mysqli $conn): bool
+function hackme_users_has_comment_moderation_columns(PdoMysqliShim $conn): bool
 {
     static $cached = null;
     if ($cached !== null) {
@@ -179,7 +180,7 @@ function hackme_perspective_moderate(string $text, string $apiKey, float $thresh
 /**
  * @return array{banned:bool, until:?string}
  */
-function hackme_user_comments_ban_status(mysqli $conn, int $userId): array
+function hackme_user_comments_ban_status(PdoMysqliShim $conn, int $userId): array
 {
     if (!hackme_users_has_comment_moderation_columns($conn)) {
         return ['banned' => false, 'until' => null];
@@ -217,7 +218,7 @@ function hackme_user_comments_ban_status(mysqli $conn, int $userId): array
  *
  * @return array{strikes:int, banned:bool}
  */
-function hackme_record_comment_moderation_strike(mysqli $conn, int $userId): array
+function hackme_record_comment_moderation_strike(PdoMysqliShim $conn, int $userId): array
 {
     if (!hackme_users_has_comment_moderation_columns($conn)) {
         return ['strikes' => 0, 'banned' => false];

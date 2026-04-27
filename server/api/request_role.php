@@ -90,7 +90,7 @@ try {
  *     GET Request Handler
  * -----------------------------
  */
-function handle_get_request(mysqli $conn)
+function handle_get_request(PdoMysqliShim $conn)
 {
     $all = isset($_GET['all']) && $_GET['all'] == '1';
     $status_filter = isset($_GET['status']) ? $_GET['status'] : null;
@@ -198,7 +198,7 @@ function handle_get_request(mysqli $conn)
  *     (User sends role request)
  * -----------------------------
  */
-function handle_post_request(mysqli $conn)
+function handle_post_request(PdoMysqliShim $conn)
 {
     // Log the incoming request
     error_log('Role request POST received');
@@ -376,7 +376,7 @@ function handle_post_request(mysqli $conn)
  *     (Admin approves / rejects)
  * -----------------------------
  */
-function handle_put_request(mysqli $conn)
+function handle_put_request(PdoMysqliShim $conn)
 {
     $data = json_decode(file_get_contents('php://input'), true);
 

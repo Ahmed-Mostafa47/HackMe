@@ -8,7 +8,7 @@ declare(strict_types=1);
 $root = dirname(__DIR__);
 require_once $root . '/utils/db_connect.php';
 
-if (!isset($conn) || !$conn instanceof mysqli) {
+if (!isset($pdo) || !($pdo instanceof PDO)) {
     fwrite(STDERR, "No database connection.\n");
     exit(1);
 }
@@ -22,16 +22,11 @@ if (!is_readable($sqlPath)) {
 $sql = file_get_contents($sqlPath);
 $sql = preg_replace('/^\s*USE\s+ctf_platform\s*;/im', '', $sql);
 
-if (!$conn->multi_query($sql)) {
-    fwrite(STDERR, 'SQL error: ' . $conn->error . "\n");
+if (!hackme_pdo_drain_multistatement($pdo, $sql)) {
+    $e = $pdo->errorInfo();
+    fwrite(STDERR, 'SQL error: ' . (string) ($e[2] ?? $e[0] ?? 'unknown') . "\n");
     exit(1);
 }
-
-do {
-    if ($result = $conn->store_result()) {
-        $result->free();
-    }
-} while ($conn->more_results() && $conn->next_result());
 
 echo "delete_labs_2_3_4_6.sql completed OK.\n";
 exit(0);

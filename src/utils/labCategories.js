@@ -10,7 +10,17 @@ export const LAB_CATEGORIES = {
     key: "game",
     label: "Game",
     icon: "🎮",
-    keywords: ["frogger", "devtools", "override", "game", "games", "ctf", "arcade"],
+    keywords: [
+      "frogger",
+      "sudoku",
+      "hack the sudoku",
+      "devtools",
+      "override",
+      "game",
+      "games",
+      "ctf",
+      "arcade",
+    ],
   },
   SQL_INJECTION: {
     key: "sql_injection",

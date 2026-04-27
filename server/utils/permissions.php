@@ -12,11 +12,11 @@ require_once __DIR__ . '/db_connect.php';
 /**
  * Get all roles for a user
  * 
- * @param mysqli $conn Database connection
+ * @param PdoMysqliShim $conn Database connection
  * @param int $userId User ID
  * @return array Array of role names
  */
-function getUserRoles(mysqli $conn, int $userId): array
+function getUserRoles(PdoMysqliShim $conn, int $userId): array
 {
     $stmt = $conn->prepare("
         SELECT r.name 
@@ -46,12 +46,12 @@ function getUserRoles(mysqli $conn, int $userId): array
 /**
  * Check if user has a specific role
  * 
- * @param mysqli $conn Database connection
+ * @param PdoMysqliShim $conn Database connection
  * @param int $userId User ID
  * @param string $roleName Role name (case-insensitive)
  * @return bool
  */
-function hasRole(mysqli $conn, int $userId, string $roleName): bool
+function hasRole(PdoMysqliShim $conn, int $userId, string $roleName): bool
 {
     $roleName = strtolower(trim($roleName));
     $roles = getUserRoles($conn, $userId);
@@ -61,11 +61,11 @@ function hasRole(mysqli $conn, int $userId, string $roleName): bool
 /**
  * Check if user is admin
  * 
- * @param mysqli $conn Database connection
+ * @param PdoMysqliShim $conn Database connection
  * @param int $userId User ID
  * @return bool
  */
-function isAdmin(mysqli $conn, int $userId): bool
+function isAdmin(PdoMysqliShim $conn, int $userId): bool
 {
     return hasRole($conn, $userId, 'admin');
 }
@@ -73,11 +73,11 @@ function isAdmin(mysqli $conn, int $userId): bool
 /**
  * Check if user is instructor
  * 
- * @param mysqli $conn Database connection
+ * @param PdoMysqliShim $conn Database connection
  * @param int $userId User ID
  * @return bool
  */
-function isInstructor(mysqli $conn, int $userId): bool
+function isInstructor(PdoMysqliShim $conn, int $userId): bool
 {
     return hasRole($conn, $userId, 'instructor');
 }
@@ -85,11 +85,11 @@ function isInstructor(mysqli $conn, int $userId): bool
 /**
  * Check if user is super admin
  * 
- * @param mysqli $conn Database connection
+ * @param PdoMysqliShim $conn Database connection
  * @param int $userId User ID
  * @return bool
  */
-function isSuperAdmin(mysqli $conn, int $userId): bool
+function isSuperAdmin(PdoMysqliShim $conn, int $userId): bool
 {
     return hasRole($conn, $userId, 'superadmin');
 }
@@ -97,12 +97,12 @@ function isSuperAdmin(mysqli $conn, int $userId): bool
 /**
  * Check if user has a specific permission
  * 
- * @param mysqli $conn Database connection
+ * @param PdoMysqliShim $conn Database connection
  * @param int $userId User ID
  * @param string $permissionName Permission name
  * @return bool
  */
-function hasPermission(mysqli $conn, int $userId, string $permissionName): bool
+function hasPermission(PdoMysqliShim $conn, int $userId, string $permissionName): bool
 {
     // SuperAdmin has all permissions
     if (isSuperAdmin($conn, $userId)) {
@@ -136,11 +136,11 @@ function hasPermission(mysqli $conn, int $userId, string $permissionName): bool
 /**
  * Get all permissions for a user (from all their roles)
  * 
- * @param mysqli $conn Database connection
+ * @param PdoMysqliShim $conn Database connection
  * @param int $userId User ID
  * @return array Array of permission names
  */
-function getUserPermissions(mysqli $conn, int $userId): array
+function getUserPermissions(PdoMysqliShim $conn, int $userId): array
 {
     $stmt = $conn->prepare("
         SELECT DISTINCT p.name
@@ -172,13 +172,13 @@ function getUserPermissions(mysqli $conn, int $userId): array
 /**
  * Assign a role to a user
  * 
- * @param mysqli $conn Database connection
+ * @param PdoMysqliShim $conn Database connection
  * @param int $userId User ID
  * @param string $roleName Role name
  * @param int|null $assignedBy User ID who assigned the role (null for system)
  * @return bool Success status
  */
-function assignRole(mysqli $conn, int $userId, string $roleName, ?int $assignedBy = null): bool
+function assignRole(PdoMysqliShim $conn, int $userId, string $roleName, ?int $assignedBy = null): bool
 {
     $roleName = strtolower(trim($roleName));
     
@@ -224,12 +224,12 @@ function assignRole(mysqli $conn, int $userId, string $roleName, ?int $assignedB
 /**
  * Remove a role from a user
  * 
- * @param mysqli $conn Database connection
+ * @param PdoMysqliShim $conn Database connection
  * @param int $userId User ID
  * @param string $roleName Role name
  * @return bool Success status
  */
-function removeRole(mysqli $conn, int $userId, string $roleName): bool
+function removeRole(PdoMysqliShim $conn, int $userId, string $roleName): bool
 {
     $roleName = strtolower(trim($roleName));
     
@@ -270,12 +270,12 @@ function removeRole(mysqli $conn, int $userId, string $roleName): bool
 /**
  * Check if user has any of the specified roles
  * 
- * @param mysqli $conn Database connection
+ * @param PdoMysqliShim $conn Database connection
  * @param int $userId User ID
  * @param array $roleNames Array of role names
  * @return bool
  */
-function hasAnyRole(mysqli $conn, int $userId, array $roleNames): bool
+function hasAnyRole(PdoMysqliShim $conn, int $userId, array $roleNames): bool
 {
     $userRoles = getUserRoles($conn, $userId);
     $normalizedRoles = array_map('strtolower', $roleNames);
@@ -292,12 +292,12 @@ function hasAnyRole(mysqli $conn, int $userId, array $roleNames): bool
 /**
  * Check if user has any of the specified permissions
  * 
- * @param mysqli $conn Database connection
+ * @param PdoMysqliShim $conn Database connection
  * @param int $userId User ID
  * @param array $permissionNames Array of permission names
  * @return bool
  */
-function hasAnyPermission(mysqli $conn, int $userId, array $permissionNames): bool
+function hasAnyPermission(PdoMysqliShim $conn, int $userId, array $permissionNames): bool
 {
     foreach ($permissionNames as $permission) {
         if (hasPermission($conn, $userId, $permission)) {
@@ -313,12 +313,12 @@ function hasAnyPermission(mysqli $conn, int $userId, array $permissionNames): bo
  * Note: This creates a direct user-permission link. Use with caution.
  * SuperAdmin only function.
  * 
- * @param mysqli $conn Database connection
+ * @param PdoMysqliShim $conn Database connection
  * @param int $userId User ID
  * @param string $permissionName Permission name
  * @return bool Success status
  */
-function assignPermissionToUser(mysqli $conn, int $userId, string $permissionName): bool
+function assignPermissionToUser(PdoMysqliShim $conn, int $userId, string $permissionName): bool
 {
     $permissionName = strtolower(trim($permissionName));
     
@@ -376,10 +376,10 @@ function assignPermissionToUser(mysqli $conn, int $userId, string $permissionNam
 /**
  * Get all available roles in the system
  * 
- * @param mysqli $conn Database connection
+ * @param PdoMysqliShim $conn Database connection
  * @return array Array of roles with their IDs and names
  */
-function getAllRoles(mysqli $conn): array
+function getAllRoles(PdoMysqliShim $conn): array
 {
     $stmt = $conn->prepare("SELECT role_id, name, description FROM roles ORDER BY role_id");
     if (!$stmt) {
@@ -406,10 +406,10 @@ function getAllRoles(mysqli $conn): array
 /**
  * Get all available permissions in the system
  * 
- * @param mysqli $conn Database connection
+ * @param PdoMysqliShim $conn Database connection
  * @return array Array of permissions with their IDs and names
  */
-function getAllPermissions(mysqli $conn): array
+function getAllPermissions(PdoMysqliShim $conn): array
 {
     $stmt = $conn->prepare("SELECT permission_id, name, description FROM permissions ORDER BY name");
     if (!$stmt) {
@@ -437,11 +437,11 @@ function getAllPermissions(mysqli $conn): array
  * Legacy function for backward compatibility
  * Checks if user is admin (checks both new role system and old profile_meta)
  * 
- * @param mysqli $conn Database connection
+ * @param PdoMysqliShim $conn Database connection
  * @param int $userId User ID
  * @return bool
  */
-function user_is_admin(mysqli $conn, int $userId): bool
+function user_is_admin(PdoMysqliShim $conn, int $userId): bool
 {
     // First check new role system (admin or superadmin)
     if (isAdmin($conn, $userId) || isSuperAdmin($conn, $userId)) {

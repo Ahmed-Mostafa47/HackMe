@@ -191,6 +191,29 @@ export const mockLabs = [
   },
   {
     lab_id: 40,
+    title: "Hack The Sudoku",
+    display_name: "Hack The Sudoku",
+    description:
+      "Hack this intentionally vulnerable Sudoku game: exploit client-side logic, hidden functions, or API secrets to trigger a win without normal play.",
+    labtype_id: 2,
+    difficulty: "medium",
+    points_total: 150,
+    is_published: true,
+    visibility: "public",
+    port: 4011,
+    launch_path: "/",
+    progress: 0,
+    status: "NOT_STARTED",
+    icon: "🎮",
+    hints: [
+      "Check localStorage and DevTools for hidden state.",
+      "The API may expose more than the UI shows.",
+    ],
+    solution:
+      "Bypass client trust (localStorage / hidden functions / secret API) to force a win state, then submit the platform flag if required.",
+  },
+  {
+    lab_id: 41,
     title: "Frogger",
     display_name: "Frogger",
     description:

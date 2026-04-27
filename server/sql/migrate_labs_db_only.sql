@@ -86,7 +86,8 @@ CREATE TABLE IF NOT EXISTS lab_resource_usage (
 INSERT IGNORE INTO lab_types (labtype_id, name, description) VALUES
 (1, 'WHITE_BOX', 'White Box Testing Labs'),
 (2, 'BLACK_BOX', 'Black Box Testing Labs'),
-(3, 'ACCESS_CONTROL', 'Access Control & Privilege Escalation');
+(3, 'ACCESS_CONTROL', 'Access Control & Privilege Escalation'),
+(4, 'GAMES', 'Gamified Cybersecurity Labs');
 
 INSERT INTO users (username, email, password_hash, full_name, profile_meta)
 SELECT 'system_labs', 'system_labs@ctf.local', '', 'System Labs', '{}'
@@ -160,6 +161,18 @@ VALUES
  'Follow the objective in the lab and submit the correct flag to complete the challenge.',
  '🎮', 4005, '/',
  2, 'medium', 100, @creator, 1, 'public', 'cyberops/war-game', 3600)
+,
+(40, 'Hack The Sudoku',
+ 'Hack this intentionally vulnerable Sudoku game by exploiting client-side logic, hidden functions, or API secrets. The goal is to bypass validation and trigger a win state without solving the puzzle normally.',
+ 'The solution is not in the grid itself. Inspect browser storage, JavaScript runtime, and hidden backend API endpoints. There are multiple ways to win.',
+ '🎮', 4011, '/',
+ 2, 'medium', 150, @creator, 1, 'public', 'cyberops/hack-the-sudoku', 3600)
+,
+(41, 'Frogger',
+ 'Frogger challenge: your goal is to win by crossing the road safely. To make that possible, use DevTools to modify runtime game settings.',
+ 'Inspect browser runtime values and override game variables (speed, lives, collision checks) from DevTools to complete the challenge.',
+ '🐸', 4010, '/',
+ 2, 'hard', 200, @creator, 1, 'public', 'cyberops/frogger-game', 3600)
 ON DUPLICATE KEY UPDATE
   title = VALUES(title),
   description = VALUES(description),
@@ -189,6 +202,10 @@ VALUES
 (321, 21, @creator, 'DOM_XSS_WHITEBOX_FIX', 'Patch DOM sink to prevent unsafe HTML execution.', 1, 100, 'medium', 1)
 , 
 (330, 30, @creator, 'WAR_GAME', 'Complete the War game and submit the flag.', 1, 100, 'medium', 1)
+,
+(400, 40, @creator, 'HACK_THE_SUDOKU', 'Bypass client-side validation, discover hidden logic, or exploit API secrets to win the Sudoku game.', 1, 150, 'medium', 1)
+,
+(401, 41, @creator, 'FROGGER_DEVTOOLS', 'Use browser DevTools to manipulate Frogger runtime behavior and win the game.', 1, 200, 'hard', 1)
 ON DUPLICATE KEY UPDATE
   statement = VALUES(statement),
   max_score = VALUES(max_score),
@@ -213,6 +230,10 @@ VALUES
 (321, 321, 'FLAG{XSS_WHITEBOX_DOM_21}', 'FLAG{XSS_WHITEBOX_DOM_21}', 100, 1, 'flag_match')
 , 
 (330, 330, 'FLAG{WAR_GAME_30}', 'FLAG{WAR_GAME_30}', 100, 1, 'flag_match')
+,
+(400, 400, 'FLAG{SUDOKU_PWNED}', 'FLAG{SUDOKU_PWNED}', 150, 1, 'flag_match')
+,
+(401, 401, 'FLAG{FROGGER_DEVTOOLS_41}', 'FLAG{FROGGER_DEVTOOLS_41}', 200, 1, 'flag_match')
 ON DUPLICATE KEY UPDATE
   secret_flag_hash = VALUES(secret_flag_hash),
   secret_flag_plain = VALUES(secret_flag_plain),
@@ -237,7 +258,19 @@ VALUES
 (320, 'Encode reflected user input before rendering in HTML response.', 0),
 (320, 'Avoid direct concatenation of untrusted query values into markup.', 0),
 (321, 'Do not pass untrusted data to innerHTML.', 0),
-(321, 'Use textContent/createTextNode for user-controlled values.', 0);
+(321, 'Use textContent/createTextNode for user-controlled values.', 0)
+,
+(400, 'Check browser localStorage for clues.', 0),
+(400, 'Look for hidden JavaScript functions or global variables.', 0),
+(400, 'Probe common API endpoint paths for hidden features.', 0),
+(401, 'Open DevTools and inspect global game state in the console.', 0),
+(401, 'Try overriding speed, lives, or collision checks at runtime.', 0);
+
+INSERT INTO lab_runtime_configs (lab_id, folder, compose_file)
+VALUES
+(40, 'Games/hack-the-sudoku', 'docker-compose.yml'),
+(41, 'BLACK_BOX/game', 'docker-compose.yml')
+ON DUPLICATE KEY UPDATE folder = VALUES(folder), compose_file = VALUES(compose_file);
 
 -- Remove lab 11 from public listings (matches get_labs.php filter).
 UPDATE labs SET is_published = 0, visibility = 'private' WHERE lab_id = 11;
