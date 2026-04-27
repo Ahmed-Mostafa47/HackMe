@@ -146,5 +146,5 @@ try {
     echo json_encode(['success' => false, 'message' => 'Email sending failed: ' . $mail->ErrorInfo]);
     exit;
 }
-
 ?>
+

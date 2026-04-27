@@ -9,6 +9,8 @@ import {
   ArrowLeft,
   Loader2,
   Plus,
+  X,
+  CheckCircle2,
 } from "lucide-react";
 import { labService } from "../../services/labService";
 import { WHITEBOX_SQL_LAB_ID, WHITEBOX_WORKBENCH_LAB_IDS } from "../../constants/labs";
@@ -42,6 +44,21 @@ const LabsListModern = ({
   const [labs, setLabs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [editOpen, setEditOpen] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState("");
+  const [editForm, setEditForm] = useState({
+    lab_id: 0,
+    title: "",
+    description: "",
+    difficulty: "easy",
+    points_total: 0,
+    visibility: "public",
+    is_published: true,
+    icon: "",
+    launch_path: "",
+    port: "",
+  });
 
   useEffect(() => {
     let mounted = true;
@@ -89,6 +106,15 @@ const LabsListModern = ({
   const canAddLab =
     (labType === LAB_TYPES.WHITE_BOX || labType === LAB_TYPES.BLACK_BOX) &&
     (isAdmin || isInstructor);
+  const currentUser = (() => {
+    try {
+      const parsed = JSON.parse(localStorage.getItem("currentUser") || "{}");
+      return parsed && typeof parsed === "object" ? parsed : {};
+    } catch {
+      return {};
+    }
+  })();
+  const currentUserId = Number(currentUser?.user_id || currentUser?.id || 0);
 
   const getLabUiMeta = (lab) => {
     if (Number(lab?.lab_id) !== 40) return lab;
@@ -256,6 +282,20 @@ const LabsListModern = ({
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
+                      setEditError("");
+                      setEditForm({
+                        lab_id: Number(lab.lab_id) || 0,
+                        title: String(lab.title || ""),
+                        description: String(lab.description || ""),
+                        difficulty: String(lab.difficulty || "easy"),
+                        points_total: Number(lab.points_total || 0),
+                        visibility: String(lab.visibility || "public"),
+                        is_published: !!lab.is_published,
+                        icon: String(lab.icon || ""),
+                        launch_path: String(lab.launch_path || ""),
+                        port: lab.port != null ? String(lab.port) : "",
+                      });
+                      setEditOpen(true);
                       onEditLab && onEditLab(lab);
                     }}
                     className="inline-flex items-center justify-center gap-1.5 rounded-lg 
@@ -291,6 +331,173 @@ const LabsListModern = ({
         </div>
         )}
       </div>
+
+      {editOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6 bg-black/70 backdrop-blur-sm">
+          <div className="w-full max-w-2xl rounded-2xl border border-slate-700 bg-slate-900/95 shadow-2xl shadow-black/60">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800">
+              <h2 className="text-sm sm:text-base font-mono font-semibold text-slate-50">
+                Edit Lab Metadata (No code/files)
+              </h2>
+              <button
+                type="button"
+                onClick={() => setEditOpen(false)}
+                className="p-1 rounded-full text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form
+              className="px-5 py-4 space-y-4 text-sm text-slate-100 max-h-[75vh] overflow-y-auto"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!currentUserId) {
+                  setEditError("Missing logged-in user id.");
+                  return;
+                }
+                setEditSaving(true);
+                setEditError("");
+                try {
+                  const res = await labService.updateLabMetadata({
+                    userId: currentUserId,
+                    labId: editForm.lab_id,
+                    title: editForm.title,
+                    description: editForm.description,
+                    difficulty: editForm.difficulty,
+                    pointsTotal: Number(editForm.points_total || 0),
+                    visibility: editForm.visibility,
+                    isPublished: !!editForm.is_published,
+                    icon: editForm.icon,
+                    launchPath: editForm.launch_path,
+                    port: editForm.port === "" ? null : Number(editForm.port),
+                  });
+                  const updated = res?.data?.lab;
+                  if (updated?.lab_id) {
+                    setLabs((prev) =>
+                      prev.map((l) =>
+                        Number(l.lab_id) === Number(updated.lab_id) ? { ...l, ...updated } : l
+                      )
+                    );
+                  }
+                  setEditOpen(false);
+                } catch (err) {
+                  setEditError(err?.message || "Failed to update lab metadata.");
+                } finally {
+                  setEditSaving(false);
+                }
+              }}
+            >
+              {editError && (
+                <div className="rounded-lg border border-rose-700 bg-rose-950/30 p-3 text-xs text-rose-300 font-mono">
+                  {editError}
+                </div>
+              )}
+              <div>
+                <label className="block text-xs font-mono text-slate-400 mb-1.5">Lab Title</label>
+                <input
+                  className="w-full rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-400"
+                  value={editForm.title}
+                  onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-mono text-slate-400 mb-1.5">Description</label>
+                <textarea
+                  className="w-full rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-400 min-h-[90px]"
+                  value={editForm.description}
+                  onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="block text-xs font-mono text-slate-400 mb-1.5">Difficulty</label>
+                  <select
+                    className="w-full rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-400"
+                    value={editForm.difficulty}
+                    onChange={(e) => setEditForm((f) => ({ ...f, difficulty: e.target.value }))}
+                  >
+                    <option value="easy">Easy</option>
+                    <option value="medium">Medium</option>
+                    <option value="hard">Hard</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-mono text-slate-400 mb-1.5">Points</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={10000}
+                    className="w-full rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-400"
+                    value={editForm.points_total}
+                    onChange={(e) => setEditForm((f) => ({ ...f, points_total: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-mono text-slate-400 mb-1.5">Visibility</label>
+                  <select
+                    className="w-full rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-400"
+                    value={editForm.visibility}
+                    onChange={(e) => setEditForm((f) => ({ ...f, visibility: e.target.value }))}
+                  >
+                    <option value="public">Public</option>
+                    <option value="private">Private</option>
+                    <option value="unlisted">Unlisted</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-mono text-slate-400 mb-1.5">Published</label>
+                  <select
+                    className="w-full rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-400"
+                    value={editForm.is_published ? "1" : "0"}
+                    onChange={(e) => setEditForm((f) => ({ ...f, is_published: e.target.value === "1" }))}
+                  >
+                    <option value="1">Published</option>
+                    <option value="0">Draft</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-mono text-slate-400 mb-1.5">Port</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={65535}
+                    className="w-full rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-400"
+                    value={editForm.port}
+                    onChange={(e) => setEditForm((f) => ({ ...f, port: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-mono text-slate-400 mb-1.5">Launch Path</label>
+                  <input
+                    className="w-full rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-400"
+                    value={editForm.launch_path}
+                    onChange={(e) => setEditForm((f) => ({ ...f, launch_path: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="pt-2 flex flex-col sm:flex-row sm:justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditOpen(false)}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-600 bg-slate-900 px-4 py-2 text-xs sm:text-sm font-mono text-slate-200 hover:border-slate-400 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={editSaving}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-4 py-2 text-xs sm:text-sm font-mono font-semibold text-slate-950 shadow-lg shadow-emerald-500/40 hover:from-emerald-400 hover:to-emerald-500 transition-all disabled:opacity-50"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  {editSaving ? "Saving..." : "Save Metadata"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

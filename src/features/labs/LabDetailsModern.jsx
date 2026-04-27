@@ -15,9 +15,26 @@ import {
 } from "lucide-react";
 import { labService } from "../../services/labService";
 import { WHITEBOX_WORKBENCH_LAB_IDS } from "../../constants/labs";
+import { fetchHackMeMachineIdentity } from "../../utils/hackmeIdentity";
 
 // Use relative path when proxy exists (dev), else full URL (production)
 const API_BASE = import.meta.env.DEV ? "/api" : "http://localhost/HackMe/server/api";
+
+/** Stable per-browser secret (real MAC is not exposed to web apps). Bound with token + IP on server. */
+function getOrCreateHackMeDeviceBind() {
+  const key = "hackme_lab_device_bind";
+  try {
+    let v = localStorage.getItem(key);
+    if (v && v.length >= 24) return v;
+    const buf = new Uint8Array(18);
+    crypto.getRandomValues(buf);
+    v = Array.from(buf, (b) => b.toString(16).padStart(2, "0")).join("");
+    localStorage.setItem(key, v);
+    return v;
+  } catch {
+    return `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
+  }
+}
 
 const diffBadgeClasses = {
   easy: "bg-emerald-500/10 text-emerald-300 border-emerald-400/50",
@@ -26,6 +43,7 @@ const diffBadgeClasses = {
 };
 
 const whiteboxRouteLabIds = new Set(WHITEBOX_WORKBENCH_LAB_IDS);
+const noManualSubmitLabIds = new Set([1, 5, 7, 10, 30, 40, 41]);
 
 const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
   const navigate = useNavigate();
@@ -284,12 +302,17 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
         console.warn("Lab container start:", startData.message);
       }
 
+      const deviceBind = getOrCreateHackMeDeviceBind();
+      const { mac, local_ipv4: localIp } = await fetchHackMeMachineIdentity();
       const res = await fetch(`${API_BASE}/generate_lab_token.php`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           lab_id: lab.lab_id,
           user_id: currentUser?.user_id ?? currentUser?.id ?? 0,
+          device_bind: deviceBind,
+          mac_address: mac,
+          client_local_ip: localIp,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -301,7 +324,10 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
       const launchPath = (lab.launch_path || "/").trim();
       const normalizedPath = launchPath.startsWith("/") ? launchPath : `/${launchPath}`;
       const separator = normalizedPath.includes("?") ? "&" : "?";
-      const url = `http://localhost:${port}${normalizedPath}${separator}labId=${lab.lab_id}&token=${encodeURIComponent(data.token)}`;
+      const url =
+        `http://localhost:${port}${normalizedPath}${separator}labId=${lab.lab_id}&token=${encodeURIComponent(data.token)}` +
+        `&device_bind=${encodeURIComponent(deviceBind)}` +
+        `&mac_address=${encodeURIComponent(mac)}&client_local_ip=${encodeURIComponent(localIp)}`;
       // Use named window so lab tab keeps window.opener for postMessage to HackMe (lab 5)
       window.open(url, "hackme_lab_" + lab.lab_id);
     } catch (err) {
@@ -523,8 +549,8 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
               </p>
             </section>
 
-            {/* Some labs are objective-based (no flag submission UI). */}
-            {![1, 5, 7, 10, 40].includes(lab.lab_id) && (
+            {/* Objective-based labs (including Frogger/War) do not use manual flag submission. */}
+            {!noManualSubmitLabIds.has(Number(lab.lab_id)) && (
             <section className="rounded-2xl border border-slate-700 bg-slate-900/70 p-5 shadow-lg shadow-black/40">
               <h2 className="text-sm font-mono text-slate-300 mb-2 flex items-center gap-2">
                 <Flag className="w-4 h-4 text-amber-400" />

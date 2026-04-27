@@ -40,6 +40,7 @@ try {
     require_once __DIR__ . '/../../utils/whitebox_xss_verify.php';
     require_once __DIR__ . '/../../utils/lab_completion_helper.php';
     require_once __DIR__ . '/../../utils/lab_production_state.php';
+    require_once __DIR__ . '/../../utils/lab_access_token_bind.php';
 } catch (Throwable $e) {
     http_response_code(500);
     echo json_encode(['success' => false, 'message' => 'Load error', 'data' => ['points_earned' => 0]]);
@@ -54,6 +55,8 @@ if (!isset($conn) || !$conn) {
 
 $conn->set_charset('utf8mb4');
 
+hackme_lab_access_tokens_ensure_bind_columns($conn);
+
 $input = json_decode((string) file_get_contents('php://input'), true);
 if (!is_array($input)) {
     echo json_encode(['success' => false, 'message' => 'Invalid JSON', 'data' => ['points_earned' => 0]]);
@@ -63,15 +66,31 @@ if (!is_array($input)) {
 $labId = (int) ($input['lab_id'] ?? $input['labId'] ?? 0);
 $userId = (int) ($input['user_id'] ?? $input['userId'] ?? 0);
 $accessToken = trim((string) ($input['access_token'] ?? ''));
+$deviceBindInput = trim((string) ($input['device_bind'] ?? ''));
+$macInput = trim((string) ($input['mac_address'] ?? $input['mac'] ?? ''));
+$localInput = trim((string) ($input['client_local_ip'] ?? $input['local_ipv4'] ?? ''));
 
 if ($userId < 1 && $accessToken !== '' && $labId >= 1) {
     $atEsc = $conn->real_escape_string($accessToken);
     $labIdInt = (int) $labId;
     $tr = $conn->query(
-        "SELECT user_id FROM lab_access_tokens WHERE token = '$atEsc' AND lab_id = $labIdInt " .
-        "AND expires_at > NOW() LIMIT 1"
+        "SELECT user_id, client_ip, device_bind, client_mac, client_local_ip FROM lab_access_tokens WHERE token = '$atEsc' AND lab_id = $labIdInt " .
+        "AND used_at IS NULL AND expires_at > NOW() LIMIT 1"
     );
     if ($tr && ($trow = $tr->fetch_assoc())) {
+        if (!hackme_lab_token_bind_row_matches($trow, [
+            'ip' => hackme_request_client_ip(),
+            'device_bind' => $deviceBindInput,
+            'mac_address' => $macInput,
+            'client_local_ip' => $localInput,
+        ])) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'LAB_TOKEN_BIND_MISMATCH',
+                'data' => ['points_earned' => 0],
+            ]);
+            exit;
+        }
         $userId = (int) ($trow['user_id'] ?? 0);
     }
 }

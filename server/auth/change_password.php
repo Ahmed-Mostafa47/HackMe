@@ -109,5 +109,5 @@ $update_stmt->close();
 error_log("Password updated successfully for user ID: " . $user_id);
 
 echo json_encode(['success' => true, 'message' => 'Password updated successfully']);
-
 ?>
+

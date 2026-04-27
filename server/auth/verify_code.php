@@ -53,7 +53,7 @@ if ($update_stmt->execute()) {
     $errorMessage = htmlspecialchars('Verification update failed: ' . $update_stmt->error, ENT_QUOTES, 'UTF-8');
     echo json_encode(['success' => false, 'message' => $errorMessage]);
 }
-
 $update_stmt->close();
 $conn->close();
 ?>
+

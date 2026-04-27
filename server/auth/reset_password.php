@@ -141,5 +141,5 @@ if ($mark_used_stmt) {
 }
 
 echo json_encode(['success' => true, 'message' => 'Password updated successfully. You can now login with your new password.']);
-
 ?>
+

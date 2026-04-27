@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "identity-server": "node scripts/hackme-identity-server.mjs"
   },
   "dependencies": {
     "@vercel/speed-insights": "^1.3.1",
