@@ -31,31 +31,30 @@ function hackme_normalize_client_local_ip(string $raw): string
     return $t;
 }
 
-function hackme_lab_access_tokens_ensure_bind_columns(PDO $pdo): void
+function hackme_lab_access_tokens_ensure_bind_columns(PDO|PdoMysqliShim $db): void
 {
-    $check = $pdo->query("SHOW COLUMNS FROM lab_access_tokens LIKE 'client_ip'");
-    if ($check && $check->fetch(PDO::FETCH_ASSOC) === false) {
-        $pdo->exec(
-            "ALTER TABLE lab_access_tokens ADD COLUMN client_ip VARCHAR(64) NULL DEFAULT NULL AFTER expires_at"
-        );
+    $columnMissing = static function (string $name) use ($db): bool {
+        $check = $db->query("SHOW COLUMNS FROM lab_access_tokens LIKE '" . $name . "'");
+        if ($check === false) {
+            return false;
+        }
+        if ($check instanceof PDOStatement) {
+            return $check->fetch(PDO::FETCH_ASSOC) === false;
+        }
+        return $check->fetch_assoc() === false;
+    };
+
+    if ($columnMissing('client_ip')) {
+        $db->query("ALTER TABLE lab_access_tokens ADD COLUMN client_ip VARCHAR(64) NULL DEFAULT NULL AFTER expires_at");
     }
-    $check2 = $pdo->query("SHOW COLUMNS FROM lab_access_tokens LIKE 'device_bind'");
-    if ($check2 && $check2->fetch(PDO::FETCH_ASSOC) === false) {
-        $pdo->exec(
-            "ALTER TABLE lab_access_tokens ADD COLUMN device_bind VARCHAR(128) NULL DEFAULT NULL AFTER client_ip"
-        );
+    if ($columnMissing('device_bind')) {
+        $db->query("ALTER TABLE lab_access_tokens ADD COLUMN device_bind VARCHAR(128) NULL DEFAULT NULL AFTER client_ip");
     }
-    $check3 = $pdo->query("SHOW COLUMNS FROM lab_access_tokens LIKE 'client_local_ip'");
-    if ($check3 && $check3->fetch(PDO::FETCH_ASSOC) === false) {
-        $pdo->exec(
-            "ALTER TABLE lab_access_tokens ADD COLUMN client_local_ip VARCHAR(64) NULL DEFAULT NULL AFTER device_bind"
-        );
+    if ($columnMissing('client_local_ip')) {
+        $db->query("ALTER TABLE lab_access_tokens ADD COLUMN client_local_ip VARCHAR(64) NULL DEFAULT NULL AFTER device_bind");
     }
-    $check4 = $pdo->query("SHOW COLUMNS FROM lab_access_tokens LIKE 'client_mac'");
-    if ($check4 && $check4->fetch(PDO::FETCH_ASSOC) === false) {
-        $pdo->exec(
-            "ALTER TABLE lab_access_tokens ADD COLUMN client_mac VARCHAR(32) NULL DEFAULT NULL AFTER client_local_ip"
-        );
+    if ($columnMissing('client_mac')) {
+        $db->query("ALTER TABLE lab_access_tokens ADD COLUMN client_mac VARCHAR(32) NULL DEFAULT NULL AFTER client_local_ip");
     }
 }
 
