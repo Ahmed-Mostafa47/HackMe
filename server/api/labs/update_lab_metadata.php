@@ -23,6 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 try {
     require_once __DIR__ . '/../../utils/db_connect.php';
+    require_once __DIR__ . '/../../utils/audit_log.php';
 } catch (Throwable $e) {
     http_response_code(500);
     echo json_encode(['success' => false, 'message' => 'Load error']);
@@ -45,6 +46,7 @@ if (!is_array($input)) {
 
 $userId = (int) ($input['user_id'] ?? 0);
 $labId = (int) ($input['lab_id'] ?? 0);
+$clientLocalIp = trim((string) ($input['client_local_ip'] ?? ''));
 if ($userId < 1 || $labId < 1) {
     http_response_code(400);
     echo json_encode(['success' => false, 'message' => 'Missing user_id or lab_id']);
@@ -60,7 +62,26 @@ $rolesRes = $conn->query("
     AND LOWER(r.name) IN ('admin','superadmin','instructor')
   LIMIT 1
 ");
+$actorUsername = '';
+$actorRes = $conn->query("SELECT username FROM users WHERE user_id = $userId LIMIT 1");
+if ($actorRes && $actorRes->num_rows > 0) {
+    $actorRow = $actorRes->fetch_assoc();
+    $actorUsername = (string) ($actorRow['username'] ?? '');
+}
 if (!$rolesRes || $rolesRes->num_rows === 0) {
+    hackme_write_audit_log($conn, [
+        'actor_user_id' => $userId,
+        'actor_username' => $actorUsername,
+        'action' => 'lab_edit',
+        'status' => 'failed',
+        'details' => json_encode([
+            'message' => 'Edit lab failed: insufficient permissions',
+            'lab_id' => $labId,
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        'ip_address' => hackme_client_ip(),
+        'client_local_ip' => $clientLocalIp,
+        'user_agent' => (string) ($_SERVER['HTTP_USER_AGENT'] ?? ''),
+    ]);
     http_response_code(403);
     echo json_encode(['success' => false, 'message' => 'Insufficient permissions']);
     exit;
@@ -174,6 +195,21 @@ if (!$readRes || $readRes->num_rows === 0) {
     exit;
 }
 $lab = $readRes->fetch_assoc();
+
+hackme_write_audit_log($conn, [
+    'actor_user_id' => $userId,
+    'actor_username' => $actorUsername,
+    'action' => 'lab_edit',
+    'status' => 'success',
+    'details' => json_encode([
+        'message' => 'Edited lab metadata successfully',
+        'lab_id' => (int) ($lab['lab_id'] ?? $labId),
+        'lab_title' => (string) ($lab['title'] ?? $title),
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+    'ip_address' => hackme_client_ip(),
+    'client_local_ip' => $clientLocalIp,
+    'user_agent' => (string) ($_SERVER['HTTP_USER_AGENT'] ?? ''),
+]);
 
 echo json_encode([
     'success' => true,

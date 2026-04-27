@@ -55,6 +55,9 @@ const ChangePasswordPage = ({
         user_id: currentUser.user_id,
         old_password: oldPassword,
         new_password: newPassword,
+        client_time_utc: new Date().toISOString(),
+        client_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "",
+        client_tz_offset_minutes: new Date().getTimezoneOffset(),
       });
 
       if (data.success) {

@@ -23,6 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 try {
     require_once __DIR__ . '/../utils/db_connect.php';
     require_once __DIR__ . '/../utils/lab_access_token_bind.php';
+    require_once __DIR__ . '/../utils/audit_log.php';
 } catch (Throwable $e) {
     http_response_code(500);
     echo json_encode(['success' => false, 'message' => 'Load error: ' . $e->getMessage()]);
@@ -51,6 +52,9 @@ $userId = (int) ($input['user_id'] ?? 0);
 $deviceBindInput = trim((string) ($input['device_bind'] ?? ''));
 $macInput = trim((string) ($input['mac_address'] ?? $input['mac'] ?? ''));
 $localInput = trim((string) ($input['client_local_ip'] ?? $input['local_ipv4'] ?? ''));
+$clientTimeUtc = trim((string)($input['client_time_utc'] ?? ''));
+$clientTimezone = trim((string)($input['client_timezone'] ?? ''));
+$clientTzOffsetMinutes = isset($input['client_tz_offset_minutes']) ? (int)$input['client_tz_offset_minutes'] : null;
 
 hackme_lab_access_tokens_ensure_bind_columns($conn);
 
@@ -403,6 +407,41 @@ if (!$ok1) {
 
 // Update leaderboard
 $conn->query("INSERT INTO leaderboard (user_id, total_points, last_update) VALUES ($userId, $points, NOW()) ON DUPLICATE KEY UPDATE total_points = total_points + $points, last_update = NOW()");
+
+if ($points > 0) {
+    $actorUsername = 'user_' . $userId;
+    $actorRes = $conn->query("SELECT username FROM users WHERE user_id = $userId LIMIT 1");
+    if ($actorRes && $actorRes->num_rows > 0) {
+        $actorRow = $actorRes->fetch_assoc();
+        $actorUsername = (string)($actorRow['username'] ?? $actorUsername);
+    }
+
+    $labTitle = '';
+    $labRes = $conn->query("SELECT title FROM labs WHERE lab_id = $labId LIMIT 1");
+    if ($labRes && $labRes->num_rows > 0) {
+        $labRow = $labRes->fetch_assoc();
+        $labTitle = (string)($labRow['title'] ?? '');
+    }
+
+    hackme_write_audit_log($conn, [
+        'actor_user_id' => $userId,
+        'actor_username' => $actorUsername,
+        'action' => 'lab_solved',
+        'status' => 'success',
+        'details' => json_encode([
+            'message' => 'User solved lab and earned points',
+            'lab_id' => $labId,
+            'lab_title' => $labTitle,
+            'points_earned' => $points,
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        'ip_address' => hackme_request_client_ip(),
+        'client_local_ip' => $localInput,
+        'client_time_utc' => $clientTimeUtc,
+        'client_timezone' => $clientTimezone,
+        'client_tz_offset_minutes' => $clientTzOffsetMinutes,
+        'user_agent' => (string)($_SERVER['HTTP_USER_AGENT'] ?? ''),
+    ]);
+}
 
 echo json_encode(['success' => true, 'message' => 'FLAG_CAPTURED', 'points' => $points]);
 

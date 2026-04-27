@@ -247,6 +247,11 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
     setFlagLoading(true);
     setFlagResult(null);
     try {
+      let localIp = "";
+      try {
+        const identity = await fetchHackMeMachineIdentity();
+        localIp = identity?.local_ipv4 || "";
+      } catch (_) {}
       const submitUrl = import.meta.env.DEV ? "/api/submit_flag.php" : `${API_BASE}/submit_flag.php`;
       const res = await fetch(submitUrl, {
         method: "POST",
@@ -255,6 +260,10 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
           lab_id: lab.lab_id,
           flag: flagValue.trim(),
           user_id: currentUser?.user_id ?? currentUser?.id ?? 0,
+          client_local_ip: localIp,
+          client_time_utc: new Date().toISOString(),
+          client_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "",
+          client_tz_offset_minutes: new Date().getTimezoneOffset(),
         }),
       });
       const text = await res.text();
@@ -292,11 +301,23 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
     setStartLabLoading(true);
     setStartLabError(null);
     try {
+      const actorUserId = currentUser?.user_id ?? currentUser?.id ?? 0;
+      const actorUsername = currentUser?.username ?? "";
+      const { mac, local_ipv4: localIp } = await fetchHackMeMachineIdentity();
+
       // Start lab container before opening (runs docker-compose up -d)
       const startRes = await fetch(`${API_BASE}/labs/start_lab_container.php`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lab_id: lab.lab_id }),
+        body: JSON.stringify({
+          lab_id: lab.lab_id,
+          user_id: actorUserId,
+          username: actorUsername,
+          client_local_ip: localIp,
+          client_time_utc: new Date().toISOString(),
+          client_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "",
+          client_tz_offset_minutes: new Date().getTimezoneOffset(),
+        }),
       });
       const startData = await startRes.json().catch(() => ({}));
       // Continue even if container start fails (might already be running)
@@ -305,7 +326,6 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
       }
 
       const deviceBind = getOrCreateHackMeDeviceBind();
-      const { mac, local_ipv4: localIp } = await fetchHackMeMachineIdentity();
       const res = await fetch(`${API_BASE}/generate_lab_token.php`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

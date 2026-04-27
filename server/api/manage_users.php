@@ -23,6 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once __DIR__ . '/../utils/db_connect.php';
 require_once __DIR__ . '/../utils/permissions.php';
+require_once __DIR__ . '/../utils/audit_log.php';
 
 $conn->set_charset('utf8mb4');
 
@@ -74,6 +75,15 @@ function handle_get_request(PdoMysqliShim $conn)
     
     // Check if current user is superadmin or admin
     if ($currentUserId && !isSuperAdmin($conn, $currentUserId) && !isAdmin($conn, $currentUserId)) {
+        hackme_write_audit_log($conn, [
+            'actor_user_id' => $currentUserId,
+            'actor_username' => 'user_' . $currentUserId,
+            'action' => 'access_restricted',
+            'status' => 'failed',
+            'details' => json_encode(['message' => 'Restricted API access denied: manage_users GET'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'ip_address' => hackme_client_ip(),
+            'user_agent' => (string)($_SERVER['HTTP_USER_AGENT'] ?? ''),
+        ]);
         ob_clean();
         http_response_code(403);
         echo json_encode([
@@ -144,6 +154,22 @@ function handle_post_request(PdoMysqliShim $conn)
     $currentUserId = (int)$data['current_user_id'];
     $targetUserId = (int)$data['target_user_id'];
     $roleName = strtolower(trim($data['role_name']));
+    $clientLocalIp = trim((string)($data['client_local_ip'] ?? ''));
+    $clientTimeUtc = trim((string)($data['client_time_utc'] ?? ''));
+    $clientTimezone = trim((string)($data['client_timezone'] ?? ''));
+    $clientTzOffsetMinutes = isset($data['client_tz_offset_minutes']) ? (int)$data['client_tz_offset_minutes'] : null;
+    $actorName = 'user_' . $currentUserId;
+    $targetName = 'user_' . $targetUserId;
+    $actorQ = $conn->query("SELECT username FROM users WHERE user_id = " . $currentUserId . " LIMIT 1");
+    if ($actorQ && $actorQ->num_rows > 0) {
+        $actorRow = $actorQ->fetch_assoc();
+        $actorName = (string)($actorRow['username'] ?? $actorName);
+    }
+    $targetQ = $conn->query("SELECT username FROM users WHERE user_id = " . $targetUserId . " LIMIT 1");
+    if ($targetQ && $targetQ->num_rows > 0) {
+        $targetRow = $targetQ->fetch_assoc();
+        $targetName = (string)($targetRow['username'] ?? $targetName);
+    }
     
     // PROTECTED USER: Cannot modify user with ID 9
     if ($targetUserId === 9) {
@@ -159,6 +185,17 @@ function handle_post_request(PdoMysqliShim $conn)
     
     // Check if current user is superadmin (only superadmin can assign roles)
     if (!isSuperAdmin($conn, $currentUserId)) {
+        hackme_write_audit_log($conn, [
+            'actor_user_id' => $currentUserId,
+            'actor_username' => $actorName,
+            'action' => 'privilege_escalation_attempt',
+            'status' => 'failed',
+            'target_user_id' => $targetUserId,
+            'target_username' => $targetName,
+            'details' => json_encode(['message' => 'Non-superadmin attempted role assignment'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'ip_address' => hackme_client_ip(),
+            'user_agent' => (string)($_SERVER['HTTP_USER_AGENT'] ?? ''),
+        ]);
         ob_clean();
         http_response_code(403);
         echo json_encode([
@@ -244,6 +281,29 @@ function handle_post_request(PdoMysqliShim $conn)
             $updateStmt->close();
         }
         
+        hackme_write_audit_log($conn, [
+            'actor_user_id' => $currentUserId,
+            'actor_username' => $actorName,
+            'action' => 'permissions_change',
+            'status' => 'success',
+            'target_user_id' => $targetUserId,
+            'target_username' => $targetName,
+            'details' => json_encode([
+                'message' => 'Role changed successfully',
+                'changed_by_user_id' => $currentUserId,
+                'changed_by_username' => $actorName,
+                'target_user_id' => $targetUserId,
+                'target_username' => $targetName,
+                'new_role' => $roleName,
+                'previous_roles' => $existingRoles,
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'ip_address' => hackme_client_ip(),
+            'client_local_ip' => $clientLocalIp,
+            'client_time_utc' => $clientTimeUtc,
+            'client_timezone' => $clientTimezone,
+            'client_tz_offset_minutes' => $clientTzOffsetMinutes,
+            'user_agent' => (string)($_SERVER['HTTP_USER_AGENT'] ?? ''),
+        ]);
         $user = getUserDetails($conn, $targetUserId);
         
         ob_clean();
@@ -254,6 +314,28 @@ function handle_post_request(PdoMysqliShim $conn)
         ]);
         ob_end_flush();
     } else {
+        hackme_write_audit_log($conn, [
+            'actor_user_id' => $currentUserId,
+            'actor_username' => $actorName,
+            'action' => 'permissions_change',
+            'status' => 'failed',
+            'target_user_id' => $targetUserId,
+            'target_username' => $targetName,
+            'details' => json_encode([
+                'message' => 'Failed to change role',
+                'changed_by_user_id' => $currentUserId,
+                'changed_by_username' => $actorName,
+                'target_user_id' => $targetUserId,
+                'target_username' => $targetName,
+                'attempted_role' => $roleName,
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'ip_address' => hackme_client_ip(),
+            'client_local_ip' => $clientLocalIp,
+            'client_time_utc' => $clientTimeUtc,
+            'client_timezone' => $clientTimezone,
+            'client_tz_offset_minutes' => $clientTzOffsetMinutes,
+            'user_agent' => (string)($_SERVER['HTTP_USER_AGENT'] ?? ''),
+        ]);
         ob_clean();
         http_response_code(500);
         echo json_encode([
@@ -286,6 +368,22 @@ function handle_put_request(PdoMysqliShim $conn)
     $currentUserId = (int)$data['current_user_id'];
     $targetUserId = (int)$data['target_user_id'];
     $roleName = strtolower(trim($data['role_name']));
+    $clientLocalIp = trim((string)($data['client_local_ip'] ?? ''));
+    $clientTimeUtc = trim((string)($data['client_time_utc'] ?? ''));
+    $clientTimezone = trim((string)($data['client_timezone'] ?? ''));
+    $clientTzOffsetMinutes = isset($data['client_tz_offset_minutes']) ? (int)$data['client_tz_offset_minutes'] : null;
+    $actorName = 'user_' . $currentUserId;
+    $targetName = 'user_' . $targetUserId;
+    $actorQ = $conn->query("SELECT username FROM users WHERE user_id = " . $currentUserId . " LIMIT 1");
+    if ($actorQ && $actorQ->num_rows > 0) {
+        $actorRow = $actorQ->fetch_assoc();
+        $actorName = (string)($actorRow['username'] ?? $actorName);
+    }
+    $targetQ = $conn->query("SELECT username FROM users WHERE user_id = " . $targetUserId . " LIMIT 1");
+    if ($targetQ && $targetQ->num_rows > 0) {
+        $targetRow = $targetQ->fetch_assoc();
+        $targetName = (string)($targetRow['username'] ?? $targetName);
+    }
     
     // PROTECTED USER: Cannot modify user with ID 9
     if ($targetUserId === 9) {
@@ -301,6 +399,17 @@ function handle_put_request(PdoMysqliShim $conn)
     
     // Check if current user is superadmin
     if (!isSuperAdmin($conn, $currentUserId)) {
+        hackme_write_audit_log($conn, [
+            'actor_user_id' => $currentUserId,
+            'actor_username' => $actorName,
+            'action' => 'privilege_escalation_attempt',
+            'status' => 'failed',
+            'target_user_id' => $targetUserId,
+            'target_username' => $targetName,
+            'details' => json_encode(['message' => 'Non-superadmin attempted role removal'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'ip_address' => hackme_client_ip(),
+            'user_agent' => (string)($_SERVER['HTTP_USER_AGENT'] ?? ''),
+        ]);
         ob_clean();
         http_response_code(403);
         echo json_encode([
@@ -346,6 +455,28 @@ function handle_put_request(PdoMysqliShim $conn)
     $success = removeRole($conn, $targetUserId, $roleName);
     
     if ($success) {
+        hackme_write_audit_log($conn, [
+            'actor_user_id' => $currentUserId,
+            'actor_username' => $actorName,
+            'action' => 'permissions_change',
+            'status' => 'success',
+            'target_user_id' => $targetUserId,
+            'target_username' => $targetName,
+            'details' => json_encode([
+                'message' => 'Role removed successfully',
+                'changed_by_user_id' => $currentUserId,
+                'changed_by_username' => $actorName,
+                'target_user_id' => $targetUserId,
+                'target_username' => $targetName,
+                'removed_role' => $roleName,
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'ip_address' => hackme_client_ip(),
+            'client_local_ip' => $clientLocalIp,
+            'client_time_utc' => $clientTimeUtc,
+            'client_timezone' => $clientTimezone,
+            'client_tz_offset_minutes' => $clientTzOffsetMinutes,
+            'user_agent' => (string)($_SERVER['HTTP_USER_AGENT'] ?? ''),
+        ]);
         $user = getUserDetails($conn, $targetUserId);
         
         ob_clean();
@@ -356,6 +487,28 @@ function handle_put_request(PdoMysqliShim $conn)
         ]);
         ob_end_flush();
     } else {
+        hackme_write_audit_log($conn, [
+            'actor_user_id' => $currentUserId,
+            'actor_username' => $actorName,
+            'action' => 'permissions_change',
+            'status' => 'failed',
+            'target_user_id' => $targetUserId,
+            'target_username' => $targetName,
+            'details' => json_encode([
+                'message' => 'Failed to remove role',
+                'changed_by_user_id' => $currentUserId,
+                'changed_by_username' => $actorName,
+                'target_user_id' => $targetUserId,
+                'target_username' => $targetName,
+                'attempted_role' => $roleName,
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'ip_address' => hackme_client_ip(),
+            'client_local_ip' => $clientLocalIp,
+            'client_time_utc' => $clientTimeUtc,
+            'client_timezone' => $clientTimezone,
+            'client_tz_offset_minutes' => $clientTzOffsetMinutes,
+            'user_agent' => (string)($_SERVER['HTTP_USER_AGENT'] ?? ''),
+        ]);
         ob_clean();
         http_response_code(500);
         echo json_encode([
@@ -387,6 +540,22 @@ function handle_delete_request(PdoMysqliShim $conn)
     
     $currentUserId = (int)$data['current_user_id'];
     $targetUserId = (int)$data['target_user_id'];
+    $clientLocalIp = trim((string)($data['client_local_ip'] ?? ''));
+    $clientTimeUtc = trim((string)($data['client_time_utc'] ?? ''));
+    $clientTimezone = trim((string)($data['client_timezone'] ?? ''));
+    $clientTzOffsetMinutes = isset($data['client_tz_offset_minutes']) ? (int)$data['client_tz_offset_minutes'] : null;
+    $actorName = 'user_' . $currentUserId;
+    $targetName = 'user_' . $targetUserId;
+    $actorQ = $conn->query("SELECT username FROM users WHERE user_id = " . $currentUserId . " LIMIT 1");
+    if ($actorQ && $actorQ->num_rows > 0) {
+        $actorRow = $actorQ->fetch_assoc();
+        $actorName = (string)($actorRow['username'] ?? $actorName);
+    }
+    $targetQ = $conn->query("SELECT username FROM users WHERE user_id = " . $targetUserId . " LIMIT 1");
+    if ($targetQ && $targetQ->num_rows > 0) {
+        $targetRow = $targetQ->fetch_assoc();
+        $targetName = (string)($targetRow['username'] ?? $targetName);
+    }
     
     // PROTECTED USER: Cannot delete user with ID 9
     if ($targetUserId === 9) {
@@ -402,6 +571,17 @@ function handle_delete_request(PdoMysqliShim $conn)
     
     // Check if current user is superadmin
     if (!isSuperAdmin($conn, $currentUserId)) {
+        hackme_write_audit_log($conn, [
+            'actor_user_id' => $currentUserId,
+            'actor_username' => $actorName,
+            'action' => 'sensitive_action_attempt',
+            'status' => 'failed',
+            'target_user_id' => $targetUserId,
+            'target_username' => $targetName,
+            'details' => json_encode(['message' => 'Non-superadmin attempted user deletion'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'ip_address' => hackme_client_ip(),
+            'user_agent' => (string)($_SERVER['HTTP_USER_AGENT'] ?? ''),
+        ]);
         ob_clean();
         http_response_code(403);
         echo json_encode([
@@ -534,6 +714,28 @@ function handle_delete_request(PdoMysqliShim $conn)
         
         // Commit transaction
         $conn->commit();
+
+        hackme_write_audit_log($conn, [
+            'actor_user_id' => $currentUserId,
+            'actor_username' => $actorName,
+            'action' => 'user_delete',
+            'status' => 'success',
+            'target_user_id' => $targetUserId,
+            'target_username' => $targetName,
+            'details' => json_encode([
+                'message' => 'User deleted successfully',
+                'deleted_by_user_id' => $currentUserId,
+                'deleted_by_username' => $actorName,
+                'deleted_user_id' => $targetUserId,
+                'deleted_username' => $targetName,
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'ip_address' => hackme_client_ip(),
+            'client_local_ip' => $clientLocalIp,
+            'client_time_utc' => $clientTimeUtc,
+            'client_timezone' => $clientTimezone,
+            'client_tz_offset_minutes' => $clientTzOffsetMinutes,
+            'user_agent' => (string)($_SERVER['HTTP_USER_AGENT'] ?? ''),
+        ]);
         
         ob_clean();
         echo json_encode([
@@ -545,6 +747,28 @@ function handle_delete_request(PdoMysqliShim $conn)
     } catch (Exception $e) {
         // Rollback transaction on error
         $conn->rollback();
+        hackme_write_audit_log($conn, [
+            'actor_user_id' => $currentUserId,
+            'actor_username' => $actorName,
+            'action' => 'user_delete',
+            'status' => 'failed',
+            'target_user_id' => $targetUserId,
+            'target_username' => $targetName,
+            'details' => json_encode([
+                'message' => 'Failed to delete user',
+                'deleted_by_user_id' => $currentUserId,
+                'deleted_by_username' => $actorName,
+                'deleted_user_id' => $targetUserId,
+                'deleted_username' => $targetName,
+                'error' => $e->getMessage(),
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'ip_address' => hackme_client_ip(),
+            'client_local_ip' => $clientLocalIp,
+            'client_time_utc' => $clientTimeUtc,
+            'client_timezone' => $clientTimezone,
+            'client_tz_offset_minutes' => $clientTzOffsetMinutes,
+            'user_agent' => (string)($_SERVER['HTTP_USER_AGENT'] ?? ''),
+        ]);
         ob_clean();
         http_response_code(500);
         echo json_encode([

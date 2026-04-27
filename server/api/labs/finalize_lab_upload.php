@@ -24,6 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 try {
     require_once __DIR__ . '/../../utils/db_connect.php';
     require_once __DIR__ . '/../../utils/lab_zip_upload.php';
+    require_once __DIR__ . '/../../utils/audit_log.php';
 } catch (Throwable $e) {
     http_response_code(500);
     echo json_encode(['success' => false, 'message' => 'Load error']);
@@ -46,8 +47,30 @@ if (!is_array($input)) {
 
 $userId = (int) ($input['user_id'] ?? 0);
 $token = trim((string) ($input['upload_token'] ?? ''));
+$clientLocalIp = trim((string) ($input['client_local_ip'] ?? ''));
+
+$actorUsername = '';
+if ($userId > 0) {
+    $actorRes = $conn->query("SELECT username FROM users WHERE user_id = {$userId} LIMIT 1");
+    if ($actorRes && $actorRes->num_rows > 0) {
+        $actorRow = $actorRes->fetch_assoc();
+        $actorUsername = (string) ($actorRow['username'] ?? '');
+    }
+}
 
 if (!hackme_user_is_instructor_or_admin($conn, $userId)) {
+    hackme_write_audit_log($conn, [
+        'actor_user_id' => $userId > 0 ? $userId : null,
+        'actor_username' => $actorUsername,
+        'action' => 'lab_add',
+        'status' => 'failed',
+        'details' => json_encode([
+            'message' => 'Add lab failed: insufficient permissions',
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        'ip_address' => hackme_client_ip(),
+        'client_local_ip' => $clientLocalIp,
+        'user_agent' => (string) ($_SERVER['HTTP_USER_AGENT'] ?? ''),
+    ]);
     http_response_code(403);
     echo json_encode(['success' => false, 'message' => 'Insufficient permissions']);
     exit;
@@ -229,4 +252,21 @@ echo json_encode([
         ],
         'warnings' => $manifest['warnings'] ?? [],
     ],
+]);
+
+hackme_write_audit_log($conn, [
+    'actor_user_id' => $userId,
+    'actor_username' => $actorUsername,
+    'action' => 'lab_add',
+    'status' => 'success',
+    'details' => json_encode([
+        'message' => 'Added lab successfully',
+        'lab_id' => $labId,
+        'lab_title' => $title,
+        'category' => $category,
+        'type' => $type,
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+    'ip_address' => hackme_client_ip(),
+    'client_local_ip' => $clientLocalIp,
+    'user_agent' => (string) ($_SERVER['HTTP_USER_AGENT'] ?? ''),
 ]);

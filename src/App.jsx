@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   BrowserRouter as Router,
   useNavigate,
@@ -26,6 +26,8 @@ import SandboxLabApp from "./features/labs/SandboxLabApp";
 import CommentsPage from "./features/network/CommentsPage";
 import ProfilePage from "./features/profile/ProfilePage";
 import AdminDashboardPage from "./features/dashboard/AdminDashboardPage";
+import AuditLogsPage from "./features/dashboard/AuditLogsPage";
+import AttemptLogsPage from "./features/dashboard/AttemptLogsPage";
 import NotificationsPage from "./features/notifications/NotificationsPage";
 import NotificationContainer from "./components/notifications/NotificationContainer";
 import axios from "axios";
@@ -33,6 +35,7 @@ import { useAuth } from "./hooks/useAuth";
 import { useLabs } from "./hooks/useLabs";
 import "./styles/animations.css";
 import { WHITEBOX_WORKBENCH_LAB_IDS } from "./constants/labs";
+import { fetchHackMeMachineIdentity } from "./utils/hackmeIdentity";
 
 const API_BASE = "http://localhost/HackMe/server/api";
 
@@ -59,6 +62,82 @@ function AppContent() {
   const [pendingRoleRequests, setPendingRoleRequests] = useState([]);
   const [adminStats, setAdminStats] = useState(null);
   const [roleRequestAlert, setRoleRequestAlert] = useState(null);
+  const lastRestrictedAttemptKeyRef = useRef("");
+  const lastUrlTamperAttemptKeyRef = useRef("");
+
+  const buildLabRoute = (lab, fromCategory, labType) => {
+    const id = Number(lab?.lab_id);
+    if (WHITEBOX_WORKBENCH_LAB_IDS.includes(id)) {
+      const q = new URLSearchParams();
+      q.set("labId", String(id));
+      if (fromCategory) q.set("fromCategory", String(fromCategory));
+      if (labType) q.set("labType", String(labType));
+      return `/lab-whitebox?${q.toString()}`;
+    }
+    const q = new URLSearchParams();
+    q.set("labId", String(id));
+    if (fromCategory) q.set("fromCategory", String(fromCategory));
+    if (labType) q.set("labType", String(labType));
+    return `/lab-modern?${q.toString()}`;
+  };
+
+  const markAllowedLabNav = (labId) => {
+    try {
+      sessionStorage.setItem(
+        "hackme_allowed_lab_nav",
+        JSON.stringify({
+          lab_id: Number(labId),
+          ts: Date.now(),
+        })
+      );
+    } catch (_) {}
+  };
+
+  const isAllowedLabNav = (labId) => {
+    try {
+      const raw = sessionStorage.getItem("hackme_allowed_lab_nav");
+      if (!raw) return false;
+      const parsed = JSON.parse(raw);
+      const sameLab = Number(parsed?.lab_id) === Number(labId);
+      const fresh = Number(parsed?.ts || 0) > 0 && Date.now() - Number(parsed.ts) <= 10 * 60 * 1000;
+      return sameLab && fresh;
+    } catch {
+      return false;
+    }
+  };
+
+  const reportUrlTamperAttempt = async (path, reason) => {
+    const uid = currentUser?.user_id ?? currentUser?.id;
+    if (!uid) return false;
+    let localIp = "";
+    try {
+      const identity = await fetchHackMeMachineIdentity();
+      localIp = identity?.local_ipv4 || "";
+    } catch (_) {}
+    const payload = JSON.stringify({
+      user_id: uid,
+      username: currentUser?.username || "",
+      action: "url_tamper_attempt",
+      status: "failed",
+      details: `URL tamper attempt: ${path} | ${reason}`,
+      client_local_ip: localIp,
+      client_time_utc: new Date().toISOString(),
+      client_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "",
+      client_tz_offset_minutes: new Date().getTimezoneOffset(),
+    });
+    try {
+      const res = await fetch(`${API_BASE}/audit_event.php`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload,
+        keepalive: true,
+      });
+      const data = await res.json().catch(() => ({}));
+      return Boolean(data?.blocked);
+    } catch (_) {
+      return false;
+    }
+  };
 
   useEffect(() => {
     checkExistingSession();
@@ -248,7 +327,35 @@ function AppContent() {
     handleLogin(userData);
     navigate("/home");
   };
-  const handleLogoutWithNavigation = () => {
+  const handleLogoutWithNavigation = async () => {
+    const userId = currentUser?.user_id || currentUser?.id;
+    const username = currentUser?.username || "";
+    if (userId) {
+      let localIp = "";
+      try {
+        const identity = await fetchHackMeMachineIdentity();
+        localIp = identity?.local_ipv4 || "";
+      } catch (_) {}
+      const payload = JSON.stringify({
+        user_id: userId,
+        username,
+        action: "logout",
+        status: "success",
+        details: "User logged out",
+        client_local_ip: localIp,
+        client_time_utc: new Date().toISOString(),
+        client_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "",
+        client_tz_offset_minutes: new Date().getTimezoneOffset(),
+      });
+      try {
+        await fetch(`${API_BASE}/audit_event.php`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: payload,
+          keepalive: true,
+        });
+      } catch (_) {}
+    }
     handleLogout();
     navigate("/");
   };
@@ -381,6 +488,114 @@ function AppContent() {
     }
   }, [isAdmin]);
 
+  useEffect(() => {
+    const path = location.pathname;
+    const uid = currentUser?.user_id ?? currentUser?.id;
+    if (!isLoggedIn || !uid) {
+      lastUrlTamperAttemptKeyRef.current = "";
+      return;
+    }
+
+    if (path !== "/lab-whitebox" && path !== "/lab-modern") {
+      lastUrlTamperAttemptKeyRef.current = "";
+      return;
+    }
+
+    const params = new URLSearchParams(location.search);
+    const currentLabId = params.get("labId") || "";
+    if (!currentLabId || isAllowedLabNav(currentLabId)) {
+      lastUrlTamperAttemptKeyRef.current = "";
+      return;
+    }
+
+    const key = `${uid}:${path}:${currentLabId}`;
+    if (lastUrlTamperAttemptKeyRef.current === key) {
+      return;
+    }
+    lastUrlTamperAttemptKeyRef.current = key;
+
+    navigate("/home", { replace: true });
+    reportUrlTamperAttempt(path, "lab_id_modified").then((blocked) => {
+      if (blocked) {
+        handleLogout();
+        navigate("/", { replace: true });
+      }
+    });
+  }, [
+    isLoggedIn,
+    currentUser?.user_id,
+    currentUser?.id,
+    location.pathname,
+    location.search,
+    navigate,
+  ]);
+
+  useEffect(() => {
+    const path = location.pathname;
+    const uid = currentUser?.user_id ?? currentUser?.id;
+    if (!isLoggedIn || !uid) {
+      lastRestrictedAttemptKeyRef.current = "";
+      return;
+    }
+
+    let restrictionMessage = "";
+    if (path === "/instructor-labs" && !isInstructor && !isAdmin) {
+      restrictionMessage = "INSTRUCTOR_PRIVILEGES_REQUIRED";
+    } else if ((path === "/admin" || path === "/admin-labs") && !isAdmin && !isSuperAdmin) {
+      restrictionMessage = "ADMIN_PRIVILEGES_REQUIRED";
+    } else if ((path === "/audit-logs" || path === "/attempt-logs") && !isSuperAdmin) {
+      restrictionMessage = "SUPERADMIN_PRIVILEGES_REQUIRED";
+    }
+
+    if (!restrictionMessage) {
+      lastRestrictedAttemptKeyRef.current = "";
+      return;
+    }
+
+    const key = `${uid}:${path}:${restrictionMessage}`;
+    if (lastRestrictedAttemptKeyRef.current === key) return;
+    lastRestrictedAttemptKeyRef.current = key;
+
+    navigate("/home", { replace: true });
+
+    (async () => {
+      let localIp = "";
+      try {
+        const identity = await fetchHackMeMachineIdentity();
+        localIp = identity?.local_ipv4 || "";
+      } catch (_) {}
+      const payload = JSON.stringify({
+        user_id: uid,
+        username: currentUser?.username || "",
+        action: "access_restricted",
+        status: "failed",
+        details: `Attempted restricted route: ${path} | ${restrictionMessage}`,
+        client_local_ip: localIp,
+        client_time_utc: new Date().toISOString(),
+        client_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "",
+        client_tz_offset_minutes: new Date().getTimezoneOffset(),
+      });
+      try {
+        await fetch(`${API_BASE}/audit_event.php`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: payload,
+          keepalive: true,
+        });
+      } catch (_) {}
+    })();
+  }, [
+    location.pathname,
+    isLoggedIn,
+    isInstructor,
+    isAdmin,
+    isSuperAdmin,
+    currentUser?.user_id,
+    currentUser?.id,
+    currentUser?.username,
+    navigate,
+  ]);
+
   // Special-case: sandbox lab app (isolated, no auth / navbar)
   if (location.pathname === "/lab-sandbox") {
     return <SandboxLabApp />;
@@ -497,13 +712,10 @@ function AppContent() {
               isInstructor={isInstructor}
               onEditLab={() => {}}
               onRemoveLab={() => {}}
-              onLabClick={(lab) =>
-                navigate(
-                  WHITEBOX_WORKBENCH_LAB_IDS.includes(Number(lab.lab_id))
-                    ? `/lab-whitebox?labId=${encodeURIComponent(String(lab.lab_id))}`
-                    : `/lab-modern?labId=${lab.lab_id}`
-                )
-              }
+              onLabClick={(lab) => {
+                markAllowedLabNav(lab?.lab_id);
+                navigate(buildLabRoute(lab));
+              }}
             />
           );
         }
@@ -535,17 +747,19 @@ function AppContent() {
             onBack={backToCategories}
             onAddLab={() => navigate("/instructor-labs")}
             onLabClick={(lab) =>
-              navigate(
-                WHITEBOX_WORKBENCH_LAB_IDS.includes(Number(lab.lab_id))
-                  ? `/lab-whitebox?labId=${encodeURIComponent(String(lab.lab_id))}&fromCategory=${encodeURIComponent(categoryParam)}&labType=${encodeURIComponent(labTypeParam)}`
-                  : `/lab-modern?labId=${lab.lab_id}&fromCategory=${categoryParam}&labType=${labTypeParam}`
-              )
+              {
+                markAllowedLabNav(lab?.lab_id);
+                navigate(buildLabRoute(lab, categoryParam, labTypeParam));
+              }
             }
           />
         );
       }
       case "/lab-whitebox": {
         const wbLabId = params.get("labId") || String(WHITEBOX_WORKBENCH_LAB_IDS[0]);
+        if (!isAllowedLabNav(wbLabId)) {
+          return <HomePage setCurrentPage={(p) => navigate(`/${p}`)} />;
+        }
         return (
           <LabWhiteboxPage
             key={wbLabId}
@@ -570,6 +784,9 @@ function AppContent() {
           fromCat && fromType
             ? `/labs?labType=${fromType}&category=${fromCat}`
             : "/labs";
+        if (!isAllowedLabNav(labId)) {
+          return <HomePage setCurrentPage={(p) => navigate(`/${p}`)} />;
+        }
         return (
           <LabDetailsModern
             key={labId}
@@ -609,28 +826,10 @@ function AppContent() {
           />
         );
       case "/instructor-labs":
-        if (!isInstructor && !isAdmin) {
-          return (
-            <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black pt-32 text-center text-white font-mono">
-              <p className="text-sm text-gray-500">ACCESS_RESTRICTED</p>
-              <h1 className="text-4xl font-bold text-red-400 mt-4">
-                INSTRUCTOR_PRIVILEGES_REQUIRED
-              </h1>
-            </div>
-          );
-        }
+        if (!isInstructor && !isAdmin) return <HomePage setCurrentPage={(p) => navigate(`/${p}`)} />;
         return <InstructorLabsDashboard />;
       case "/admin":
-        if (!isAdmin && !isSuperAdmin) {
-          return (
-            <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black pt-32 text-center text-white font-mono">
-              <p className="text-sm text-gray-500">ACCESS_RESTRICTED</p>
-              <h1 className="text-4xl font-bold text-red-400 mt-4">
-                ADMIN_PRIVILEGES_REQUIRED
-              </h1>
-            </div>
-          );
-        }
+        if (!isAdmin && !isSuperAdmin) return <HomePage setCurrentPage={(p) => navigate(`/${p}`)} />;
         return (
           <AdminDashboardPage
             pendingRoleRequests={pendingRoleRequests}
@@ -640,17 +839,14 @@ function AppContent() {
           />
         );
       case "/admin-labs":
-        if (!isAdmin && !isSuperAdmin) {
-          return (
-            <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black pt-32 text-center text-white font-mono">
-              <p className="text-sm text-gray-500">ACCESS_RESTRICTED</p>
-              <h1 className="text-4xl font-bold text-red-400 mt-4">
-                ADMIN_PRIVILEGES_REQUIRED
-              </h1>
-            </div>
-          );
-        }
+        if (!isAdmin && !isSuperAdmin) return <HomePage setCurrentPage={(p) => navigate(`/${p}`)} />;
         return <AdminLabsDashboard />;
+      case "/audit-logs":
+        if (!isSuperAdmin) return <HomePage setCurrentPage={(p) => navigate(`/${p}`)} />;
+        return <AuditLogsPage currentUser={currentUser} />;
+      case "/attempt-logs":
+        if (!isSuperAdmin) return <HomePage setCurrentPage={(p) => navigate(`/${p}`)} />;
+        return <AttemptLogsPage currentUser={currentUser} />;
       case "/reset-password":
         return (
           <ResetPasswordPage
@@ -687,6 +883,7 @@ function AppContent() {
             currentPage={location.pathname.replace("/", "") || "home"}
             currentUser={currentUser}
             isAdmin={isAdmin}
+            isSuperAdmin={isSuperAdmin}
           />
           <NotificationContainer 
             userId={currentUser?.user_id || currentUser?.id} 

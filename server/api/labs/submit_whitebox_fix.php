@@ -69,6 +69,9 @@ $accessToken = trim((string) ($input['access_token'] ?? ''));
 $deviceBindInput = trim((string) ($input['device_bind'] ?? ''));
 $macInput = trim((string) ($input['mac_address'] ?? $input['mac'] ?? ''));
 $localInput = trim((string) ($input['client_local_ip'] ?? $input['local_ipv4'] ?? ''));
+$clientTimeUtc = trim((string) ($input['client_time_utc'] ?? ''));
+$clientTimezone = trim((string) ($input['client_timezone'] ?? ''));
+$clientTzOffsetMinutes = isset($input['client_tz_offset_minutes']) ? (int) $input['client_tz_offset_minutes'] : null;
 
 if ($userId < 1 && $accessToken !== '' && $labId >= 1) {
     $atEsc = $conn->real_escape_string($accessToken);
@@ -364,7 +367,12 @@ $wbPayload = $isLab18
             )
         )
     );
-$result = hackme_record_lab_completion($conn, $labId, $userId, $wbPayload, 'whitebox');
+$result = hackme_record_lab_completion($conn, $labId, $userId, $wbPayload, 'whitebox', [
+    'client_local_ip' => $localInput,
+    'client_time_utc' => $clientTimeUtc,
+    'client_timezone' => $clientTimezone,
+    'client_tz_offset_minutes' => $clientTzOffsetMinutes,
+]);
 
 echo json_encode([
     'success' => (bool) ($result['success'] ?? false),

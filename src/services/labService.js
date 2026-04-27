@@ -3,6 +3,7 @@
  */
 
 import { WHITEBOX_SQL_LAB_ID, WHITEBOX_WORKBENCH_LAB_IDS } from "../constants/labs";
+import { fetchHackMeMachineIdentity } from "../utils/hackmeIdentity";
 
 export const getHackMeBase = () => {
   if (typeof window === "undefined") return "http://localhost/HackMe";
@@ -21,6 +22,15 @@ const getLabsBase = () =>
   typeof import.meta !== "undefined" && import.meta.env?.DEV
     ? "/api/labs"
     : getApiBase();
+
+const getClientLocalIp = async () => {
+  try {
+    const identity = await fetchHackMeMachineIdentity();
+    return identity?.local_ipv4 || "";
+  } catch {
+    return "";
+  }
+};
 
 /** Same shape as GET get_lab_details.php `data.lab` for UI compatibility */
 function mockLabToDetailsPayload(lab) {
@@ -209,6 +219,7 @@ export const labService = {
   },
 
   async submitWhiteboxFix({ labId, userId, accessToken, sourceFile, line, replacementCode }) {
+    const clientLocalIp = await getClientLocalIp();
     const response = await fetch(`${getLabsBase()}/submit_whitebox_fix.php`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -219,6 +230,10 @@ export const labService = {
         source_file: sourceFile,
         line,
         replacement_code: replacementCode,
+        client_local_ip: clientLocalIp,
+        client_time_utc: new Date().toISOString(),
+        client_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "",
+        client_tz_offset_minutes: new Date().getTimezoneOffset(),
       }),
     });
     return response.json().catch(() => ({}));
@@ -240,12 +255,14 @@ export const labService = {
   },
 
   async finalizeLabUpload({ userId, uploadToken }) {
+    const clientLocalIp = await getClientLocalIp();
     const response = await fetch(`${getLabsBase()}/finalize_lab_upload.php`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         user_id: userId,
         upload_token: uploadToken,
+        client_local_ip: clientLocalIp,
       }),
     });
     const data = await response.json().catch(() => ({}));
@@ -280,6 +297,7 @@ export const labService = {
     launchPath,
     port,
   }) {
+    const clientLocalIp = await getClientLocalIp();
     const response = await fetch(`${getLabsBase()}/update_lab_metadata.php`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -295,11 +313,30 @@ export const labService = {
         icon: icon ?? "",
         launch_path: launchPath ?? "",
         port: port ?? null,
+        client_local_ip: clientLocalIp,
       }),
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok || !data?.success) {
       throw new Error(data?.message || `Failed to update lab metadata (${response.status})`);
+    }
+    return data;
+  },
+
+  async deleteLab({ userId, labId }) {
+    const clientLocalIp = await getClientLocalIp();
+    const response = await fetch(`${getLabsBase()}/delete_lab.php`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_id: userId,
+        lab_id: labId,
+        client_local_ip: clientLocalIp,
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data?.success) {
+      throw new Error(data?.message || `Failed to delete lab (${response.status})`);
     }
     return data;
   },

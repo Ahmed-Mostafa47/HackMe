@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Shield, Users, Database, Activity, ChevronDown, ChevronUp, UserPlus, UserMinus, Trash2, AlertTriangle, Search } from "lucide-react";
 import axios from "axios";
+import { fetchHackMeMachineIdentity } from "../../utils/hackmeIdentity";
 
 const API_BASE = "http://localhost/HackMe/server/api";
 
@@ -130,13 +131,29 @@ const AdminDashboardPage = ({
     }
   };
 
+  const buildAuditContext = async () => {
+    let localIp = "";
+    try {
+      const identity = await fetchHackMeMachineIdentity();
+      localIp = identity?.local_ipv4 || "";
+    } catch (_) {}
+    return {
+      client_local_ip: localIp,
+      client_time_utc: new Date().toISOString(),
+      client_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "",
+      client_tz_offset_minutes: new Date().getTimezoneOffset(),
+    };
+  };
+
   const handleAssignRole = async (targetUserId, roleName) => {
     setProcessingUserId(targetUserId);
     try {
+      const auditCtx = await buildAuditContext();
       const { data } = await axios.post(`${API_BASE}/manage_users.php`, {
         current_user_id: currentUser?.user_id,
         target_user_id: targetUserId,
         role_name: roleName,
+        ...auditCtx,
       });
       if (data.success) {
         triggerStatusMessage(
@@ -158,10 +175,12 @@ const AdminDashboardPage = ({
   const handleRemoveRole = async (targetUserId, roleName) => {
     setProcessingUserId(targetUserId);
     try {
+      const auditCtx = await buildAuditContext();
       const { data } = await axios.put(`${API_BASE}/manage_users.php`, {
         current_user_id: currentUser?.user_id,
         target_user_id: targetUserId,
         role_name: roleName,
+        ...auditCtx,
       });
       if (data.success) {
         triggerStatusMessage(`ROLE ${roleName.toUpperCase()} REMOVED`, "success");
@@ -180,10 +199,12 @@ const AdminDashboardPage = ({
   const handleDeleteUser = async (targetUserId) => {
     setDeletingUserId(targetUserId);
     try {
+      const auditCtx = await buildAuditContext();
       const { data } = await axios.delete(`${API_BASE}/manage_users.php`, {
         data: {
           current_user_id: currentUser?.user_id,
           target_user_id: targetUserId,
+          ...auditCtx,
         },
       });
       if (data.success) {
@@ -207,9 +228,12 @@ const AdminDashboardPage = ({
   const handleApprove = async (requestId, userId) => {
     setProcessingId(requestId);
     try {
+      const auditCtx = await buildAuditContext();
       const { data } = await axios.put(`${API_BASE}/request_role.php`, {
         request_id: requestId,
         status: "approved",
+        current_user_id: currentUser?.user_id,
+        ...auditCtx,
       });
       if (data.success) {
         setRequests((prev) =>
@@ -231,9 +255,12 @@ const AdminDashboardPage = ({
   const handleReject = async (requestId) => {
     setProcessingId(requestId);
     try {
+      const auditCtx = await buildAuditContext();
       const { data } = await axios.put(`${API_BASE}/request_role.php`, {
         request_id: requestId,
         status: "rejected",
+        current_user_id: currentUser?.user_id,
+        ...auditCtx,
       });
       if (data.success) {
         setRequests((prev) =>

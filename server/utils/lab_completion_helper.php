@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/pdo_mysqli_shim.php';
 require_once __DIR__ . '/labs_config.php';
+require_once __DIR__ . '/audit_log.php';
 
 /**
  * Shared lab completion: points, penalties, submissions, leaderboard, docker down.
@@ -15,7 +16,8 @@ function hackme_record_lab_completion(
     int $labId,
     int $userId,
     string $payloadText = 'lab_completed',
-    string $completionScope = 'standard'
+    string $completionScope = 'standard',
+    array $auditContext = []
 ): array {
     $labIdEsc = (int) $labId;
     $userIdEsc = (int) $userId;
@@ -135,6 +137,50 @@ function hackme_record_lab_completion(
 
     $conn->query("INSERT INTO leaderboard (user_id, total_points, last_update) VALUES ($userIdEsc, $points, NOW())
       ON DUPLICATE KEY UPDATE total_points = total_points + $points, last_update = NOW()");
+
+    // Audit: log solved lab only when points are actually awarded.
+    if ($points > 0) {
+        $actorUsername = 'user_' . $userIdEsc;
+        $actorRes = $conn->query("SELECT username FROM users WHERE user_id = $userIdEsc LIMIT 1");
+        if ($actorRes && $actorRes->num_rows > 0) {
+            $actorRow = $actorRes->fetch_assoc();
+            $actorUsername = (string) ($actorRow['username'] ?? $actorUsername);
+        }
+
+        $labTitle = '';
+        $labTitleRes = $conn->query("SELECT title FROM labs WHERE lab_id = $labIdEsc LIMIT 1");
+        if ($labTitleRes && $labTitleRes->num_rows > 0) {
+            $labTitleRow = $labTitleRes->fetch_assoc();
+            $labTitle = (string) ($labTitleRow['title'] ?? '');
+        }
+        if ($labTitle === '') {
+            foreach ($GLOBALS['LABS_REGISTRY'] ?? [] as $cfg) {
+                if ((int) ($cfg['lab_id'] ?? 0) === $labIdEsc) {
+                    $labTitle = (string) ($cfg['title'] ?? '');
+                    break;
+                }
+            }
+        }
+
+        hackme_write_audit_log($conn, [
+            'actor_user_id' => $userIdEsc,
+            'actor_username' => $actorUsername,
+            'action' => 'lab_solved',
+            'status' => 'success',
+            'details' => json_encode([
+                'message' => 'User solved lab and earned points',
+                'lab_id' => $labIdEsc,
+                'lab_title' => $labTitle,
+                'points_earned' => $points,
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'ip_address' => hackme_client_ip(),
+            'client_local_ip' => (string)($auditContext['client_local_ip'] ?? ''),
+            'client_time_utc' => (string)($auditContext['client_time_utc'] ?? ''),
+            'client_timezone' => (string)($auditContext['client_timezone'] ?? ''),
+            'client_tz_offset_minutes' => isset($auditContext['client_tz_offset_minutes']) ? (int)$auditContext['client_tz_offset_minutes'] : null,
+            'user_agent' => (string) ($_SERVER['HTTP_USER_AGENT'] ?? ''),
+        ]);
+    }
 
     $labConfig = null;
     foreach ($GLOBALS['LABS_REGISTRY'] ?? [] as $cfg) {

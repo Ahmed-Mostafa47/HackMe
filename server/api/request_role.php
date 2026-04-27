@@ -25,6 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require_once __DIR__ . '/../utils/db_connect.php';
 require_once __DIR__ . '/../utils/permissions.php';
 require_once __DIR__ . '/../utils/permissions.php';  
+require_once __DIR__ . '/../utils/audit_log.php';
 
 // Try to load mailer, but don't fail if it's not available
 $GLOBALS['mailerLoaded'] = false;
@@ -387,6 +388,34 @@ function handle_put_request(PdoMysqliShim $conn)
 
     $request_id = $data['request_id'];
     $status = $data['status'];  // approved | rejected
+    $actorUserId = isset($data['current_user_id']) ? (int)$data['current_user_id'] : null;
+    if (!$actorUserId || (!isSuperAdmin($conn, $actorUserId) && !isAdmin($conn, $actorUserId))) {
+        hackme_write_audit_log($conn, [
+            'actor_user_id' => $actorUserId ?: null,
+            'actor_username' => $actorUserId ? ('user_' . $actorUserId) : 'unknown',
+            'action' => 'privilege_escalation_attempt',
+            'status' => 'failed',
+            'details' => json_encode([
+                'message' => 'Unauthorized role request moderation attempt',
+                'request_id' => $request_id,
+                'attempted_status' => $status,
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'ip_address' => hackme_client_ip(),
+            'client_local_ip' => $clientLocalIp,
+            'client_time_utc' => $clientTimeUtc,
+            'client_timezone' => $clientTimezone,
+            'client_tz_offset_minutes' => $clientTzOffsetMinutes,
+            'user_agent' => (string)($_SERVER['HTTP_USER_AGENT'] ?? ''),
+        ]);
+        http_response_code(403);
+        echo json_encode(['success' => false, 'message' => 'Access denied']);
+        return;
+    }
+
+    $clientLocalIp = trim((string)($data['client_local_ip'] ?? ''));
+    $clientTimeUtc = trim((string)($data['client_time_utc'] ?? ''));
+    $clientTimezone = trim((string)($data['client_timezone'] ?? ''));
+    $clientTzOffsetMinutes = isset($data['client_tz_offset_minutes']) ? (int)$data['client_tz_offset_minutes'] : null;
 
     // Get request details first
     $req_stmt = $conn->prepare("SELECT user_id, requested_role FROM role_requests WHERE id = ?");
@@ -402,6 +431,21 @@ function handle_put_request(PdoMysqliShim $conn)
     
     $request = $req_result->fetch_assoc();
     $req_stmt->close();
+    $targetUserId = (int)$request['user_id'];
+    $actorUsername = $actorUserId ? ('user_' . $actorUserId) : 'unknown_admin';
+    $targetUsername = 'user_' . $targetUserId;
+    if ($actorUserId) {
+        $aRes = $conn->query("SELECT username FROM users WHERE user_id = " . $actorUserId . " LIMIT 1");
+        if ($aRes && $aRes->num_rows > 0) {
+            $aRow = $aRes->fetch_assoc();
+            $actorUsername = (string)($aRow['username'] ?? $actorUsername);
+        }
+    }
+    $tRes = $conn->query("SELECT username FROM users WHERE user_id = " . $targetUserId . " LIMIT 1");
+    if ($tRes && $tRes->num_rows > 0) {
+        $tRow = $tRes->fetch_assoc();
+        $targetUsername = (string)($tRow['username'] ?? $targetUsername);
+    }
 
     if ($status === 'approved') {
         // Get the requested role
@@ -449,6 +493,28 @@ function handle_put_request(PdoMysqliShim $conn)
         }
 
         ob_clean();
+        hackme_write_audit_log($conn, [
+            'actor_user_id' => $actorUserId,
+            'actor_username' => $actorUsername,
+            'action' => 'permissions_change',
+            'status' => 'success',
+            'target_user_id' => $targetUserId,
+            'target_username' => $targetUsername,
+            'details' => json_encode([
+                'message' => 'Role request approved and role assigned',
+                'changed_by_user_id' => $actorUserId,
+                'changed_by_username' => $actorUsername,
+                'target_user_id' => $targetUserId,
+                'target_username' => $targetUsername,
+                'new_role' => $requested_role,
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'ip_address' => hackme_client_ip(),
+            'client_local_ip' => $clientLocalIp,
+            'client_time_utc' => $clientTimeUtc,
+            'client_timezone' => $clientTimezone,
+            'client_tz_offset_minutes' => $clientTzOffsetMinutes,
+            'user_agent' => (string)($_SERVER['HTTP_USER_AGENT'] ?? ''),
+        ]);
         echo json_encode(['success' => true, 'message' => 'Request approved and role assigned']);
         ob_end_flush();
 
@@ -461,6 +527,28 @@ function handle_put_request(PdoMysqliShim $conn)
         }
 
         ob_clean();
+        hackme_write_audit_log($conn, [
+            'actor_user_id' => $actorUserId,
+            'actor_username' => $actorUsername,
+            'action' => 'permissions_change',
+            'status' => 'success',
+            'target_user_id' => $targetUserId,
+            'target_username' => $targetUsername,
+            'details' => json_encode([
+                'message' => 'Role request rejected',
+                'changed_by_user_id' => $actorUserId,
+                'changed_by_username' => $actorUsername,
+                'target_user_id' => $targetUserId,
+                'target_username' => $targetUsername,
+                'requested_role' => (string)$request['requested_role'],
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'ip_address' => hackme_client_ip(),
+            'client_local_ip' => $clientLocalIp,
+            'client_time_utc' => $clientTimeUtc,
+            'client_timezone' => $clientTimezone,
+            'client_tz_offset_minutes' => $clientTzOffsetMinutes,
+            'user_agent' => (string)($_SERVER['HTTP_USER_AGENT'] ?? ''),
+        ]);
         echo json_encode(['success' => true, 'message' => 'Request rejected']);
         ob_end_flush();
 

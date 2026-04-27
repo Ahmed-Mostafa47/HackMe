@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Mail, Lock, Key, Eye, EyeOff, ChevronRight, Zap, UserPlus, LogIn, HelpCircle, X } from 'lucide-react';
 import BinaryRain from '@/features/shared/ui/BinaryRain';
 import axios from 'axios';
+import { fetchHackMeMachineIdentity } from '../../../utils/hackmeIdentity';
 
 const LoginPage = ({ onLogin, onSwitchToRegister, onForgotPassword }) => {
   const [email, setEmail] = useState('');
@@ -17,11 +18,22 @@ const LoginPage = ({ onLogin, onSwitchToRegister, onForgotPassword }) => {
     setIsLoading(true);
 
     try {
+      let localIp = "";
+      try {
+        const identity = await fetchHackMeMachineIdentity();
+        localIp = identity?.local_ipv4 || "";
+      } catch (_) {
+        // Login should still work even if identity service is unavailable.
+      }
       const response = await axios.post(
         'http://localhost/HackMe/server/auth/login.php',
         {
           email: email,
-          password: password
+          password: password,
+          client_local_ip: localIp,
+          client_time_utc: new Date().toISOString(),
+          client_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "",
+          client_tz_offset_minutes: new Date().getTimezoneOffset(),
         },
         {
           headers: {

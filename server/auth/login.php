@@ -22,6 +22,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['ping'])) {
 
 require_once __DIR__ . '/../utils/db_connect.php';
 require_once __DIR__ . '/../utils/permissions.php';
+require_once __DIR__ . '/../utils/audit_log.php';
+require_once __DIR__ . '/../utils/security_block.php';
 
 // Read JSON body if provided
 $data = file_get_contents('php://input');
@@ -58,8 +60,117 @@ if (!isset($conn) || !$conn) {
 
 $email = isset($input['email']) ? trim($input['email']) : '';
 $password = isset($input['password']) ? $input['password'] : '';
+$clientLocalIp = isset($input['client_local_ip']) ? trim((string)$input['client_local_ip']) : '';
+$clientTimeUtc = trim((string)($input['client_time_utc'] ?? ''));
+$clientTimezone = trim((string)($input['client_timezone'] ?? ''));
+$clientTzOffsetMinutes = isset($input['client_tz_offset_minutes']) ? (int)$input['client_tz_offset_minutes'] : null;
+$requestIp = hackme_client_ip();
+
+function hackme_log_security_block_attempt(
+    PdoMysqliShim $conn,
+    string $requestIp,
+    string $clientLocalIp,
+    string $email,
+    string $reason,
+    string $blockedUntil,
+    string $clientTimeUtc,
+    string $clientTimezone,
+    ?int $clientTzOffsetMinutes
+): void {
+    $detailsPayload = [
+        'message' => 'Request blocked due to active temporary block',
+        'email' => $email,
+        'blocked' => true,
+        'block_reason' => $reason,
+        'blocked_until' => $blockedUntil,
+        'client_time_utc' => $clientTimeUtc,
+        'client_timezone' => $clientTimezone,
+        'client_tz_offset_minutes' => $clientTzOffsetMinutes,
+    ];
+    hackme_write_audit_log($conn, [
+        'actor_username' => $email !== '' ? $email : 'unknown',
+        'action' => 'security_block',
+        'status' => 'failed',
+        'details' => json_encode($detailsPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        'ip_address' => $requestIp,
+        'client_local_ip' => $clientLocalIp,
+        'user_agent' => (string)($_SERVER['HTTP_USER_AGENT'] ?? ''),
+    ]);
+}
+
+$ipBlock = hackme_is_blocked_now($conn, null, $requestIp);
+if (!empty($ipBlock['blocked'])) {
+    hackme_log_security_block_attempt(
+        $conn,
+        $requestIp,
+        $clientLocalIp,
+        $email,
+        (string)($ipBlock['reason'] ?? 'security_block'),
+        (string)($ipBlock['blocked_until'] ?? ''),
+        $clientTimeUtc,
+        $clientTimezone,
+        $clientTzOffsetMinutes
+    );
+    echo json_encode(['success' => false, 'message' => 'Too many suspicious attempts. Try again in 1 minute.']);
+    exit;
+}
+
+function hackme_detect_bruteforce(PdoMysqliShim $conn, string $ipAddress, string $usernameOrEmail, string $clientLocalIp, string $clientTimeUtc, string $clientTimezone, ?int $clientTzOffsetMinutes): void
+{
+    if ($ipAddress === '') {
+        return;
+    }
+    $ipEsc = $conn->real_escape_string($ipAddress);
+    $q = $conn->query("
+        SELECT COUNT(*) AS attempts, COUNT(DISTINCT actor_username) AS users_count
+        FROM audit_logs
+        WHERE action = 'login' AND status = 'failed' AND ip_address = '$ipEsc'
+          AND created_at >= (NOW() - INTERVAL 10 MINUTE)
+    ");
+    if (!$q || $q->num_rows === 0) {
+        return;
+    }
+    $row = $q->fetch_assoc();
+    $attempts = (int)($row['attempts'] ?? 0);
+    $usersCount = (int)($row['users_count'] ?? 0);
+    if ($attempts < 6 || $usersCount < 3) {
+        return;
+    }
+    hackme_write_audit_log($conn, [
+        'actor_username' => $usernameOrEmail !== '' ? $usernameOrEmail : 'unknown',
+        'action' => 'brute_force_detection',
+        'status' => 'failed',
+        'details' => json_encode([
+            'message' => 'Possible brute force detected',
+            'attempts_last_10m' => $attempts,
+            'distinct_usernames_last_10m' => $usersCount,
+            'client_time_utc' => $clientTimeUtc,
+            'client_timezone' => $clientTimezone,
+            'client_tz_offset_minutes' => $clientTzOffsetMinutes,
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        'ip_address' => $ipAddress,
+        'client_local_ip' => $clientLocalIp,
+        'user_agent' => (string)($_SERVER['HTTP_USER_AGENT'] ?? ''),
+    ]);
+}
 
 if (!$email || !$password) {
+    $detailsPayload = [
+        'message' => 'Missing email or password',
+        'client_time_utc' => $clientTimeUtc,
+        'client_timezone' => $clientTimezone,
+        'client_tz_offset_minutes' => $clientTzOffsetMinutes,
+    ];
+    hackme_write_audit_log($conn, [
+        'actor_username' => $email !== '' ? $email : 'unknown',
+        'action' => 'login',
+        'status' => 'failed',
+        'details' => json_encode($detailsPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        'ip_address' => $requestIp,
+        'client_local_ip' => $clientLocalIp,
+        'user_agent' => (string)($_SERVER['HTTP_USER_AGENT'] ?? ''),
+    ]);
+    hackme_detect_bruteforce($conn, $requestIp, $email, $clientLocalIp, $clientTimeUtc, $clientTimezone, $clientTzOffsetMinutes);
     echo json_encode(['success' => false, 'message' => 'Email and password are required']);
     exit;
 }
@@ -105,11 +216,106 @@ if (!$user) {
     } else {
         echo json_encode(['success' => false, 'message' => 'Invalid email or password']);
     }
+    $detailsPayload = [
+        'message' => 'Invalid credentials or inactive account',
+        'client_time_utc' => $clientTimeUtc,
+        'client_timezone' => $clientTimezone,
+        'client_tz_offset_minutes' => $clientTzOffsetMinutes,
+    ];
+    hackme_write_audit_log($conn, [
+        'actor_username' => $email,
+        'action' => 'login',
+        'status' => 'failed',
+        'details' => json_encode($detailsPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        'ip_address' => $requestIp,
+        'client_local_ip' => $clientLocalIp,
+        'user_agent' => (string)($_SERVER['HTTP_USER_AGENT'] ?? ''),
+    ]);
+    hackme_detect_bruteforce($conn, $requestIp, $email, $clientLocalIp, $clientTimeUtc, $clientTimezone, $clientTzOffsetMinutes);
+    exit;
+}
+
+$userBlock = hackme_is_blocked_now($conn, (int)$user['user_id'], $requestIp);
+if (!empty($userBlock['blocked'])) {
+    hackme_log_security_block_attempt(
+        $conn,
+        $requestIp,
+        $clientLocalIp,
+        (string)($user['email'] ?? $email),
+        (string)($userBlock['reason'] ?? 'security_block'),
+        (string)($userBlock['blocked_until'] ?? ''),
+        $clientTimeUtc,
+        $clientTimezone,
+        $clientTzOffsetMinutes
+    );
+    echo json_encode(['success' => false, 'message' => 'Too many suspicious attempts. Try again in 1 minute.']);
     exit;
 }
 
 // Verify password
 if (!password_verify($password, $user['password_hash'])) {
+    $detailsPayload = [
+        'message' => 'Wrong password',
+        'client_time_utc' => $clientTimeUtc,
+        'client_timezone' => $clientTimezone,
+        'client_tz_offset_minutes' => $clientTzOffsetMinutes,
+    ];
+    hackme_write_audit_log($conn, [
+        'actor_user_id' => (int)$user['user_id'],
+        'actor_username' => (string)$user['email'],
+        'action' => 'login',
+        'status' => 'failed',
+        'details' => json_encode($detailsPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        'ip_address' => $requestIp,
+        'client_local_ip' => $clientLocalIp,
+        'user_agent' => (string)($_SERVER['HTTP_USER_AGENT'] ?? ''),
+    ]);
+    $blockResult = hackme_record_event_and_maybe_block(
+        $conn,
+        'login_failed',
+        (int)$user['user_id'],
+        $requestIp,
+        3,
+        'login_bruteforce',
+        60,
+        60
+    );
+    if (!empty($blockResult['blocked'])) {
+        hackme_write_audit_log($conn, [
+            'actor_user_id' => (int)$user['user_id'],
+            'actor_username' => (string)$user['email'],
+            'action' => 'login_rate_limit',
+            'status' => 'failed',
+            'details' => json_encode([
+                'message' => 'User temporarily blocked after repeated wrong passwords during login',
+                'email' => (string)$user['email'],
+                'blocked' => true,
+                'attempts_last_minute' => (int)($blockResult['attempts'] ?? 0),
+                'block_reason' => (string)($blockResult['reason'] ?? 'login_bruteforce'),
+                'blocked_until' => (string)($blockResult['blocked_until'] ?? ''),
+                'client_time_utc' => $clientTimeUtc,
+                'client_timezone' => $clientTimezone,
+                'client_tz_offset_minutes' => $clientTzOffsetMinutes,
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'ip_address' => $requestIp,
+            'client_local_ip' => $clientLocalIp,
+            'user_agent' => (string)($_SERVER['HTTP_USER_AGENT'] ?? ''),
+        ]);
+        hackme_log_security_block_attempt(
+            $conn,
+            $requestIp,
+            $clientLocalIp,
+            (string)$user['email'],
+            (string)($blockResult['reason'] ?? 'login_bruteforce'),
+            (string)($blockResult['blocked_until'] ?? ''),
+            $clientTimeUtc,
+            $clientTimezone,
+            $clientTzOffsetMinutes
+        );
+        echo json_encode(['success' => false, 'message' => 'Too many password attempts. Try again in 1 minute.']);
+        exit;
+    }
+    hackme_detect_bruteforce($conn, $requestIp, (string)$user['username'], $clientLocalIp, $clientTimeUtc, $clientTimezone, $clientTzOffsetMinutes);
     echo json_encode(['success' => false, 'message' => 'Invalid email or password']);
     exit;
 }
@@ -188,12 +394,30 @@ $userData = [
     'permissions' => $userPermissions
 ];
 
+hackme_write_audit_log($conn, [
+    'actor_user_id' => (int)$user['user_id'],
+    'actor_username' => (string)$user['username'],
+    'action' => 'login',
+    'status' => 'success',
+    'details' => json_encode([
+        'message' => 'User logged in successfully',
+        'client_time_utc' => $clientTimeUtc,
+        'client_timezone' => $clientTimezone,
+        'client_tz_offset_minutes' => $clientTzOffsetMinutes,
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+    'ip_address' => $requestIp,
+    'client_local_ip' => $clientLocalIp,
+    'user_agent' => (string)($_SERVER['HTTP_USER_AGENT'] ?? ''),
+]);
+
 echo json_encode([
     'success' => true,
     'message' => 'Login successful',
     'user' => $userData
 ]);
 
-$conn->close();
+if (method_exists($conn, 'close')) {
+    $conn->close();
+}
 ?>
 
