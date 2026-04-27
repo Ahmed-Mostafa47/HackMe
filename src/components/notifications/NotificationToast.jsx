@@ -4,7 +4,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { X, Heart, MessageSquare, Reply, Mail, Bell, Shield, AlertTriangle } from 'lucide-react';
+import { X, Heart, MessageSquare, Reply, Mail, Bell, Shield, AlertTriangle, FlaskConical } from 'lucide-react';
 
 const NotificationToast = ({ notification, onClose, onClick }) => {
     const [isVisible, setIsVisible] = useState(true);
@@ -33,6 +33,8 @@ const NotificationToast = ({ notification, onClose, onClick }) => {
             case 'role_request':
             case 'update':
                 return <Shield className={iconClass} />;
+            case 'lab_request':
+                return <FlaskConical className={iconClass} />;
             case 'moderation':
                 return <AlertTriangle className={iconClass} />;
             default:
@@ -52,6 +54,8 @@ const NotificationToast = ({ notification, onClose, onClick }) => {
             case 'role_request':
             case 'update':
                 return 'bg-green-500/20 border-green-500/50 text-green-300';
+            case 'lab_request':
+                return 'bg-cyan-500/20 border-cyan-500/50 text-cyan-200';
             case 'moderation':
                 return 'bg-amber-500/20 border-amber-500/50 text-amber-200';
             default:

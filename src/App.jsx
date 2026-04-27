@@ -3,6 +3,7 @@ import {
   BrowserRouter as Router,
   useNavigate,
   useLocation,
+  Navigate,
 } from "react-router-dom";
 import LoginPage from "./features/auth/pages/LoginPage";
 import RegisterPage from "./features/auth/pages/RegisterPage";
@@ -695,6 +696,9 @@ function AppContent() {
           <TrainingSelectionPage
             setCurrentPage={(p) => navigate(`/${p}`)}
             setSelectedLabType={setSelectedLabType}
+            isAdmin={isAdmin}
+            isInstructor={isInstructor}
+            onAddLab={() => navigate("/instructor-labs")}
           />
         );
       case "/labs": {
@@ -705,32 +709,25 @@ function AppContent() {
         const backToTraining = () => navigate("/training");
 
         if (!labTypeParam) {
-          return (
-            <LabsListModern
-              selectedLabType={selectedLabType}
-              isAdmin={isAdmin}
-              isInstructor={isInstructor}
-              onEditLab={() => {}}
-              onRemoveLab={() => {}}
-              onLabClick={(lab) => {
-                markAllowedLabNav(lab?.lab_id);
-                navigate(buildLabRoute(lab));
-              }}
-            />
-          );
+          return <Navigate to="/training" replace />;
         }
 
         if (!categoryParam) {
           return (
             <LabsCategoriesPage
               labType={labTypeParam}
-              isAdmin={isAdmin}
-              isInstructor={isInstructor}
               onBack={backToTraining}
-              onAddLab={() => navigate("/instructor-labs")}
               onSelectCategory={(cat) =>
                 navigate(`/labs?labType=${labTypeParam}&category=${cat}`)
               }
+              onOpenLab={(lab, categoryKey) => {
+                if (lab?.coming_soon) {
+                  window.alert("Soon");
+                  return;
+                }
+                markAllowedLabNav(lab?.lab_id);
+                navigate(buildLabRoute(lab, categoryKey, labTypeParam));
+              }}
             />
           );
         }
@@ -746,12 +743,14 @@ function AppContent() {
             onRemoveLab={() => {}}
             onBack={backToCategories}
             onAddLab={() => navigate("/instructor-labs")}
-            onLabClick={(lab) =>
-              {
-                markAllowedLabNav(lab?.lab_id);
-                navigate(buildLabRoute(lab, categoryParam, labTypeParam));
+            onLabClick={(lab) => {
+              if (lab?.coming_soon) {
+                window.alert("Soon");
+                return;
               }
-            }
+              markAllowedLabNav(lab?.lab_id);
+              navigate(buildLabRoute(lab, categoryParam, labTypeParam));
+            }}
           />
         );
       }
@@ -783,7 +782,7 @@ function AppContent() {
         const labBack =
           fromCat && fromType
             ? `/labs?labType=${fromType}&category=${fromCat}`
-            : "/labs";
+            : "/training";
         if (!isAllowedLabNav(labId)) {
           return <HomePage setCurrentPage={(p) => navigate(`/${p}`)} />;
         }
@@ -835,7 +834,7 @@ function AppContent() {
             pendingRoleRequests={pendingRoleRequests}
             overviewStats={adminStats}
             currentUser={currentUser}
-            onOpenAdminLabs={() => navigate("/admin-labs")}
+            onOpenAdminLabs={() => navigate("/admin-labs#lab-proposals")}
           />
         );
       case "/admin-labs":

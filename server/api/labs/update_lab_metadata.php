@@ -96,6 +96,7 @@ $isPublishedRaw = $input['is_published'] ?? null;
 $icon = trim((string) ($input['icon'] ?? ''));
 $launchPath = trim((string) ($input['launch_path'] ?? ''));
 $portRaw = $input['port'] ?? null;
+$labtypeIdRaw = $input['labtype_id'] ?? null;
 
 if ($title === '' || mb_strlen($title) > 255) {
     http_response_code(400);
@@ -138,6 +139,16 @@ if ($portRaw !== null && $portRaw !== '') {
     }
 }
 
+$labtypeId = null;
+if (array_key_exists('labtype_id', $input)) {
+    $labtypeId = (int) $labtypeIdRaw;
+    if (!in_array($labtypeId, [1, 2, 3], true)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Invalid labtype_id (use 1=white, 2=black, 3=access control)']);
+        exit;
+    }
+}
+
 $titleEsc = $conn->real_escape_string($title);
 $descEsc = $conn->real_escape_string($description);
 $difficultyEsc = $conn->real_escape_string($difficulty);
@@ -164,6 +175,9 @@ if ($launchPath !== '') {
 if ($port !== null) {
     $setParts[] = "port = $port";
 }
+if ($labtypeId !== null) {
+    $setParts[] = "labtype_id = $labtypeId";
+}
 if ($setParts === []) {
     http_response_code(400);
     echo json_encode(['success' => false, 'message' => 'No metadata fields to update']);
@@ -185,7 +199,7 @@ if ($conn->affected_rows < 0) {
 }
 
 $readRes = $conn->query("
-  SELECT lab_id, title, description, difficulty, points_total, visibility, is_published, icon, launch_path, port
+  SELECT lab_id, title, description, difficulty, points_total, visibility, is_published, icon, launch_path, port, labtype_id
   FROM labs
   WHERE lab_id = $labId
   LIMIT 1
@@ -226,6 +240,7 @@ echo json_encode([
             'icon' => (string) ($lab['icon'] ?? ''),
             'launch_path' => (string) ($lab['launch_path'] ?? ''),
             'port' => isset($lab['port']) ? (int) $lab['port'] : null,
+            'labtype_id' => (int) ($lab['labtype_id'] ?? 0),
         ],
     ],
 ]);

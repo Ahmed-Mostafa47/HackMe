@@ -15,7 +15,11 @@ import {
 import { labService } from "../../services/labService";
 import { WHITEBOX_SQL_LAB_ID, WHITEBOX_WORKBENCH_LAB_IDS } from "../../constants/labs";
 import { LAB_TYPES } from "../../data/labTypes";
-import { getCategoryFromLabTitle } from "../../utils/labCategories";
+import {
+  getCategoryKeyForLab,
+  normalizeCategoryKey,
+} from "../../utils/labCategories";
+import { getStoredUserId } from "../../utils/storedUser";
 
 const difficultyColors = {
   easy: "bg-emerald-500/10 text-emerald-300 border-emerald-500/40",
@@ -51,6 +55,7 @@ const LabsListModern = ({
     lab_id: 0,
     title: "",
     description: "",
+    labtype_id: 1,
     difficulty: "easy",
     points_total: 0,
     visibility: "public",
@@ -91,32 +96,28 @@ const LabsListModern = ({
         if (id === 1) return false;
         if (lab.labtype_id !== 1 && id !== WHITEBOX_SQL_LAB_ID && !WHITEBOX_WORKBENCH_LAB_IDS.includes(id)) return false;
       } else if (labTypeId === 2) {
-        if (id === 40) return true;
-        if (lab.labtype_id !== 2 && lab.labtype_id !== 3) return false;
+        // Labs 40/41 (Sudoku, Frogger) may be mis-typed in DB; still treat as black-box; category filter still applies.
+        if (id !== 40 && id !== 41 && lab.labtype_id !== 2 && lab.labtype_id !== 3) return false;
       } else if (labTypeId === 3) {
         if (lab.labtype_id !== 3 && id !== 18 && id !== 19) return false;
       } else if (lab.labtype_id !== labTypeId) return false;
     }
     if (category) {
-      const labCat = getCategoryFromLabTitle(lab.title, lab.lab_id);
-      if (labCat !== category) return false;
+      const labCat = getCategoryKeyForLab(lab);
+      if (labCat !== normalizeCategoryKey(category)) return false;
     }
     return true;
   });
   const canAddLab =
     (labType === LAB_TYPES.WHITE_BOX || labType === LAB_TYPES.BLACK_BOX) &&
     (isAdmin || isInstructor);
-  const currentUser = (() => {
-    try {
-      const parsed = JSON.parse(localStorage.getItem("currentUser") || "{}");
-      return parsed && typeof parsed === "object" ? parsed : {};
-    } catch {
-      return {};
-    }
-  })();
-  const currentUserId = Number(currentUser?.user_id || currentUser?.id || 0);
+  const currentUserId = getStoredUserId();
 
   const handleOpenLab = (lab) => {
+    if (lab?.coming_soon) {
+      window.alert("Soon");
+      return;
+    }
     if (onLabClick) {
       onLabClick(lab);
     } else {
@@ -254,7 +255,7 @@ const LabsListModern = ({
                 </div>
 
                 <div className="flex items-center gap-1 text-emerald-300 group-hover:translate-x-1 transition-transform">
-                  <span>OPEN_LAB</span>
+                  <span>{lab.coming_soon ? "SOON" : "OPEN_LAB"}</span>
                   <ArrowUpRight className="w-3.5 h-3.5" />
                 </div>
               </div>
@@ -271,6 +272,7 @@ const LabsListModern = ({
                         lab_id: Number(lab.lab_id) || 0,
                         title: String(lab.title || ""),
                         description: String(lab.description || ""),
+                        labtype_id: Number(lab.labtype_id) || 1,
                         difficulty: String(lab.difficulty || "easy"),
                         points_total: Number(lab.points_total || 0),
                         visibility: String(lab.visibility || "public"),
@@ -354,6 +356,7 @@ const LabsListModern = ({
                     icon: editForm.icon,
                     launchPath: editForm.launch_path,
                     port: editForm.port === "" ? null : Number(editForm.port),
+                    labtypeId: editForm.labtype_id,
                   });
                   const updated = res?.data?.lab;
                   if (updated?.lab_id) {
@@ -393,6 +396,22 @@ const LabsListModern = ({
                   onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
                   required
                 />
+              </div>
+              <div>
+                <label className="block text-xs font-mono text-slate-400 mb-1.5">
+                  Lab mode (white box vs black box)
+                </label>
+                <select
+                  className="w-full rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-400"
+                  value={String(editForm.labtype_id)}
+                  onChange={(e) =>
+                    setEditForm((f) => ({ ...f, labtype_id: Number(e.target.value) || 1 }))
+                  }
+                >
+                  <option value="1">White box (labtype_id: 1)</option>
+                  <option value="2">Black box (labtype_id: 2)</option>
+                  <option value="3">Broken access / access control (labtype_id: 3)</option>
+                </select>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>

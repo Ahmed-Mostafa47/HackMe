@@ -65,7 +65,7 @@ try {
     }
 
     // Validate type
-    $allowedTypes = ['like', 'comment', 'reply', 'message', 'update', 'role_request', 'system'];
+    $allowedTypes = ['like', 'comment', 'reply', 'message', 'update', 'role_request', 'system', 'lab_request'];
     if (!in_array($type, $allowedTypes)) {
         throw new InvalidArgumentException('Invalid notification type');
     }

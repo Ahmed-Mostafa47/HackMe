@@ -37,7 +37,14 @@ try {
         throw new InvalidArgumentException('Invalid user_id');
     }
     
-    $limit = isset($_GET['limit']) ? min((int)$_GET['limit'], 100) : 20; // Default 20 for better performance
+    // LIMIT cannot use bound parameters reliably on all MySQL/PDO setups (may become quoted string).
+    $limit = isset($_GET['limit']) ? (int) $_GET['limit'] : 20;
+    if ($limit < 1) {
+        $limit = 20;
+    }
+    if ($limit > 100) {
+        $limit = 100;
+    }
     $unreadOnly = isset($_GET['unread_only']) ? (int)$_GET['unread_only'] : 0;
 
     // Build query - optimized with UNIX_TIMESTAMP for timezone-independent timestamps
@@ -63,7 +70,7 @@ try {
         LEFT JOIN users u ON u.user_id = n.from_user_id
         {$whereClause}
         ORDER BY n.created_at DESC
-        LIMIT ?
+        LIMIT {$limit}
     ";
 
     $stmt = $conn->prepare($sql);
@@ -71,14 +78,15 @@ try {
         throw new RuntimeException('Failed to prepare statement: ' . $conn->error);
     }
 
-    if ($unreadOnly) {
-        $stmt->bind_param('ii', $userId, $limit);
-    } else {
-        $stmt->bind_param('ii', $userId, $limit);
-    }
+    $stmt->bind_param('i', $userId);
 
-    $stmt->execute();
+    if (!$stmt->execute()) {
+        throw new RuntimeException('Failed to execute query: ' . $stmt->error);
+    }
     $result = $stmt->get_result();
+    if ($result === false) {
+        throw new RuntimeException('Failed to read notification results');
+    }
     $notifications = [];
 
     while ($row = $result->fetch_assoc()) {

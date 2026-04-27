@@ -24,6 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 try {
     require_once __DIR__ . '/../../utils/db_connect.php';
     require_once __DIR__ . '/../../utils/labs_config.php';
+    require_once __DIR__ . '/../../utils/labs_proposal_schema.php';
 } catch (Throwable $e) {
     http_response_code(500);
     echo json_encode(['success' => false, 'message' => 'Load error', 'data' => ['labs' => []]]);
@@ -38,9 +39,14 @@ if (!isset($conn) || !$conn) {
 
 $conn->set_charset('utf8mb4');
 
+$proposalColsReady = hackme_ensure_labs_proposal_columns($conn);
+
 $wbSqlListId = (int) (defined('HACKME_WHITEBOX_SQL_LAB_ID') ? HACKME_WHITEBOX_SQL_LAB_ID : 11);
 
-$res = $conn->query("
+$proposalSelect = $proposalColsReady ? ', l.owasp_category_key, l.coming_soon' : '';
+$proposalGroupBy = $proposalColsReady ? ', l.owasp_category_key, l.coming_soon' : '';
+
+$sqlLabs = "
     SELECT
         l.lab_id,
         l.title,
@@ -52,7 +58,7 @@ $res = $conn->query("
         l.difficulty,
         l.points_total,
         l.is_published,
-        l.visibility,
+        l.visibility$proposalSelect,
         COALESCE(COUNT(DISTINCT h.hint_id), 0) AS hints_count
     FROM labs l
     LEFT JOIN challenges c ON c.lab_id = l.lab_id AND c.is_active = 1
@@ -61,9 +67,41 @@ $res = $conn->query("
       AND l.visibility = 'public'
     GROUP BY
         l.lab_id, l.title, l.description, l.icon, l.port, l.launch_path,
-        l.labtype_id, l.difficulty, l.points_total, l.is_published, l.visibility
+        l.labtype_id, l.difficulty, l.points_total, l.is_published, l.visibility$proposalGroupBy
     ORDER BY l.lab_id ASC
-");
+";
+
+$res = $conn->query($sqlLabs);
+if (!$res && $proposalColsReady) {
+    $proposalColsReady = false;
+    $proposalSelect = '';
+    $proposalGroupBy = '';
+    $sqlLabs = "
+        SELECT
+            l.lab_id,
+            l.title,
+            l.description,
+            l.icon,
+            l.port,
+            l.launch_path,
+            l.labtype_id,
+            l.difficulty,
+            l.points_total,
+            l.is_published,
+            l.visibility,
+            COALESCE(COUNT(DISTINCT h.hint_id), 0) AS hints_count
+        FROM labs l
+        LEFT JOIN challenges c ON c.lab_id = l.lab_id AND c.is_active = 1
+        LEFT JOIN hints h ON h.challenge_id = c.challenge_id
+        WHERE l.is_published = 1
+          AND l.visibility = 'public'
+        GROUP BY
+            l.lab_id, l.title, l.description, l.icon, l.port, l.launch_path,
+            l.labtype_id, l.difficulty, l.points_total, l.is_published, l.visibility
+        ORDER BY l.lab_id ASC
+    ";
+    $res = $conn->query($sqlLabs);
+}
 
 if (!$res) {
     http_response_code(500);
@@ -113,19 +151,39 @@ while ($row = $res->fetch_assoc()) {
     if ($labId === 21) {
         $title = 'DOM XSS (White-box)';
     }
+
+    $launchOut = (string) ($row['launch_path'] ?? '');
+    $comingSoon = false;
+    $owaspKey = $proposalColsReady ? trim((string) ($row['owasp_category_key'] ?? '')) : '';
+
+    if ($launchOut === '__HACKME_SOON__') {
+        $comingSoon = true;
+        $launchOut = '';
+    }
+    if ($proposalColsReady && ((int) ($row['coming_soon'] ?? 0) === 1)) {
+        $comingSoon = true;
+        $launchOut = '';
+    }
+    if ($owaspKey === '' && preg_match('/^\[\[hackme_owasp:([A-Za-z0-9_]+)\]\]\s*\R{0,2}/u', $description, $mOw)) {
+        $owaspKey = $mOw[1];
+        $description = (string) preg_replace('/^\[\[hackme_owasp:[A-Za-z0-9_]+\]\]\s*\R{0,2}/u', '', $description, 1);
+    }
+
     $labs[] = [
         'lab_id' => $labId,
         'title' => $title,
         'description' => $description,
         'icon' => (string)($row['icon'] ?? 'LAB'),
         'port' => isset($row['port']) ? (int)$row['port'] : null,
-        'launch_path' => (string)($row['launch_path'] ?? ''),
+        'launch_path' => $launchOut,
         'labtype_id' => $labtypeId,
         'difficulty' => (string)($row['difficulty'] ?? 'easy'),
         'points_total' => (int)($row['points_total'] ?? 0),
         'is_published' => (int)($row['is_published'] ?? 0) === 1,
         'visibility' => (string)($row['visibility'] ?? 'private'),
         'hints_count' => (int)($row['hints_count'] ?? 0),
+        'owasp_category_key' => $owaspKey,
+        'coming_soon' => $comingSoon,
     ];
 }
 
@@ -209,6 +267,8 @@ foreach ($defaults as $lid => $meta) {
             'is_published' => true,
             'visibility' => 'public',
             'hints_count' => 0,
+            'owasp_category_key' => '',
+            'coming_soon' => false,
         ];
     }
 }

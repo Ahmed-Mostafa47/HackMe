@@ -72,6 +72,42 @@ async function getLabDetailsFromMock(labId) {
   return payload;
 }
 
+/** Normalize approved-proposal markers from DB (legacy rows without extra columns). */
+function applyProposalCatalogFields(lab) {
+  if (!lab || typeof lab !== "object") return lab;
+  const out = { ...lab };
+  let desc = String(out.description ?? "");
+  const m = desc.match(/^\[\[hackme_owasp:([A-Za-z0-9_]+)\]\]\s*(?:\r?\n){0,2}/);
+  if (m && !String(out.owasp_category_key || "").trim()) {
+    out.owasp_category_key = m[1];
+    desc = desc.replace(/^\[\[hackme_owasp:[A-Za-z0-9_]+\]\]\s*(?:\r?\n){0,2}/, "");
+  }
+  out.description = desc;
+  const lp = String(out.launch_path ?? "");
+  if (lp === "__HACKME_SOON__") {
+    out.launch_path = "";
+    out.coming_soon = true;
+  }
+  return out;
+}
+
+/** Keep first row per lab_id (API can return duplicates; breaks OWASP buckets). */
+function dedupeLabsById(labs) {
+  const seen = new Set();
+  const out = [];
+  for (const lab of labs) {
+    const id = Number(lab?.lab_id);
+    if (Number.isNaN(id)) {
+      out.push(lab);
+      continue;
+    }
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push(lab);
+  }
+  return out;
+}
+
 export const labService = {
   async getLabs() {
     try {
@@ -115,7 +151,7 @@ export const labService = {
           }
         }
         labs.sort((a, b) => Number(a.lab_id) - Number(b.lab_id));
-        data.data.labs = labs;
+        data.data.labs = dedupeLabsById(labs).map(applyProposalCatalogFields);
         return data;
       }
 
@@ -131,6 +167,7 @@ export const labService = {
           l.lab_id === 9 ||
           l.lab_id === 10 ||
           l.lab_id === 40 ||
+          l.lab_id === 41 ||
           l.lab_id === 18 ||
           l.lab_id === 19 ||
           l.lab_id === 20 ||
@@ -153,6 +190,7 @@ export const labService = {
           l.lab_id === 9 ||
           l.lab_id === 10 ||
           l.lab_id === 40 ||
+          l.lab_id === 41 ||
           l.lab_id === 18 ||
           l.lab_id === 19 ||
           l.lab_id === 20 ||
@@ -284,6 +322,116 @@ export const labService = {
     return data;
   },
 
+  async getLabSubmissionRequests({ userId }) {
+    const response = await fetch(
+      `${getLabsBase()}/get_lab_submission_requests.php?user_id=${encodeURIComponent(userId)}`,
+      { cache: "no-store" }
+    );
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data?.success === false) {
+      throw new Error(data?.message || `Failed to load lab requests (${response.status})`);
+    }
+    return data;
+  },
+
+  async approveLabSubmission({ userId, submissionId }) {
+    const clientLocalIp = await getClientLocalIp();
+    const response = await fetch(`${getLabsBase()}/approve_lab_submission.php`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_id: userId,
+        submission_id: submissionId,
+        client_local_ip: clientLocalIp,
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data?.success === false) {
+      throw new Error(data?.message || `Approve failed (${response.status})`);
+    }
+    return data;
+  },
+
+  async rejectLabSubmission({ userId, submissionId }) {
+    const clientLocalIp = await getClientLocalIp();
+    const response = await fetch(`${getLabsBase()}/reject_lab_submission.php`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_id: userId,
+        submission_id: submissionId,
+        client_local_ip: clientLocalIp,
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data?.success === false) {
+      throw new Error(data?.message || `Reject failed (${response.status})`);
+    }
+    return data;
+  },
+
+  async downloadLabSubmissionZip({ userId, submissionId }) {
+    const url = `${getLabsBase()}/download_lab_submission_zip.php?user_id=${encodeURIComponent(
+      userId
+    )}&submission_id=${encodeURIComponent(submissionId)}`;
+    const response = await fetch(url, { cache: "no-store" });
+    if (!response.ok) {
+      let msg = `Download failed (${response.status})`;
+      try {
+        const j = await response.json();
+        if (j?.message) msg = String(j.message);
+      } catch {
+        try {
+          const t = await response.text();
+          if (t) msg = t.slice(0, 200);
+        } catch {
+          /* ignore */
+        }
+      }
+      throw new Error(msg);
+    }
+    return response.blob();
+  },
+
+  async submitLabProposal({
+    userId,
+    title,
+    description,
+    labtypeId,
+    difficulty,
+    pointsTotal,
+    owaspCategory,
+    hints,
+    solution,
+    uploadToken,
+    zipOriginalName,
+  }) {
+    const clientLocalIp = await getClientLocalIp();
+    const response = await fetch(`${getLabsBase()}/submit_lab_proposal.php`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_id: userId,
+        title,
+        description,
+        labtype_id: labtypeId,
+        difficulty,
+        points_total: pointsTotal,
+        owasp_category: owaspCategory,
+        hints: hints ?? "",
+        solution: solution ?? "",
+        upload_token: uploadToken ?? "",
+        zip_original_name: zipOriginalName ?? "",
+        client_local_ip: clientLocalIp,
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data?.success === false) {
+      throw new Error(data?.message || `Failed to submit lab proposal (${response.status})`);
+    }
+    return data;
+  },
+
   async updateLabMetadata({
     userId,
     labId,
@@ -296,25 +444,30 @@ export const labService = {
     icon,
     launchPath,
     port,
+    labtypeId,
   }) {
     const clientLocalIp = await getClientLocalIp();
+    const payload = {
+      user_id: userId,
+      lab_id: labId,
+      title,
+      description,
+      difficulty,
+      points_total: pointsTotal,
+      visibility,
+      is_published: isPublished,
+      icon: icon ?? "",
+      launch_path: launchPath ?? "",
+      port: port ?? null,
+      client_local_ip: clientLocalIp,
+    };
+    if (labtypeId != null && labtypeId !== "") {
+      payload.labtype_id = Number(labtypeId);
+    }
     const response = await fetch(`${getLabsBase()}/update_lab_metadata.php`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        user_id: userId,
-        lab_id: labId,
-        title,
-        description,
-        difficulty,
-        points_total: pointsTotal,
-        visibility,
-        is_published: isPublished,
-        icon: icon ?? "",
-        launch_path: launchPath ?? "",
-        port: port ?? null,
-        client_local_ip: clientLocalIp,
-      }),
+      body: JSON.stringify(payload),
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok || !data?.success) {

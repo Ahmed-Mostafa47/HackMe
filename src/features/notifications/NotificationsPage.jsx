@@ -4,11 +4,12 @@
  */
 
 import React, { useEffect } from 'react';
-import { Bell, Heart, MessageSquare, Reply, Mail, Shield, Check, CheckCheck, Loader2, AlertTriangle } from 'lucide-react';
+import { Bell, Heart, MessageSquare, Reply, Mail, Shield, Check, CheckCheck, Loader2, AlertTriangle, FlaskConical } from 'lucide-react';
 import { useNotifications } from '../../hooks/useNotifications';
+import { getStoredUserId } from '../../utils/storedUser';
 
 const NotificationsPage = ({ currentUser }) => {
-    const userId = currentUser?.user_id || currentUser?.id;
+    const userId = currentUser?.user_id || currentUser?.id || getStoredUserId();
     const {
         notifications,
         unreadCount,
@@ -33,6 +34,8 @@ const NotificationsPage = ({ currentUser }) => {
             case 'role_request':
             case 'update':
                 return <Shield className={iconClass} />;
+            case 'lab_request':
+                return <FlaskConical className={iconClass} />;
             case 'moderation':
                 return <AlertTriangle className={iconClass} />;
             default:
@@ -52,6 +55,7 @@ const NotificationsPage = ({ currentUser }) => {
             message: 'border-l-purple-500',
             role_request: 'border-l-green-500',
             update: 'border-l-green-500',
+            lab_request: 'border-l-cyan-500',
             moderation: 'border-l-amber-500',
         }[type] || 'border-l-gray-500';
 

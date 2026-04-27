@@ -1,8 +1,14 @@
 import React from 'react';
-import { ChevronRight, Code, Eye, Lock, Shield } from 'lucide-react';
+import { ChevronRight, Code, Eye, Lock, Plus, Shield } from 'lucide-react';
 import { LAB_TYPES, LAB_TYPE_DETAILS } from '../../data/labTypes';
 
-const TrainingSelectionPage = ({ setCurrentPage, setSelectedLabType }) => {
+const TrainingSelectionPage = ({
+  setCurrentPage,
+  setSelectedLabType,
+  isAdmin = false,
+  isInstructor = false,
+  onAddLab,
+}) => {
   const handleLabTypeSelect = (labType) => {
     setSelectedLabType(labType);
     setCurrentPage(`labs?labType=${labType}`);
@@ -33,9 +39,23 @@ const TrainingSelectionPage = ({ setCurrentPage, setSelectedLabType }) => {
     }
   ];
 
+  const canAddLab = isAdmin || isInstructor;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black pt-20 sm:pt-24 pb-8 sm:pb-12 px-3 sm:px-4 md:px-6">
       <div className="max-w-6xl mx-auto w-full">
+        {canAddLab && (
+          <div className="flex justify-end mb-4 sm:mb-6">
+            <button
+              type="button"
+              onClick={() => onAddLab && onAddLab()}
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-4 py-2 text-xs sm:text-sm font-mono font-semibold text-slate-950 shadow-lg shadow-emerald-500/40 hover:from-emerald-400 hover:to-emerald-500 transition-all"
+            >
+              <Plus className="w-4 h-4" />
+              Add Lab
+            </button>
+          </div>
+        )}
         <div className="text-center mb-6 sm:mb-10 md:mb-14 px-2 sm:px-4">
           <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 bg-gradient-to-br from-green-600 to-green-700 rounded-xl sm:rounded-2xl mb-4 sm:mb-6 border border-green-500/30">
             <Shield className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 text-green-400" />

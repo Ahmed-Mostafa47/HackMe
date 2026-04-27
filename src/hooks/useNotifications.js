@@ -47,7 +47,12 @@ export const useNotifications = (userId, options = {}) => {
             }
         } catch (err) {
             console.error('Failed to load notifications:', err);
-            setError(err.message);
+            const apiMsg = err?.response?.data?.message;
+            setError(
+                typeof apiMsg === 'string' && apiMsg.trim()
+                    ? apiMsg
+                    : err?.message || 'Failed to load notifications'
+            );
         } finally {
             setLoading(false);
             isLoadingRef.current = false;

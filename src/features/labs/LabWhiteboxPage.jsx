@@ -60,7 +60,7 @@ const LabWhiteboxPage = ({ currentUser, onFlagSuccess }) => {
       navigate(`/labs?labType=${encodeURIComponent(labType)}&category=${encodeURIComponent(fromCategory)}`);
       return;
     }
-    navigate("/labs");
+    navigate("/training");
   };
 
   useEffect(() => {
