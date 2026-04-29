@@ -116,9 +116,10 @@ $ipExpr = isset($available['ip_address']) ? 'ip_address' : (isset($available['ip
 $uaExpr = isset($available['user_agent']) ? 'user_agent' : 'NULL AS user_agent';
 $createdExpr = isset($available['created_at']) ? 'created_at' : (isset($available['timestamp']) ? 'timestamp AS created_at' : 'NOW() AS created_at');
 $actorEmailExpr = "(SELECT u.email FROM users u WHERE u.user_id = {$actorUserIdRawExpr} LIMIT 1) AS actor_email";
+$actorRolesExpr = "(SELECT GROUP_CONCAT(DISTINCT r.name ORDER BY r.name SEPARATOR ',') FROM user_roles ur INNER JOIN roles r ON r.role_id = ur.role_id WHERE ur.user_id = {$actorUserIdRawExpr}) AS actor_roles";
 $targetEmailExpr = "(SELECT u2.email FROM users u2 WHERE u2.user_id = {$targetUserIdRawExpr} LIMIT 1) AS target_email";
 
-$sql = "SELECT {$logIdExpr}, {$actorUserExpr}, {$actorNameExpr}, {$actorEmailExpr}, {$actionExpr}, {$statusExpr}, {$targetUserExpr}, {$targetNameExpr}, {$targetEmailExpr}, {$detailsExpr}, {$ipExpr}, {$uaExpr}, {$createdExpr}
+$sql = "SELECT {$logIdExpr}, {$actorUserExpr}, {$actorNameExpr}, {$actorEmailExpr}, {$actorRolesExpr}, {$actionExpr}, {$statusExpr}, {$targetUserExpr}, {$targetNameExpr}, {$targetEmailExpr}, {$detailsExpr}, {$ipExpr}, {$uaExpr}, {$createdExpr}
         FROM audit_logs l";
 if (!empty($where)) {
     $sql .= " WHERE " . implode(' AND ', $where);

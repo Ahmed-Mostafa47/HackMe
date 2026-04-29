@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Terminal, Shield, Code, Users, ArrowRight, Zap, Target, TrendingUp, Clock, Trophy, BookOpen, Flag } from 'lucide-react';
+import { Terminal, Shield, Code, Users, ArrowRight, Zap, Target, TrendingUp, Clock, Trophy, BookOpen, Mail } from 'lucide-react';
 import BinaryRain from '@/features/shared/ui/BinaryRain';
+import ContactUsModal from '@/features/shared/ui/ContactUsModal';
 import '@/styles/animations.css';
 
 const API_BASE = import.meta.env.DEV ? '/api' : 'http://localhost/HackMe/server/api';
@@ -11,6 +12,8 @@ const LandingPage = ({ onNavigateToLogin, onNavigateToRegister }) => {
   const [champions, setChampions] = useState([]);
   const [championsLoading, setChampionsLoading] = useState(true);
   const [championsError, setChampionsError] = useState(null);
+
+  const [contactOpen, setContactOpen] = useState(false);
 
   useEffect(() => {
     // On initial load, if page is at top, show all elements immediately (looks like one page)
@@ -172,20 +175,20 @@ const LandingPage = ({ onNavigateToLogin, onNavigateToRegister }) => {
                 // WHAT_IS_THIS_PLATFORM
               </h2>
               <p className="text-sm sm:text-base text-gray-300 font-mono leading-relaxed">
-                <strong className="text-green-300">HackMe</strong> is a penetration-testing training platform. You get isolated lab environments (white-box and black-box), practice real vulnerabilities, and learn by doing—not only by reading.
+                <strong className="text-green-300">HackMe</strong> is a hands-on penetration-testing academy built for serious skill growth. Train inside isolated white-box and black-box labs, exploit real-world vulnerabilities safely, and build practical offensive security experience through guided, mission-style practice.
               </p>
               <ul className="space-y-3 text-sm sm:text-base text-gray-400 font-mono">
                 <li className="flex gap-3">
                   <BookOpen className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
-                  <span><span className="text-gray-200">Training labs:</span> SQL injection, XSS, blind testing, access control, IDOR, and more—organized by category and difficulty.</span>
+                  <span><span className="text-gray-200">Training labs:</span> SQL injection, XSS, blind testing, access control, IDOR, and security games, organized by category and difficulty so you can progress with a clear path.</span>
                 </li>
                 <li className="flex gap-3">
-                  <Flag className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-                  <span><span className="text-gray-200">Flags & scoring:</span> Capture flags in each lab, submit them securely, earn points, and track labs you have completed.</span>
+                  <Target className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                  <span><span className="text-gray-200">Progress & scoring:</span> Submit lab answers securely, earn points, and track completed labs with a clear mission history in your account.</span>
                 </li>
                 <li className="flex gap-3">
                   <Trophy className="w-5 h-5 text-yellow-400 shrink-0 mt-0.5" />
-                  <span><span className="text-gray-200">Leaderboard & rank:</span> Compete with other operatives, climb the ranking, and see your mission log of solved labs after you sign in.</span>
+                  <span><span className="text-gray-200">Leaderboard & rank:</span> Compete with other operatives, climb the ranking, and measure your growth against an active community of learners.</span>
                 </li>
               </ul>
               <p className="text-xs sm:text-sm text-gray-500 font-mono pt-2 border-t border-gray-700/80">
@@ -194,7 +197,7 @@ const LandingPage = ({ onNavigateToLogin, onNavigateToRegister }) => {
             </div>
 
             {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6">
+            <div className="mt-10 sm:mt-12 flex flex-col sm:flex-row flex-wrap items-center justify-center gap-4 sm:gap-6">
               <button
                 onClick={onNavigateToLogin}
                 className="group w-full sm:w-auto px-8 sm:px-10 py-3 sm:py-4 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg font-bold text-base sm:text-lg shadow-lg hover:shadow-green-500/30 transform hover:scale-105 transition-all duration-300 border border-green-500/30 font-mono flex items-center justify-center gap-2 hover:animate-glow"
@@ -207,6 +210,14 @@ const LandingPage = ({ onNavigateToLogin, onNavigateToRegister }) => {
                 className="w-full sm:w-auto px-8 sm:px-10 py-3 sm:py-4 bg-gray-800/80 backdrop-blur-lg text-green-400 rounded-lg font-bold text-base sm:text-lg border-2 border-green-500/50 hover:border-green-500 hover:bg-gray-800 transform hover:scale-105 transition-all duration-300 font-mono"
               >
                 CREATE_ACCOUNT
+              </button>
+              <button
+                type="button"
+                onClick={() => setContactOpen(true)}
+                className="w-full sm:w-auto px-8 sm:px-10 py-3 sm:py-4 rounded-lg font-bold text-base sm:text-lg border-2 border-gray-600 bg-gray-900/70 text-gray-200 hover:border-green-500/40 hover:bg-gray-800/90 hover:text-green-400 transform hover:scale-105 transition-all duration-300 font-mono flex items-center justify-center gap-2"
+              >
+                <Mail className="w-5 h-5" />
+                CONTACT_US
               </button>
             </div>
           </div>
@@ -378,6 +389,8 @@ const LandingPage = ({ onNavigateToLogin, onNavigateToRegister }) => {
           </div>
         </div>
       </footer>
+
+      <ContactUsModal open={contactOpen} onClose={() => setContactOpen(false)} />
     </div>
   );
 };

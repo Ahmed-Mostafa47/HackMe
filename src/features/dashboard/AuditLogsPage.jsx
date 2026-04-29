@@ -118,20 +118,22 @@ const AuditLogsPage = ({ currentUser }) => {
     }
     return raw;
   };
-  const formatActor = (log) => {
-    const actorName = (log?.actor_username || "").trim();
-    const actorId = log?.actor_user_id ?? "";
-    const actorEmail = (log?.actor_email || "").trim();
-
-    const actorParts = [];
-    if (actorName) actorParts.push(actorName);
-    if (actorId !== "") actorParts.push(`#${actorId}`);
-    if (actorEmail) actorParts.push(actorEmail);
-
-    if (actorParts.length > 0) {
-      return actorParts.join(" | ");
-    }
-    return "-";
+  const actorNameCell = (log) => {
+    const n = (log?.actor_username || "").trim();
+    return n || "-";
+  };
+  const actorEmailCell = (log) => {
+    const e = (log?.actor_email || "").trim();
+    return e || "-";
+  };
+  const actorIdCell = (log) => {
+    const id = log?.actor_user_id;
+    if (id === null || id === undefined || id === "") return "-";
+    return String(id);
+  };
+  const actorRolesCell = (log) => {
+    const r = (log?.actor_roles || "").trim();
+    return r || "-";
   };
 
   return (
@@ -197,33 +199,48 @@ const AuditLogsPage = ({ currentUser }) => {
           ) : displayedLogs.length === 0 ? (
             <p className="text-gray-500 font-mono text-sm">NO_LOGS_FOUND</p>
           ) : (
-            <table className="w-full min-w-[980px] text-sm">
+            <table className="table-fixed w-full min-w-[1200px] text-sm">
+              <colgroup>
+                <col className="w-[10%]" />
+                <col className="w-[8%]" />
+                <col className="w-[6%]" />
+                <col className="w-[9%]" />
+                <col className="w-[12%]" />
+                <col className="w-[5%]" />
+                <col className="w-[11%]" />
+                <col className="w-[18%]" />
+                <col className="w-[108px]" />
+                <col className="min-w-[140px]" />
+              </colgroup>
               <thead>
                 <tr className="text-left text-gray-400 font-mono border-b border-gray-700">
-                  <th className="py-2 pr-3">TIME</th>
-                  <th className="py-2 pr-3">ACTION</th>
-                  <th className="py-2 pr-3">STATUS</th>
-                  <th className="py-2 pr-3">ACTOR</th>
-                  <th className="py-2 pr-3">DETAILS</th>
-                  <th className="py-2 pr-3">IP</th>
-                  <th className="py-2 pr-3">USER_AGENT</th>
+                  <th className="py-2 pr-2">TIME</th>
+                  <th className="py-2 pr-2">ACTION</th>
+                  <th className="py-2 pr-2">STATUS</th>
+                  <th className="py-2 pr-2">ACTOR_NAME</th>
+                  <th className="py-2 pr-2">ACTOR_EMAIL</th>
+                  <th className="py-2 pr-2 whitespace-nowrap">ACTOR_ID</th>
+                  <th className="py-2 pr-2">ACTOR_ROLES</th>
+                  <th className="py-2 pr-2">DETAILS</th>
+                  <th className="py-2 pr-2 whitespace-nowrap">IP</th>
+                  <th className="py-2 pr-1">USER_AGENT</th>
                 </tr>
               </thead>
               <tbody>
                 {displayedLogs.map((log) => (
                   <tr key={log.log_id} className="border-b border-gray-800 text-gray-200">
-                    <td className="py-2 pr-3 font-mono text-xs">
+                    <td className="py-2 pr-2 font-mono text-xs align-top">
                       {formatEventTime(log)}
                     </td>
-                    <td className="py-2 pr-3">
+                    <td className="py-2 pr-2 align-top">
                       <span className="inline-flex items-center gap-1 font-mono text-xs text-blue-300">
-                        <Activity className="w-3 h-3" />
+                        <Activity className="w-3 h-3 shrink-0" />
                         {log.action}
                       </span>
                     </td>
-                    <td className="py-2 pr-3">
+                    <td className="py-2 pr-2 align-top">
                       <span
-                        className={`font-mono text-xs px-2 py-1 rounded ${
+                        className={`font-mono text-xs px-2 py-1 rounded inline-block whitespace-nowrap ${
                           log.status === "success"
                             ? "bg-emerald-500/20 text-emerald-300"
                             : "bg-rose-500/20 text-rose-300"
@@ -232,10 +249,31 @@ const AuditLogsPage = ({ currentUser }) => {
                         {log.status}
                       </span>
                     </td>
-                    <td className="py-2 pr-3 font-mono text-xs">{formatActor(log)}</td>
-                    <td className="py-2 pr-3 text-xs">{formatDetails(log)}</td>
-                    <td className="py-2 pr-3 font-mono text-xs">{log.ip_address || "-"}</td>
-                    <td className="py-2 pr-3 text-xs text-gray-300 max-w-[360px] truncate" title={log.user_agent || "-"}>
+                    <td className="py-2 pr-2 font-mono text-xs align-top text-gray-300">
+                      <div className="break-words leading-snug">{actorNameCell(log)}</div>
+                    </td>
+                    <td className="py-2 pr-2 font-mono text-xs align-top">
+                      <div className="truncate" title={actorEmailCell(log)}>
+                        {actorEmailCell(log)}
+                      </div>
+                    </td>
+                    <td className="py-2 pr-2 font-mono text-xs align-top whitespace-nowrap text-gray-300">
+                      {actorIdCell(log)}
+                    </td>
+                    <td className="py-2 pr-2 font-mono text-[11px] align-top text-amber-200/95">
+                      <div className="break-words leading-snug line-clamp-3" title={actorRolesCell(log)}>
+                        {actorRolesCell(log)}
+                      </div>
+                    </td>
+                    <td className="py-2 pr-2 text-xs align-top">
+                      <div className="break-words line-clamp-3" title={String(formatDetails(log) || "")}>
+                        {formatDetails(log)}
+                      </div>
+                    </td>
+                    <td className="py-2 pr-2 font-mono text-[11px] align-top whitespace-nowrap">
+                      {log.ip_address || "-"}
+                    </td>
+                    <td className="py-2 pr-1 text-xs text-gray-300 align-top truncate" title={log.user_agent || "-"}>
                       {log.user_agent || "-"}
                     </td>
                   </tr>

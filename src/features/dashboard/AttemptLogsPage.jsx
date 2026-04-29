@@ -254,7 +254,7 @@ const AttemptLogsPage = ({ currentUser }) => {
           ) : displayedLogs.length === 0 ? (
             <p className="text-gray-500 font-mono text-sm">NO_LOGS_FOUND</p>
           ) : (
-            <table className="w-full min-w-[2300px] text-sm">
+            <table className="w-full min-w-[2480px] text-sm">
               <thead>
                 <tr className="text-left text-gray-400 font-mono border-b border-gray-700">
                   <th className="py-2 pr-3">TIME</th>
@@ -262,6 +262,7 @@ const AttemptLogsPage = ({ currentUser }) => {
                   <th className="py-2 pr-3">USER_ID</th>
                   <th className="py-2 pr-3">IS_AUTHENTICATED</th>
                   <th className="py-2 pr-3">EMAIL</th>
+                  <th className="py-2 pr-3">ACTOR_ROLES</th>
                   <th className="py-2 pr-3">IP</th>
                   <th className="py-2 pr-3">GEO_INFO</th>
                   <th className="py-2 pr-3">CORRELATION_ID</th>
@@ -284,6 +285,12 @@ const AttemptLogsPage = ({ currentUser }) => {
                     <td className="py-2 pr-3 font-mono text-xs">{log.actor_user_id || "-"}</td>
                     <td className="py-2 pr-3 font-mono text-xs">{log.is_authenticated ? "true" : "false"}</td>
                     <td className="py-2 pr-3 font-mono text-xs">{getEmail(log)}</td>
+                    <td
+                      className="py-2 pr-3 max-w-[220px] truncate font-mono text-xs text-amber-200/95"
+                      title={(log.actor_roles || "").trim() || "-"}
+                    >
+                      {(log.actor_roles || "").trim() || "-"}
+                    </td>
                     <td className="py-2 pr-3 font-mono text-xs">{log.ip_address || "-"}</td>
                     <td className="py-2 pr-3 font-mono text-xs">{log.geo_info || "-"}</td>
                     <td className="py-2 pr-3 font-mono text-xs">{log.correlation_id || "-"}</td>
