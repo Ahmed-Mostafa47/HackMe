@@ -185,15 +185,36 @@ function hackme_record_event_and_maybe_block(
     int $blockSeconds = 60
 ): array {
     hackme_record_security_event($conn, $eventType, $userId, $ipAddress);
-    $attempts = hackme_count_recent_security_events($conn, $eventType, $userId, $ipAddress, $windowSeconds);
-    if ($attempts >= max(1, $threshold)) {
+    $attemptsByUser = 0;
+    if ($userId !== null && $userId > 0) {
+        $attemptsByUser = hackme_count_recent_security_events($conn, $eventType, $userId, '', $windowSeconds);
+    }
+    $attemptsByIp = hackme_count_recent_security_events($conn, $eventType, null, $ipAddress, $windowSeconds);
+
+    $effectiveThreshold = max(1, $threshold);
+    $shouldBlockByUser = $attemptsByUser >= $effectiveThreshold;
+    $shouldBlockByIp = $attemptsByIp >= $effectiveThreshold;
+
+    if ($shouldBlockByUser || $shouldBlockByIp) {
         $block = hackme_apply_temporary_block($conn, $userId, $ipAddress, $blockReason, $blockSeconds);
+        $triggeredBy = $shouldBlockByUser ? 'user' : 'ip';
         return [
             'blocked' => true,
-            'attempts' => $attempts,
+            'attempts' => max($attemptsByUser, $attemptsByIp),
+            'attempts_by_user' => $attemptsByUser,
+            'attempts_by_ip' => $attemptsByIp,
+            'triggered_by' => $triggeredBy,
             'reason' => (string)($block['reason'] ?? $blockReason),
             'blocked_until' => (string)($block['blocked_until'] ?? ''),
         ];
     }
-    return ['blocked' => false, 'attempts' => $attempts, 'reason' => '', 'blocked_until' => ''];
+    return [
+        'blocked' => false,
+        'attempts' => max($attemptsByUser, $attemptsByIp),
+        'attempts_by_user' => $attemptsByUser,
+        'attempts_by_ip' => $attemptsByIp,
+        'triggered_by' => '',
+        'reason' => '',
+        'blocked_until' => '',
+    ];
 }

@@ -118,6 +118,21 @@ const AuditLogsPage = ({ currentUser }) => {
     }
     return raw;
   };
+  const formatActor = (log) => {
+    const actorName = (log?.actor_username || "").trim();
+    const actorId = log?.actor_user_id ?? "";
+    const actorEmail = (log?.actor_email || "").trim();
+
+    const actorParts = [];
+    if (actorName) actorParts.push(actorName);
+    if (actorId !== "") actorParts.push(`#${actorId}`);
+    if (actorEmail) actorParts.push(actorEmail);
+
+    if (actorParts.length > 0) {
+      return actorParts.join(" | ");
+    }
+    return "-";
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-gray-800 pt-24 pb-10 px-4">
@@ -217,9 +232,7 @@ const AuditLogsPage = ({ currentUser }) => {
                         {log.status}
                       </span>
                     </td>
-                    <td className="py-2 pr-3 font-mono text-xs">
-                      {log.actor_username || `#${log.actor_user_id || "-"}`}
-                    </td>
+                    <td className="py-2 pr-3 font-mono text-xs">{formatActor(log)}</td>
                     <td className="py-2 pr-3 text-xs">{formatDetails(log)}</td>
                     <td className="py-2 pr-3 font-mono text-xs">{log.ip_address || "-"}</td>
                     <td className="py-2 pr-3 text-xs text-gray-300 max-w-[360px] truncate" title={log.user_agent || "-"}>

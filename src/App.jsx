@@ -29,6 +29,7 @@ import ProfilePage from "./features/profile/ProfilePage";
 import AdminDashboardPage from "./features/dashboard/AdminDashboardPage";
 import AuditLogsPage from "./features/dashboard/AuditLogsPage";
 import AttemptLogsPage from "./features/dashboard/AttemptLogsPage";
+import SecurityDashboardPage from "./features/dashboard/SecurityDashboardPage";
 import NotificationsPage from "./features/notifications/NotificationsPage";
 import NotificationContainer from "./components/notifications/NotificationContainer";
 import axios from "axios";
@@ -63,8 +64,8 @@ function AppContent() {
   const [pendingRoleRequests, setPendingRoleRequests] = useState([]);
   const [adminStats, setAdminStats] = useState(null);
   const [roleRequestAlert, setRoleRequestAlert] = useState(null);
-  const lastRestrictedAttemptKeyRef = useRef("");
-  const lastUrlTamperAttemptKeyRef = useRef("");
+  const lastRestrictedAttemptKeyRef = useRef({});
+  const lastUrlTamperAttemptKeyRef = useRef({});
 
   const buildLabRoute = (lab, fromCategory, labType) => {
     const id = Number(lab?.lab_id);
@@ -493,27 +494,29 @@ function AppContent() {
     const path = location.pathname;
     const uid = currentUser?.user_id ?? currentUser?.id;
     if (!isLoggedIn || !uid) {
-      lastUrlTamperAttemptKeyRef.current = "";
+      lastUrlTamperAttemptKeyRef.current = {};
       return;
     }
 
     if (path !== "/lab-whitebox" && path !== "/lab-modern") {
-      lastUrlTamperAttemptKeyRef.current = "";
+      lastUrlTamperAttemptKeyRef.current = {};
       return;
     }
 
     const params = new URLSearchParams(location.search);
     const currentLabId = params.get("labId") || "";
     if (!currentLabId || isAllowedLabNav(currentLabId)) {
-      lastUrlTamperAttemptKeyRef.current = "";
+      lastUrlTamperAttemptKeyRef.current = {};
       return;
     }
 
     const key = `${uid}:${path}:${currentLabId}`;
-    if (lastUrlTamperAttemptKeyRef.current === key) {
+    const now = Date.now();
+    const lastAt = Number(lastUrlTamperAttemptKeyRef.current[key] || 0);
+    if (now - lastAt < 1500) {
       return;
     }
-    lastUrlTamperAttemptKeyRef.current = key;
+    lastUrlTamperAttemptKeyRef.current[key] = now;
 
     navigate("/home", { replace: true });
     reportUrlTamperAttempt(path, "lab_id_modified").then((blocked) => {
@@ -535,7 +538,7 @@ function AppContent() {
     const path = location.pathname;
     const uid = currentUser?.user_id ?? currentUser?.id;
     if (!isLoggedIn || !uid) {
-      lastRestrictedAttemptKeyRef.current = "";
+      lastRestrictedAttemptKeyRef.current = {};
       return;
     }
 
@@ -544,18 +547,23 @@ function AppContent() {
       restrictionMessage = "INSTRUCTOR_PRIVILEGES_REQUIRED";
     } else if ((path === "/admin" || path === "/admin-labs") && !isAdmin && !isSuperAdmin) {
       restrictionMessage = "ADMIN_PRIVILEGES_REQUIRED";
-    } else if ((path === "/audit-logs" || path === "/attempt-logs") && !isSuperAdmin) {
+    } else if (
+      (path === "/audit-logs" || path === "/attempt-logs" || path === "/security-dashboard") &&
+      !isSuperAdmin
+    ) {
       restrictionMessage = "SUPERADMIN_PRIVILEGES_REQUIRED";
     }
 
     if (!restrictionMessage) {
-      lastRestrictedAttemptKeyRef.current = "";
+      lastRestrictedAttemptKeyRef.current = {};
       return;
     }
 
     const key = `${uid}:${path}:${restrictionMessage}`;
-    if (lastRestrictedAttemptKeyRef.current === key) return;
-    lastRestrictedAttemptKeyRef.current = key;
+    const now = Date.now();
+    const lastAt = Number(lastRestrictedAttemptKeyRef.current[key] || 0);
+    if (now - lastAt < 1500) return;
+    lastRestrictedAttemptKeyRef.current[key] = now;
 
     navigate("/home", { replace: true });
 
@@ -577,12 +585,17 @@ function AppContent() {
         client_tz_offset_minutes: new Date().getTimezoneOffset(),
       });
       try {
-        await fetch(`${API_BASE}/audit_event.php`, {
+        const res = await fetch(`${API_BASE}/audit_event.php`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: payload,
           keepalive: true,
         });
+        const data = await res.json().catch(() => ({}));
+        if (data?.blocked) {
+          handleLogout();
+          navigate("/", { replace: true });
+        }
       } catch (_) {}
     })();
   }, [
@@ -846,6 +859,9 @@ function AppContent() {
       case "/attempt-logs":
         if (!isSuperAdmin) return <HomePage setCurrentPage={(p) => navigate(`/${p}`)} />;
         return <AttemptLogsPage currentUser={currentUser} />;
+      case "/security-dashboard":
+        if (!isSuperAdmin) return <HomePage setCurrentPage={(p) => navigate(`/${p}`)} />;
+        return <SecurityDashboardPage currentUser={currentUser} />;
       case "/reset-password":
         return (
           <ResetPasswordPage

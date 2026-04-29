@@ -157,7 +157,7 @@ VALUES
  1, 'medium', 100, @creator, 1, 'public', 'cyberops/xss-dom-whitebox', 3600)
 , 
 (30, 'War game',
- 'Game labs: complete a wargame-style challenge and submit the flag.',
+ 'Join us to cybersecurity competition and try to win to gain more points',
  'Follow the objective in the lab and submit the correct flag to complete the challenge.',
  '🎮', 4005, '/',
  2, 'medium', 100, @creator, 1, 'public', 'cyberops/war-game', 3600)

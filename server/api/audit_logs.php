@@ -102,20 +102,24 @@ if ($search !== '') {
     $where[] = "(actor_username LIKE '{$like}' OR target_username LIKE '{$like}' OR details LIKE '{$like}' OR user_agent LIKE '{$like}')";
 }
 
-$logIdExpr = isset($available['log_id']) ? 'log_id' : (isset($available['id']) ? 'id AS log_id' : '0 AS log_id');
-$actorUserExpr = isset($available['actor_user_id']) ? 'actor_user_id' : 'NULL AS actor_user_id';
+$logIdExpr = isset($available['log_id']) ? 'l.log_id' : (isset($available['id']) ? 'l.id AS log_id' : '0 AS log_id');
+$actorUserIdRawExpr = isset($available['actor_user_id']) ? 'l.actor_user_id' : 'NULL';
+$actorUserExpr = $actorUserIdRawExpr . ' AS actor_user_id';
 $actorNameExpr = isset($available['actor_username']) ? 'actor_username' : (isset($available['username']) ? 'username AS actor_username' : 'NULL AS actor_username');
 $actionExpr = isset($available['action']) ? 'action' : (isset($available['event']) ? 'event AS action' : "'unknown' AS action");
 $statusExpr = isset($available['status']) ? 'status' : "'success' AS status";
-$targetUserExpr = isset($available['target_user_id']) ? 'target_user_id' : 'NULL AS target_user_id';
+$targetUserIdRawExpr = isset($available['target_user_id']) ? 'l.target_user_id' : 'NULL';
+$targetUserExpr = $targetUserIdRawExpr . ' AS target_user_id';
 $targetNameExpr = isset($available['target_username']) ? 'target_username' : 'NULL AS target_username';
 $detailsExpr = isset($available['details']) ? 'details' : (isset($available['message']) ? 'message AS details' : 'NULL AS details');
 $ipExpr = isset($available['ip_address']) ? 'ip_address' : (isset($available['ip']) ? 'ip AS ip_address' : 'NULL AS ip_address');
 $uaExpr = isset($available['user_agent']) ? 'user_agent' : 'NULL AS user_agent';
 $createdExpr = isset($available['created_at']) ? 'created_at' : (isset($available['timestamp']) ? 'timestamp AS created_at' : 'NOW() AS created_at');
+$actorEmailExpr = "(SELECT u.email FROM users u WHERE u.user_id = {$actorUserIdRawExpr} LIMIT 1) AS actor_email";
+$targetEmailExpr = "(SELECT u2.email FROM users u2 WHERE u2.user_id = {$targetUserIdRawExpr} LIMIT 1) AS target_email";
 
-$sql = "SELECT {$logIdExpr}, {$actorUserExpr}, {$actorNameExpr}, {$actionExpr}, {$statusExpr}, {$targetUserExpr}, {$targetNameExpr}, {$detailsExpr}, {$ipExpr}, {$uaExpr}, {$createdExpr}
-        FROM audit_logs";
+$sql = "SELECT {$logIdExpr}, {$actorUserExpr}, {$actorNameExpr}, {$actorEmailExpr}, {$actionExpr}, {$statusExpr}, {$targetUserExpr}, {$targetNameExpr}, {$targetEmailExpr}, {$detailsExpr}, {$ipExpr}, {$uaExpr}, {$createdExpr}
+        FROM audit_logs l";
 if (!empty($where)) {
     $sql .= " WHERE " . implode(' AND ', $where);
 }

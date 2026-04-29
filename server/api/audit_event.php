@@ -21,6 +21,34 @@ require_once __DIR__ . '/../utils/db_connect.php';
 require_once __DIR__ . '/../utils/audit_log.php';
 require_once __DIR__ . '/../utils/security_block.php';
 
+function hackme_recent_security_block_logged(
+    PdoMysqliShim $conn,
+    int $userId,
+    string $ipAddress,
+    string $reason,
+    int $windowSeconds = 70
+): bool {
+    $uid = max(0, $userId);
+    $ipEsc = $conn->real_escape_string($ipAddress);
+    $reasonEsc = $conn->real_escape_string($reason);
+    $windowSeconds = max(10, $windowSeconds);
+
+    $sql = "
+        SELECT 1
+        FROM audit_logs
+        WHERE action = 'security_block'
+          AND created_at >= DATE_SUB(NOW(), INTERVAL {$windowSeconds} SECOND)
+          AND (
+            (actor_user_id IS NOT NULL AND actor_user_id = {$uid})
+            OR (ip_address IS NOT NULL AND ip_address = '{$ipEsc}')
+          )
+          AND details LIKE '%\"block_reason\":\"{$reasonEsc}\"%'
+        LIMIT 1
+    ";
+    $res = $conn->query($sql);
+    return $res && $res->num_rows > 0;
+}
+
 $input = json_decode(file_get_contents('php://input'), true) ?? [];
 $userId = isset($input['user_id']) ? (int)$input['user_id'] : 0;
 $username = trim((string)($input['username'] ?? ''));
@@ -79,29 +107,93 @@ $ok = hackme_write_audit_log($conn, [
 ]);
 
 $blocked = false;
+$blockRes = ['blocked' => false, 'attempts' => 0, 'blocked_until' => '', 'reason' => ''];
+$requestIp = hackme_client_ip();
 if ($action === 'url_tamper_attempt') {
-    $blockRes = hackme_record_url_tamper_and_maybe_block($conn, $userId > 0 ? $userId : null, hackme_client_ip());
+    // Parameter tampering: block quickly after repeated attempts.
+    $blockRes = hackme_record_event_and_maybe_block(
+        $conn,
+        'url_tamper_attempt',
+        $userId > 0 ? $userId : null,
+        $requestIp,
+        2,
+        'url_tamper_repeated',
+        60,
+        60
+    );
     $blocked = (bool)($blockRes['blocked'] ?? false);
     if ($blocked) {
-        hackme_write_audit_log($conn, [
-            'actor_user_id' => $userId,
-            'actor_username' => $email !== '' ? $email : $username,
-            'action' => 'security_block',
-            'status' => 'failed',
-            'details' => json_encode([
-                'message' => 'User temporarily blocked after repeated URL tamper attempts',
-                'email' => $email,
-                'blocked' => true,
-                'attempts_last_minute' => (int)($blockRes['attempts'] ?? 0),
-                'block_reason' => 'url_tamper_repeated',
-                'client_time_utc' => $clientTimeUtc,
-                'client_timezone' => $clientTimezone,
-                'client_tz_offset_minutes' => $clientTzOffsetMinutes,
-            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-            'ip_address' => hackme_client_ip(),
-            'client_local_ip' => $clientLocalIp,
-            'user_agent' => (string)($_SERVER['HTTP_USER_AGENT'] ?? ''),
-        ]);
+        $blockReason = (string)($blockRes['reason'] ?? 'url_tamper_repeated');
+        if (!hackme_recent_security_block_logged($conn, $userId, $requestIp, $blockReason)) {
+            hackme_write_audit_log($conn, [
+                'actor_user_id' => $userId,
+                'actor_username' => $username !== '' ? $username : ('user_' . $userId),
+                'action' => 'security_block',
+                'status' => 'failed',
+                'details' => json_encode([
+                    'message' => 'User temporarily blocked after repeated URL tamper attempts',
+                    'email' => $email,
+                    'blocked' => true,
+                    'attempts_last_minute' => (int)($blockRes['attempts'] ?? 0),
+                    'attempts_last_minute_user' => (int)($blockRes['attempts_by_user'] ?? 0),
+                    'attempts_last_minute_ip' => (int)($blockRes['attempts_by_ip'] ?? 0),
+                    'block_triggered_by' => (string)($blockRes['triggered_by'] ?? ''),
+                    'block_reason' => $blockReason,
+                    'blocked_until' => (string)($blockRes['blocked_until'] ?? ''),
+                    'block_duration_minutes' => 1,
+                    'target' => 'request_parameters',
+                    'client_time_utc' => $clientTimeUtc,
+                    'client_timezone' => $clientTimezone,
+                    'client_tz_offset_minutes' => $clientTzOffsetMinutes,
+                ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                'ip_address' => $requestIp,
+                'client_local_ip' => $clientLocalIp,
+                'user_agent' => (string)($_SERVER['HTTP_USER_AGENT'] ?? ''),
+            ]);
+        }
+    }
+} elseif ($action === 'access_restricted') {
+    // Restricted pages: block quickly after repeated attempts.
+    $blockRes = hackme_record_event_and_maybe_block(
+        $conn,
+        'access_restricted',
+        $userId > 0 ? $userId : null,
+        $requestIp,
+        2,
+        'access_restricted_repeated',
+        60,
+        60
+    );
+    $blocked = (bool)($blockRes['blocked'] ?? false);
+    if ($blocked) {
+        $blockReason = (string)($blockRes['reason'] ?? 'access_restricted_repeated');
+        if (!hackme_recent_security_block_logged($conn, $userId, $requestIp, $blockReason)) {
+            hackme_write_audit_log($conn, [
+                'actor_user_id' => $userId,
+                'actor_username' => $username !== '' ? $username : ('user_' . $userId),
+                'action' => 'security_block',
+                'status' => 'failed',
+                'details' => json_encode([
+                    'message' => 'User temporarily blocked after repeated restricted-page access attempts',
+                    'email' => $email,
+                    'blocked' => true,
+                    'attempts_last_minute' => (int)($blockRes['attempts'] ?? 0),
+                    'attempts_last_minute_user' => (int)($blockRes['attempts_by_user'] ?? 0),
+                    'attempts_last_minute_ip' => (int)($blockRes['attempts_by_ip'] ?? 0),
+                    'block_triggered_by' => (string)($blockRes['triggered_by'] ?? ''),
+                    'block_reason' => $blockReason,
+                    'blocked_until' => (string)($blockRes['blocked_until'] ?? ''),
+                    'block_duration_minutes' => 1,
+                    'target' => 'restricted_route',
+                    'client_time_utc' => $clientTimeUtc,
+                    'client_timezone' => $clientTimezone,
+                    'client_tz_offset_minutes' => $clientTzOffsetMinutes,
+                ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                'ip_address' => $requestIp,
+                'client_local_ip' => $clientLocalIp,
+                'user_agent' => (string)($_SERVER['HTTP_USER_AGENT'] ?? ''),
+            ]);
+        }
     }
 }
 

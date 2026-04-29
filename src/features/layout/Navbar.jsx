@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Terminal, Cpu, Code, Users, Star, Shield, Menu, X, Bell, Activity, AlertTriangle } from "lucide-react";
+import { Terminal, Cpu, Code, Users, Star, Shield, Menu, X, Bell, Activity, AlertTriangle, LayoutDashboard } from "lucide-react";
 import { navItems } from "../../data/navigationData";
 import { useNotifications } from "../../hooks/useNotifications";
 
@@ -98,6 +98,24 @@ const Navbar = ({ setCurrentPage, onLogout, currentPage, currentUser, isAdmin, i
         >
           <AlertTriangle className="w-3.5 h-3.5 lg:w-4 lg:h-4 flex-shrink-0" />
           <span className="text-[11px] lg:text-xs xl:text-sm whitespace-nowrap">ATTEMPT</span>
+        </button>
+      )}
+      {isSuperAdmin && (
+        <button
+          type="button"
+          title="Security dashboard"
+          onClick={() => handleNavSelection('security-dashboard')}
+          className={`flex items-center gap-1 lg:gap-1.5 px-1.5 lg:px-2 xl:px-2.5 py-1.5 lg:py-2 rounded-lg font-medium transition-all duration-200 border font-mono ${
+            currentPage === 'security-dashboard'
+              ? 'bg-gradient-to-r from-violet-600 to-violet-700 text-white shadow-lg border-violet-500/30'
+              : 'text-gray-400 hover:text-white hover:bg-gray-800/50 border-gray-600'
+          }`}
+        >
+          <LayoutDashboard className="w-3.5 h-3.5 lg:w-4 lg:h-4 flex-shrink-0" />
+          <span className="text-[11px] lg:text-xs xl:text-sm whitespace-nowrap hidden sm:inline">
+            SECURITY dashboard
+          </span>
+          <span className="text-[11px] sm:hidden whitespace-nowrap">SECURITY</span>
         </button>
       )}
     </>
