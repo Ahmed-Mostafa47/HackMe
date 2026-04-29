@@ -236,6 +236,29 @@ export const mockLabs = [
       "Use browser DevTools to intercept/override the game-config response so carSpeed becomes low enough to cross.",
   },
   {
+    lab_id: 42,
+    title: "Maze Master",
+    display_name: "Maze Master",
+    description:
+      "Maze challenge focused on learning hash coding concepts while navigating a dynamic maze and reaching the goal.",
+    labtype_id: 2,
+    difficulty: "medium",
+    points_total: 180,
+    is_published: true,
+    visibility: "public",
+    port: 4012,
+    launch_path: "/",
+    progress: 0,
+    status: "NOT_STARTED",
+    icon: "🧩",
+    hints: [
+      "Observe game state and movement logic from DevTools.",
+      "Track how level/path values are represented to understand the challenge flow.",
+    ],
+    solution:
+      "Analyze runtime state and maze behavior, then complete the path objective while understanding how hash-based logic is integrated into the challenge.",
+  },
+  {
     lab_id: 20,
     port: 4001,
     title: "Reflected XSS (White-box)",

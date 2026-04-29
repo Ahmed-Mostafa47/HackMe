@@ -6,7 +6,7 @@
 import { WHITEBOX_SQL_LAB_ID, WHITEBOX_XSS_LAB_IDS } from "../constants/labs";
 
 /** Black-box game / logic labs — always A04 regardless of noisy DB owasp_category_key */
-const PINNED_A04_GAME_LAB_IDS = new Set([40, 41]);
+const PINNED_A04_GAME_LAB_IDS = new Set([40, 41, 42]);
 
 /** OWASP Top 10 (2021), fixed UI order */
 export const OWASP_TOP_10 = [

@@ -96,8 +96,8 @@ const LabsListModern = ({
         if (id === 1) return false;
         if (lab.labtype_id !== 1 && id !== WHITEBOX_SQL_LAB_ID && !WHITEBOX_WORKBENCH_LAB_IDS.includes(id)) return false;
       } else if (labTypeId === 2) {
-        // Labs 40/41 (Sudoku, Frogger) may be mis-typed in DB; still treat as black-box; category filter still applies.
-        if (id !== 40 && id !== 41 && lab.labtype_id !== 2 && lab.labtype_id !== 3) return false;
+        // Game labs (Sudoku, Frogger, Maze Master) may be mis-typed in DB; still treat as black-box.
+        if (id !== 40 && id !== 41 && id !== 42 && lab.labtype_id !== 2 && lab.labtype_id !== 3) return false;
       } else if (labTypeId === 3) {
         if (lab.labtype_id !== 3 && id !== 18 && id !== 19) return false;
       } else if (lab.labtype_id !== labTypeId) return false;

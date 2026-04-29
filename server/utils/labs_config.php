@@ -4,7 +4,7 @@
  * LABS_BASE_PATH: Root folder containing all Training Labs (e.g. D:\Graduation_project\Training Labs).
  * If this path is wrong or missing SQL/, white-box lab 1 still loads using an embedded api/login.php sample.
  */
-define('LABS_BASE_PATH', 'D:\\Graduation_project\\Training Labs');
+define('LABS_BASE_PATH', 'E:\\Level 4\\Semester1\\graduation\\Labs');
 
 /** White-box SQL source lab (separate from black-box SQL lab_id = 1). */
 define('HACKME_WHITEBOX_SQL_LAB_ID', 11);
@@ -68,6 +68,12 @@ $GLOBALS['LABS_REGISTRY'] = [
         'folder' => 'BLACK_BOX/game',
         'port' => 4010,
         'points' => 200,
+    ],
+    [
+        'lab_id' => 42,
+        'folder' => 'Games/javascript-videogame-the-maze-master',
+        'port' => 4012,
+        'points' => 180,
     ],
     [
         'lab_id' => 18,

@@ -173,6 +173,12 @@ VALUES
  'Inspect browser runtime values and override game variables (speed, lives, collision checks) from DevTools to complete the challenge.',
  '🐸', 4010, '/',
  2, 'hard', 200, @creator, 1, 'public', 'cyberops/frogger-game', 3600)
+,
+(42, 'Maze Master',
+ 'A maze game designed to teach hash coding concepts while navigating dynamic paths and logic decisions.',
+ 'Inspect runtime values and path logic to understand how hash coding concepts are used, then complete the maze objective.',
+ '🧩', 4012, '/',
+ 2, 'medium', 180, @creator, 1, 'public', 'cyberops/maze-master', 3600)
 ON DUPLICATE KEY UPDATE
   title = VALUES(title),
   description = VALUES(description),
@@ -206,6 +212,8 @@ VALUES
 (400, 40, @creator, 'HACK_THE_SUDOKU', 'Bypass client-side validation, discover hidden logic, or exploit API secrets to win the Sudoku game.', 1, 150, 'medium', 1)
 ,
 (401, 41, @creator, 'FROGGER_DEVTOOLS', 'Use browser DevTools to manipulate Frogger runtime behavior and win the game.', 1, 200, 'hard', 1)
+,
+(402, 42, @creator, 'MAZE_MASTER_HASH', 'Complete Maze Master while learning hash coding concepts through gameplay and runtime inspection.', 1, 180, 'medium', 1)
 ON DUPLICATE KEY UPDATE
   statement = VALUES(statement),
   max_score = VALUES(max_score),
@@ -234,6 +242,8 @@ VALUES
 (400, 400, 'FLAG{SUDOKU_PWNED}', 'FLAG{SUDOKU_PWNED}', 150, 1, 'flag_match')
 ,
 (401, 401, 'FLAG{FROGGER_DEVTOOLS_41}', 'FLAG{FROGGER_DEVTOOLS_41}', 200, 1, 'flag_match')
+,
+(402, 402, 'FLAG{MAZE_MASTER_HASH_42}', 'FLAG{MAZE_MASTER_HASH_42}', 180, 1, 'flag_match')
 ON DUPLICATE KEY UPDATE
   secret_flag_hash = VALUES(secret_flag_hash),
   secret_flag_plain = VALUES(secret_flag_plain),
@@ -241,7 +251,7 @@ ON DUPLICATE KEY UPDATE
   active = 1;
 
 -- 5) Hints (two per lab)
-DELETE FROM hints WHERE challenge_id IN (201, 205, 207, 208, 209, 318, 319, 320, 321);
+DELETE FROM hints WHERE challenge_id IN (201, 205, 207, 208, 209, 318, 319, 320, 321, 402);
 
 INSERT INTO hints (challenge_id, text, penalty_points)
 VALUES
@@ -264,12 +274,15 @@ VALUES
 (400, 'Look for hidden JavaScript functions or global variables.', 0),
 (400, 'Probe common API endpoint paths for hidden features.', 0),
 (401, 'Open DevTools and inspect global game state in the console.', 0),
-(401, 'Try overriding speed, lives, or collision checks at runtime.', 0);
+(401, 'Try overriding speed, lives, or collision checks at runtime.', 0),
+(402, 'Observe how path/state values are represented during gameplay.', 0),
+(402, 'Inspect runtime logic to connect movement decisions with hash coding concepts.', 0);
 
 INSERT INTO lab_runtime_configs (lab_id, folder, compose_file)
 VALUES
 (40, 'Games/hack-the-sudoku', 'docker-compose.yml'),
-(41, 'BLACK_BOX/game', 'docker-compose.yml')
+(41, 'BLACK_BOX/game', 'docker-compose.yml'),
+(42, 'Games/javascript-videogame-the-maze-master', 'docker-compose.yml')
 ON DUPLICATE KEY UPDATE folder = VALUES(folder), compose_file = VALUES(compose_file);
 
 -- Remove lab 11 from public listings (matches get_labs.php filter).
@@ -277,3 +290,8 @@ UPDATE labs SET is_published = 0, visibility = 'private' WHERE lab_id = 11;
 
 -- Lab 18 display title (card + white-box header).
 UPDATE labs SET title = 'Access Control Bypass' WHERE lab_id = 18;
+
+-- Ensure Maze Master lab is launchable from cards (not marked as coming soon).
+UPDATE labs
+SET launch_path = '/', coming_soon = 0
+WHERE lab_id = 42;

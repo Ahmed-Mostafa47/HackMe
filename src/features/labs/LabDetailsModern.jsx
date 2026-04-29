@@ -43,7 +43,7 @@ const diffBadgeClasses = {
 };
 
 const whiteboxRouteLabIds = new Set(WHITEBOX_WORKBENCH_LAB_IDS);
-const noManualSubmitLabIds = new Set([1, 5, 7, 10, 30, 40, 41]);
+const noManualSubmitLabIds = new Set([1, 5, 7, 10, 30, 40, 41, 42]);
 
 const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
   const navigate = useNavigate();
@@ -148,6 +148,8 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
     "http://127.0.0.1:4003",
     "http://127.0.0.1:4010",
     "http://127.0.0.1:4011",
+    "http://localhost:4012",
+    "http://127.0.0.1:4012",
   ];
   useEffect(() => {
     const handler = (e) => {
@@ -350,8 +352,12 @@ const LabDetailsModern = ({ labId, onBack, currentUser, onFlagSuccess }) => {
         `http://localhost:${port}${normalizedPath}${separator}labId=${lab.lab_id}&token=${encodeURIComponent(data.token)}` +
         `&device_bind=${encodeURIComponent(deviceBind)}` +
         `&mac_address=${encodeURIComponent(mac)}&client_local_ip=${encodeURIComponent(localIp)}`;
-      // Use named window so lab tab keeps window.opener for postMessage to HackMe (lab 5)
-      window.open(url, "hackme_lab_" + lab.lab_id);
+      // Open in a fresh tab each time to avoid stale-window reuse redirects.
+      // Keep opener available for postMessage solve events.
+      const popup = window.open(url, `hackme_lab_${lab.lab_id}_${Date.now()}`);
+      if (!popup) {
+        setStartLabError("Popup blocked by browser. Allow popups for this site and try again.");
+      }
     } catch (err) {
       setStartLabError(err.message || "Network error");
     } finally {
