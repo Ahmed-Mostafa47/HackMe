@@ -6,6 +6,7 @@ declare(strict_types=1);
  */
 function hackme_ensure_audit_logs_table(PdoMysqliShim $conn): void
 {
+    $pdo = $conn->getPdo();
     $sql = "
         CREATE TABLE IF NOT EXISTS audit_logs (
             log_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -25,13 +26,13 @@ function hackme_ensure_audit_logs_table(PdoMysqliShim $conn): void
             INDEX idx_status (status)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     ";
-    $conn->query($sql);
+    $pdo->exec($sql);
 
     // Backward-compatible migrations for old audit_logs schema.
     $columns = [];
-    $colRes = $conn->query("SHOW COLUMNS FROM audit_logs");
-    if ($colRes) {
-        while ($row = $colRes->fetch_assoc()) {
+    $colRes = $pdo->query("SHOW COLUMNS FROM audit_logs");
+    if ($colRes instanceof PDOStatement) {
+        while ($row = $colRes->fetch(PDO::FETCH_ASSOC)) {
             $name = (string)($row['Field'] ?? '');
             if ($name !== '') {
                 $columns[$name] = true;
@@ -40,34 +41,34 @@ function hackme_ensure_audit_logs_table(PdoMysqliShim $conn): void
     }
 
     if (!isset($columns['actor_user_id'])) {
-        $conn->query("ALTER TABLE audit_logs ADD COLUMN actor_user_id INT NULL");
+        $pdo->exec("ALTER TABLE audit_logs ADD COLUMN actor_user_id INT NULL");
     }
     if (!isset($columns['actor_username'])) {
-        $conn->query("ALTER TABLE audit_logs ADD COLUMN actor_username VARCHAR(100) NULL");
+        $pdo->exec("ALTER TABLE audit_logs ADD COLUMN actor_username VARCHAR(100) NULL");
     }
     if (!isset($columns['action'])) {
-        $conn->query("ALTER TABLE audit_logs ADD COLUMN action VARCHAR(100) NOT NULL DEFAULT 'unknown'");
+        $pdo->exec("ALTER TABLE audit_logs ADD COLUMN action VARCHAR(100) NOT NULL DEFAULT 'unknown'");
     }
     if (!isset($columns['status'])) {
-        $conn->query("ALTER TABLE audit_logs ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'success'");
+        $pdo->exec("ALTER TABLE audit_logs ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'success'");
     }
     if (!isset($columns['target_user_id'])) {
-        $conn->query("ALTER TABLE audit_logs ADD COLUMN target_user_id INT NULL");
+        $pdo->exec("ALTER TABLE audit_logs ADD COLUMN target_user_id INT NULL");
     }
     if (!isset($columns['target_username'])) {
-        $conn->query("ALTER TABLE audit_logs ADD COLUMN target_username VARCHAR(100) NULL");
+        $pdo->exec("ALTER TABLE audit_logs ADD COLUMN target_username VARCHAR(100) NULL");
     }
     if (!isset($columns['details'])) {
-        $conn->query("ALTER TABLE audit_logs ADD COLUMN details TEXT NULL");
+        $pdo->exec("ALTER TABLE audit_logs ADD COLUMN details TEXT NULL");
     }
     if (!isset($columns['ip_address'])) {
-        $conn->query("ALTER TABLE audit_logs ADD COLUMN ip_address VARCHAR(64) NULL");
+        $pdo->exec("ALTER TABLE audit_logs ADD COLUMN ip_address VARCHAR(64) NULL");
     }
     if (!isset($columns['user_agent'])) {
-        $conn->query("ALTER TABLE audit_logs ADD COLUMN user_agent VARCHAR(255) NULL");
+        $pdo->exec("ALTER TABLE audit_logs ADD COLUMN user_agent VARCHAR(255) NULL");
     }
     if (!isset($columns['created_at'])) {
-        $conn->query("ALTER TABLE audit_logs ADD COLUMN created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP");
+        $pdo->exec("ALTER TABLE audit_logs ADD COLUMN created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP");
     }
 }
 
@@ -76,6 +77,7 @@ function hackme_ensure_audit_logs_table(PdoMysqliShim $conn): void
  */
 function hackme_write_audit_log(PdoMysqliShim $conn, array $payload): bool
 {
+    $pdo = $conn->getPdo();
     hackme_ensure_audit_logs_table($conn);
 
     $actorUserId = isset($payload['actor_user_id']) ? (int)$payload['actor_user_id'] : null;
@@ -159,10 +161,8 @@ function hackme_write_audit_log(PdoMysqliShim $conn, array $payload): bool
     $legacyUserId = $actorUserId ?? $targetUserId ?? 0;
 
     $hasUserIdColumn = false;
-    $colRes = $conn->query("SHOW COLUMNS FROM audit_logs LIKE 'user_id'");
-    if ($colRes && $colRes->num_rows > 0) {
-        $hasUserIdColumn = true;
-    }
+    $colStmt = $pdo->query("SHOW COLUMNS FROM audit_logs LIKE 'user_id'");
+    $hasUserIdColumn = ($colStmt instanceof PDOStatement) && ($colStmt->fetch(PDO::FETCH_ASSOC) !== false);
 
     if ($hasUserIdColumn) {
         $sql = "
@@ -171,7 +171,7 @@ function hackme_write_audit_log(PdoMysqliShim $conn, array $payload): bool
                 target_user_id, target_username, details, ip_address, user_agent
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ";
-        $stmt = $conn->prepare($sql);
+        $stmt = $pdo->prepare($sql);
     } else {
         $sql = "
             INSERT INTO audit_logs (
@@ -179,44 +179,22 @@ function hackme_write_audit_log(PdoMysqliShim $conn, array $payload): bool
                 target_user_id, target_username, details, ip_address, user_agent
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ";
-        $stmt = $conn->prepare($sql);
+        $stmt = $pdo->prepare($sql);
     }
     if (!$stmt) {
         error_log('[HackMe AUDIT] prepare failed: ' . $conn->error);
         return false;
     }
 
-    if ($hasUserIdColumn) {
-        $stmt->bind_param(
-            'iisssissss',
-            $legacyUserId,
-            $actorUserId,
-            $actorUsername,
-            $action,
-            $status,
-            $targetUserId,
-            $targetUsername,
-            $detailsJson,
-            $ipAddress,
-            $userAgent
-        );
-    } else {
-        $stmt->bind_param(
-            'isssissss',
-            $actorUserId,
-            $actorUsername,
-            $action,
-            $status,
-            $targetUserId,
-            $targetUsername,
-            $detailsJson,
-            $ipAddress,
-            $userAgent
-        );
+    $params = $hasUserIdColumn
+        ? [$legacyUserId, $actorUserId, $actorUsername, $action, $status, $targetUserId, $targetUsername, $detailsJson, $ipAddress, $userAgent]
+        : [$actorUserId, $actorUsername, $action, $status, $targetUserId, $targetUsername, $detailsJson, $ipAddress, $userAgent];
+    $ok = $stmt->execute($params);
+    $stmtError = '';
+    if (!$ok) {
+        $err = $stmt->errorInfo();
+        $stmtError = (string)($err[2] ?? '');
     }
-    $ok = $stmt->execute();
-    $stmtError = property_exists($stmt, 'error') ? (string)$stmt->error : '';
-    $stmt->close();
 
     if (!$ok) {
         error_log('[HackMe AUDIT] execute failed for action=' . $action . ' err=' . $stmtError . ' conn=' . $conn->error);
