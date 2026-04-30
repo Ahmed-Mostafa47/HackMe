@@ -57,7 +57,6 @@ function AppContent() {
   const location = useLocation();
 
   const [authMode, setAuthMode] = useState("login");
-  const [pendingUser, setPendingUser] = useState(null);
   const [verificationEmail, setVerificationEmail] = useState("");
   const [roleRequestStatus, setRoleRequestStatus] = useState(null);
   const [roleRequestLoading, setRoleRequestLoading] = useState(false);
@@ -269,23 +268,20 @@ function AppContent() {
         alert("✅ Verification code sent to your email.");
         setPendingUser(userData);
         setVerificationEmail(userData.email);
-        sessionStorage.setItem("verificationEmail", userData.email); // حفظ الإيميل مؤقتًا
-        
-        // Store expiration time (5 minutes from now)
-        const expirationTime = Date.now() + (5 * 60 * 1000); // 5 minutes in milliseconds
+        sessionStorage.setItem("verificationEmail", userData.email);
+        const expirationTime = Date.now() + (5 * 60 * 1000);
         localStorage.setItem("verificationCodeExpiresAt", expirationTime.toString());
         
         navigate("/verify");
       } else {
         alert(data.message || "❌ Registration failed.");
       }
-    } catch (error) {
+    } catch (_) {
       alert("⚠️ Error connecting to server.");
     }
   };
 
   const handleVerificationComplete = () => {
-    // Clear expiration time on verification complete
     localStorage.removeItem("verificationCodeExpiresAt");
     navigate("/set-password");
   };
@@ -294,13 +290,8 @@ function AppContent() {
     alert("📧 Verification code re-sent to " + verificationEmail);
   };
 
-  // 🔐 بعد تعيين الباسورد
   const handlePasswordSet = (userData) => {
-    // Password is already set in the database by SetPasswordPage
-    // userData contains the complete user information from the server response
     if (userData && userData.user_id) {
-      // Clear pending user state
-      setPendingUser(null);
       sessionStorage.removeItem("verificationEmail");
       alert("✅ Account created successfully! Please log in with your credentials.");
       navigate("/");
@@ -314,7 +305,6 @@ function AppContent() {
   const handleForgotPassword = () => navigate("/forgot-password");
   const handleBackToLogin = () => navigate("/login");
   const handleChangePassword = () => navigate("/change-password");
-  const handleProfilePasswordReset = () => navigate("/reset-password?mode=profile");
   
   const handleDeleteAccount = async (password) => {
     if (!currentUser?.user_id) {

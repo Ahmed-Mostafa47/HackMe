@@ -4,33 +4,61 @@ import { X } from "lucide-react";
 const API_BASE = import.meta.env.DEV ? "/api" : "http://localhost/HackMe/server/api";
 
 /**
- * SuperAdmin contact emails (public GET). Used on landing and in the logged-in account menu.
+ * Contact form modal that fetches SuperAdmin recipients and submits email requests.
  */
 export default function ContactUsModal({ open, onClose }) {
   const [contacts, setContacts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    subject: "",
+    message: "",
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [submitMessage, setSubmitMessage] = useState("");
+  const [submitError, setSubmitError] = useState("");
+  const [captchaQuestion, setCaptchaQuestion] = useState("");
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [captchaAnswer, setCaptchaAnswer] = useState("");
 
   useEffect(() => {
     if (!open) return;
     setLoading(true);
     setError(null);
+    setSubmitMessage("");
+    setSubmitError("");
     let cancelled = false;
     (async () => {
       try {
         const res = await fetch(`${API_BASE}/contact_superadmins.php`);
-        const data = await res.json();
+        const raw = await res.text();
+        let data = {};
+        try {
+          data = JSON.parse(raw);
+        } catch (_) {
+          data = {};
+        }
         if (cancelled) return;
-        if (data.success && Array.isArray(data.contacts)) {
+        if (res.ok && data.success && Array.isArray(data.contacts)) {
           setContacts(data.contacts);
+          setCaptchaQuestion(data?.captcha?.question || "");
+          setCaptchaToken(data?.captcha?.token || "");
         } else {
-          setError(data.message || "Could not load contact details");
+          const fallback =
+            raw && raw.trim() ? `Server error (${res.status}): ${raw.slice(0, 120)}` : `Server error (${res.status})`;
+          setError(data.message || fallback || "Could not load contact details");
           setContacts([]);
+          setCaptchaQuestion("");
+          setCaptchaToken("");
         }
       } catch (e) {
         if (!cancelled) {
           setError("Cannot reach server");
           setContacts([]);
+          setCaptchaQuestion("");
+          setCaptchaToken("");
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -51,6 +79,54 @@ export default function ContactUsModal({ open, onClose }) {
   }, [open, onClose]);
 
   if (!open) return null;
+
+  const handleChange = (field) => (e) => {
+    const value = e.target.value;
+    setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (submitting) return;
+    setSubmitMessage("");
+    setSubmitError("");
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${API_BASE}/contact_superadmins.php`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...form,
+          captcha_token: captchaToken,
+          captcha_answer: captchaAnswer,
+        }),
+      });
+      const raw = await res.text();
+      let data = {};
+      try {
+        data = JSON.parse(raw);
+      } catch (_) {
+        data = {};
+      }
+      if (data?.next_captcha?.question && data?.next_captcha?.token) {
+        setCaptchaQuestion(data.next_captcha.question);
+        setCaptchaToken(data.next_captcha.token);
+        setCaptchaAnswer("");
+      }
+      if (res.ok && data?.success) {
+        setSubmitMessage(data.message || "Message sent.");
+        setForm({ name: "", email: "", subject: "", message: "" });
+      } else {
+        const fallback =
+          raw && raw.trim() ? `Server error (${res.status}): ${raw.slice(0, 120)}` : `Server error (${res.status})`;
+        setSubmitError(data?.message || fallback || "Failed to send message.");
+      }
+    } catch (_) {
+      setSubmitError("Cannot reach server.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div
@@ -76,8 +152,66 @@ export default function ContactUsModal({ open, onClose }) {
           // CONTACT_US
         </h2>
         <p className="mt-1 font-mono text-sm text-gray-500">
-          SuperAdmin team — direct email addresses:
+          Send a message to the SuperAdmin team:
         </p>
+        <form className="mt-4 space-y-3" onSubmit={handleSubmit}>
+          <input
+            type="text"
+            required
+            value={form.name}
+            onChange={handleChange("name")}
+            placeholder="Your name"
+            className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 font-mono text-sm text-gray-100 placeholder:text-gray-500 focus:border-green-500 focus:outline-none"
+          />
+          <input
+            type="email"
+            required
+            value={form.email}
+            onChange={handleChange("email")}
+            placeholder="Your email"
+            className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 font-mono text-sm text-gray-100 placeholder:text-gray-500 focus:border-green-500 focus:outline-none"
+          />
+          <input
+            type="text"
+            required
+            value={form.subject}
+            onChange={handleChange("subject")}
+            placeholder="Subject"
+            className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 font-mono text-sm text-gray-100 placeholder:text-gray-500 focus:border-green-500 focus:outline-none"
+          />
+          <textarea
+            required
+            rows={4}
+            value={form.message}
+            onChange={handleChange("message")}
+            placeholder="Your message"
+            className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 font-mono text-sm text-gray-100 placeholder:text-gray-500 focus:border-green-500 focus:outline-none"
+          />
+          <label className="block font-mono text-xs text-gray-400">
+            CAPTCHA: {captchaQuestion || "Loading challenge..."}
+          </label>
+          <input
+            type="text"
+            required
+            value={captchaAnswer}
+            onChange={(e) => setCaptchaAnswer(e.target.value)}
+            placeholder="Enter captcha answer"
+            className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 font-mono text-sm text-gray-100 placeholder:text-gray-500 focus:border-green-500 focus:outline-none"
+          />
+          <button
+            type="submit"
+            disabled={submitting || !captchaToken || !captchaQuestion}
+            className="w-full rounded-lg border border-green-600 bg-green-700/80 px-4 py-2 font-mono text-sm font-semibold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {submitting ? "Sending..." : "Send to SuperAdmins"}
+          </button>
+          {submitMessage ? (
+            <p className="font-mono text-xs text-green-400">{submitMessage}</p>
+          ) : null}
+          {submitError ? (
+            <p className="font-mono text-xs text-red-400">{submitError}</p>
+          ) : null}
+        </form>
         {loading && (
           <p className="mt-6 font-mono text-sm text-gray-400">Loading contacts…</p>
         )}
