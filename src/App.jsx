@@ -35,6 +35,7 @@ import NotificationContainer from "./components/notifications/NotificationContai
 import axios from "axios";
 import { useAuth } from "./hooks/useAuth";
 import { useLabs } from "./hooks/useLabs";
+import { labService } from "./services/labService";
 import "./styles/animations.css";
 import { WHITEBOX_WORKBENCH_LAB_IDS } from "./constants/labs";
 import { fetchHackMeMachineIdentity } from "./utils/hackmeIdentity";
@@ -767,16 +768,34 @@ function AppContent() {
                 navigate(`/labs?labType=${labTypeParam}&category=${cat}`)
               }
               onOpenLab={(lab, categoryKey) => {
-                if (lab?.coming_soon) {
-                  window.alert("Soon");
-                  return;
-                }
                 markAllowedLabNav(lab?.lab_id);
                 navigate(buildLabRoute(lab, categoryKey, labTypeParam));
               }}
             />
           );
         }
+
+        const handleRemoveLabFromList = async (lab) => {
+          const userId = Number(currentUser?.user_id || 0);
+          if (!userId) {
+            window.alert("Missing logged-in user id.");
+            return false;
+          }
+          const ok = window.confirm(
+            `Delete "${lab?.title || "this lab"}"? This action cannot be undone.`
+          );
+          if (!ok) return false;
+          try {
+            await labService.deleteLab({
+              userId,
+              labId: Number(lab?.lab_id || 0),
+            });
+            return true;
+          } catch (err) {
+            window.alert(err?.message || "Failed to delete lab.");
+            return false;
+          }
+        };
 
         return (
           <LabsListModern
@@ -785,15 +804,10 @@ function AppContent() {
             isInstructor={isInstructor}
             labType={labTypeParam}
             category={categoryParam}
-            onEditLab={() => {}}
-            onRemoveLab={() => {}}
+            onRemoveLab={handleRemoveLabFromList}
             onBack={backToCategories}
             onAddLab={() => navigate("/instructor-labs")}
             onLabClick={(lab) => {
-              if (lab?.coming_soon) {
-                window.alert("Soon");
-                return;
-              }
               markAllowedLabNav(lab?.lab_id);
               navigate(buildLabRoute(lab, categoryParam, labTypeParam));
             }}

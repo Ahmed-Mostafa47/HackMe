@@ -114,10 +114,6 @@ const LabsListModern = ({
   const currentUserId = getStoredUserId();
 
   const handleOpenLab = (lab) => {
-    if (lab?.coming_soon) {
-      window.alert("Soon");
-      return;
-    }
     if (onLabClick) {
       onLabClick(lab);
     } else {
@@ -296,9 +292,16 @@ const LabsListModern = ({
 
                   <button
                     type="button"
-                    onClick={(e) => {
+                    onClick={async (e) => {
                       e.stopPropagation();
-                      onRemoveLab && onRemoveLab(lab);
+                      if (onRemoveLab) {
+                        const removed = await onRemoveLab(lab);
+                        if (removed) {
+                          setLabs((prev) =>
+                            prev.filter((l) => Number(l.lab_id) !== Number(lab.lab_id))
+                          );
+                        }
+                      }
                     }}
                     className="inline-flex items-center justify-center gap-1.5 rounded-lg 
                     border border-rose-500/60 bg-rose-500/10 

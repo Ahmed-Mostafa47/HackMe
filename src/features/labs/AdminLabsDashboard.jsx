@@ -367,24 +367,7 @@ const AdminLabsDashboard = () => {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 md:flex-col md:items-end md:gap-2">
-                    <button
-                      onClick={() => handleApprove(lab)}
-                      disabled
-                      className="inline-flex items-center gap-2 rounded-lg bg-emerald-500/15 border border-emerald-400/60 px-3 py-1.5 text-[11px] font-mono text-emerald-200 hover:bg-emerald-500/25 transition-colors disabled:opacity-50"
-                    >
-                      <Check className="w-3.5 h-3.5" />
-                      Approve (Soon)
-                    </button>
-                    <button
-                      onClick={() => handleReject(lab)}
-                      disabled
-                      className="inline-flex items-center gap-2 rounded-lg bg-rose-500/15 border border-rose-400/60 px-3 py-1.5 text-[11px] font-mono text-rose-200 hover:bg-rose-500/25 transition-colors disabled:opacity-50"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                      Reject (Soon)
-                    </button>
-                  </div>
+                  
                 </div>
               ))}
             </div>
