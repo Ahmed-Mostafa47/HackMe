@@ -21,6 +21,21 @@ require_once __DIR__ . '/../utils/db_connect.php';
 require_once __DIR__ . '/../utils/permissions.php';
 require_once __DIR__ . '/../utils/audit_log.php';
 
+function hackme_sanitize_actor_username_for_failed_audit(string $actorUsername): string
+{
+    $actorUsername = trim($actorUsername);
+    if ($actorUsername === '') {
+        return 'guest';
+    }
+    if (strpos($actorUsername, '@') !== false) {
+        $candidate = trim((string)strtok($actorUsername, '@'));
+        $candidate = preg_replace('/[^a-zA-Z0-9._-]/', '', $candidate ?? '');
+        $candidate = trim((string)$candidate);
+        return $candidate !== '' ? $candidate : 'guest';
+    }
+    return $actorUsername;
+}
+
 $currentUserId = (int)($_GET['current_user_id'] ?? 0);
 if ($currentUserId < 1) {
     http_response_code(403);
@@ -105,7 +120,9 @@ if ($search !== '') {
 $logIdExpr = isset($available['log_id']) ? 'l.log_id' : (isset($available['id']) ? 'l.id AS log_id' : '0 AS log_id');
 $actorUserIdRawExpr = isset($available['actor_user_id']) ? 'l.actor_user_id' : 'NULL';
 $actorUserExpr = $actorUserIdRawExpr . ' AS actor_user_id';
-$actorNameExpr = isset($available['actor_username']) ? 'actor_username' : (isset($available['username']) ? 'username AS actor_username' : 'NULL AS actor_username');
+$actorNameExpr = "(COALESCE((SELECT u.username FROM users u WHERE u.user_id = {$actorUserIdRawExpr} LIMIT 1), "
+    . (isset($available['actor_username']) ? 'l.actor_username' : (isset($available['username']) ? 'l.username' : 'NULL'))
+    . ")) AS actor_username";
 $actionExpr = isset($available['action']) ? 'action' : (isset($available['event']) ? 'event AS action' : "'unknown' AS action");
 $statusExpr = isset($available['status']) ? 'status' : "'success' AS status";
 $targetUserIdRawExpr = isset($available['target_user_id']) ? 'l.target_user_id' : 'NULL';
@@ -134,6 +151,11 @@ if ($result === false) {
 }
 $logs = [];
 while ($row = $result->fetch_assoc()) {
+    $statusVal = strtolower(trim((string)($row['status'] ?? '')));
+    $actorUsername = trim((string)($row['actor_username'] ?? ''));
+    if ($statusVal === 'failed' && strpos($actorUsername, '@') !== false) {
+        $row['actor_username'] = hackme_sanitize_actor_username_for_failed_audit($actorUsername);
+    }
     $logs[] = $row;
 }
 

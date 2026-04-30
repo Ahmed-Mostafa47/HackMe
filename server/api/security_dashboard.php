@@ -20,6 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 require_once __DIR__ . '/../utils/db_connect.php';
 require_once __DIR__ . '/../utils/permissions.php';
 require_once __DIR__ . '/../utils/audit_log.php';
+require_once __DIR__ . '/../utils/security_block.php';
 
 // Same underlying storage as Attempt Logs; aggregates only attempt-type rows (never full audit).
 hackme_ensure_audit_logs_table($conn);
@@ -338,6 +339,83 @@ usort($blockedSamples, static function ($a, $b) {
 });
 $blockedSamples = array_slice($blockedSamples, 0, 12);
 
+// Top suspicious users/IPs from Attempt Logs (same source as the rest of dashboard).
+$topSuspiciousUsers = [];
+$suspiciousMap = [];
+$sqlSuspicious = "
+    SELECT
+        l.actor_user_id,
+        l.actor_username,
+        l.ip_address,
+        l.details,
+        l.created_at,
+        COALESCE(NULLIF(TRIM(u.username), ''), '') AS profile_username
+    FROM audit_logs l
+    LEFT JOIN users u ON u.user_id = l.actor_user_id
+    WHERE l.created_at >= DATE_SUB(NOW(), INTERVAL {$hoursSql} HOUR)
+      AND (
+        l.action = 'suspicious_score_update'
+        OR l.action = 'security_block'
+      )
+    ORDER BY l.created_at DESC
+    LIMIT 12000
+";
+$rSuspicious = $conn->query($sqlSuspicious);
+if ($rSuspicious) {
+    while ($row = $rSuspicious->fetch_assoc()) {
+        $decoded = json_decode((string)($row['details'] ?? ''), true);
+        $d = is_array($decoded) ? $decoded : [];
+        $score = (int)($d['suspicious_score'] ?? 0);
+        if ($score <= 0) {
+            continue;
+        }
+        $uid = (int)($row['actor_user_id'] ?? 0);
+        $username = trim((string)($row['profile_username'] ?? ''));
+        if ($username === '') {
+            $username = trim((string)($row['actor_username'] ?? ''));
+        }
+        if ($username === '' && $uid > 0) {
+            $username = 'user_' . $uid;
+        }
+        if ($username === '') {
+            $username = 'unknown';
+        }
+        $ip = trim((string)($row['ip_address'] ?? ''));
+        if ($ip === '') {
+            $ip = '(no-ip)';
+        }
+        $updatedAt = (string)($row['created_at'] ?? '');
+        $key = ($uid > 0 ? ('u:' . $uid) : ('i:' . $ip));
+        if (!isset($suspiciousMap[$key])) {
+            $suspiciousMap[$key] = [
+                'user_id' => $uid > 0 ? $uid : null,
+                'username' => $username,
+                'ip' => $ip,
+                'score' => $score,
+                'updated_at' => $updatedAt,
+            ];
+            continue;
+        }
+        if ($score > (int)$suspiciousMap[$key]['score']) {
+            $suspiciousMap[$key]['score'] = $score;
+        }
+        if ($updatedAt !== '' && strcmp($updatedAt, (string)$suspiciousMap[$key]['updated_at']) > 0) {
+            $suspiciousMap[$key]['updated_at'] = $updatedAt;
+            $suspiciousMap[$key]['ip'] = $ip;
+            $suspiciousMap[$key]['username'] = $username;
+        }
+    }
+}
+$topSuspiciousUsers = array_values($suspiciousMap);
+usort($topSuspiciousUsers, static function ($a, $b) {
+    $scoreCmp = ((int)($b['score'] ?? 0)) <=> ((int)($a['score'] ?? 0));
+    if ($scoreCmp !== 0) {
+        return $scoreCmp;
+    }
+    return strcmp((string)($b['updated_at'] ?? ''), (string)($a['updated_at'] ?? ''));
+});
+$topSuspiciousUsers = array_slice($topSuspiciousUsers, 0, 12);
+
 // Most attacked targets: security events only—not benign traffic (e.g. excludes successful login).
 $endpointAttackActions = "'access_restricted','url_tamper_attempt','privilege_escalation_attempt','sensitive_action_attempt',"
     . "'brute_force_detection','security_block','login_rate_limit','password_change_rate_limit','login'";
@@ -382,4 +460,5 @@ echo json_encode([
     'failed_vs_success' => $statusRatio,
     'blocked_users_distinct' => $blockedDistinct,
     'blocked_users_top' => $blockedSamples,
+    'top_suspicious_users' => $topSuspiciousUsers,
 ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);

@@ -106,8 +106,9 @@ const AttemptLogsPage = ({ currentUser }) => {
     const parsed = parseDetails(log?.details);
     if (typeof parsed?.attack_type === "string" && parsed.attack_type.trim() !== "") return parsed.attack_type.trim();
     if (typeof parsed?.attackType === "string" && parsed.attackType.trim() !== "") return parsed.attackType.trim();
+    if (typeof parsed?.score_event === "string" && parsed.score_event.trim() !== "") return parsed.score_event.trim();
     const action = String(log?.action || "").trim();
-    if (["brute_force_detection", "login_rate_limit", "security_block"].includes(action)) {
+    if (["brute_force_detection", "login_rate_limit", "security_block", "suspicious_score_update"].includes(action)) {
       return "brute_force";
     }
     return "-";
@@ -115,6 +116,7 @@ const AttemptLogsPage = ({ currentUser }) => {
   const getTarget = (log) => {
     const parsed = parseDetails(log?.details);
     if (typeof parsed?.target === "string" && parsed.target.trim() !== "") return parsed.target.trim();
+    if (typeof parsed?.score_target === "string" && parsed.score_target.trim() !== "") return parsed.score_target.trim();
     if (typeof parsed?.target_resource === "string" && parsed.target_resource.trim() !== "") return parsed.target_resource.trim();
     if (typeof log?.target_username === "string" && log.target_username.trim() !== "") return log.target_username.trim();
     if (log?.target_user_id) return `user #${log.target_user_id}`;
@@ -130,7 +132,11 @@ const AttemptLogsPage = ({ currentUser }) => {
   };
   const getBlockDuration = (log) => {
     const parsed = parseDetails(log?.details);
-    const duration = parsed?.block_duration ?? parsed?.block_duration_minutes ?? parsed?.duration_minutes;
+    const duration =
+      log?.block_duration_minutes ??
+      parsed?.block_duration ??
+      parsed?.block_duration_minutes ??
+      parsed?.duration_minutes;
     if (duration !== undefined && duration !== null && String(duration).trim() !== "") {
       const n = Number(duration);
       if (!Number.isNaN(n) && Number.isFinite(n)) return `${n} min`;
@@ -217,6 +223,7 @@ const AttemptLogsPage = ({ currentUser }) => {
             >
               <option value="">All attempt actions</option>
               <option value="login">login</option>
+              <option value="suspicious_score_update">suspicious_score_update</option>
               <option value="access_restricted">access_restricted</option>
               <option value="url_tamper_attempt">url_tamper_attempt</option>
               <option value="privilege_escalation_attempt">privilege_escalation_attempt</option>

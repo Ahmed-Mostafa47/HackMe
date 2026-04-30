@@ -31,6 +31,155 @@ function hackme_ensure_security_tables(PdoMysqliShim $conn): void
             INDEX idx_ip_block (ip_address, blocked_until)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     ");
+
+    $conn->query("
+        CREATE TABLE IF NOT EXISTS security_scores (
+            score_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NULL,
+            ip_address VARCHAR(64) NULL,
+            score INT NOT NULL DEFAULT 0,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uniq_user_score (user_id),
+            UNIQUE KEY uniq_ip_score (ip_address),
+            INDEX idx_score_updated (score, updated_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    ");
+}
+
+function hackme_suspicious_points_for_event(string $eventKey): int
+{
+    $eventKey = strtolower(trim($eventKey));
+    $map = [
+        'credential_guess' => 2,      // guessing email or password
+        'password_spray' => 3,        // repeated password tries
+        'access_restricted' => 5,     // restricted-page access
+        'url_tamper_attempt' => 4,    // URL parameter tampering
+    ];
+    return (int)($map[$eventKey] ?? 0);
+}
+
+function hackme_suspicious_level_from_score(int $score): string
+{
+    if ($score > 10) {
+        return 'attack';
+    }
+    if ($score >= 4) {
+        return 'suspicious';
+    }
+    return 'normal';
+}
+
+function hackme_read_current_score(PdoMysqliShim $conn, ?int $userId, string $ipAddress): array
+{
+    hackme_ensure_security_tables($conn);
+    $uid = $userId !== null && $userId > 0 ? (int)$userId : 0;
+    $ipEsc = $conn->real_escape_string($ipAddress);
+
+    $scoreByUser = 0;
+    if ($uid > 0) {
+        $resUser = $conn->query("SELECT score FROM security_scores WHERE user_id = {$uid} LIMIT 1");
+        if ($resUser && $resUser->num_rows > 0) {
+            $scoreByUser = (int)($resUser->fetch_assoc()['score'] ?? 0);
+        }
+    }
+
+    $scoreByIp = 0;
+    if (trim($ipAddress) !== '') {
+        $resIp = $conn->query("SELECT score FROM security_scores WHERE ip_address = '{$ipEsc}' LIMIT 1");
+        if ($resIp && $resIp->num_rows > 0) {
+            $scoreByIp = (int)($resIp->fetch_assoc()['score'] ?? 0);
+        }
+    }
+
+    return [
+        'score_by_user' => $scoreByUser,
+        'score_by_ip' => $scoreByIp,
+        'score' => max($scoreByUser, $scoreByIp),
+        'triggered_by' => $scoreByUser >= $scoreByIp ? 'user' : 'ip',
+    ];
+}
+
+function hackme_decay_stale_suspicious_scores(PdoMysqliShim $conn, int $staleMinutes = 20): void
+{
+    hackme_ensure_security_tables($conn);
+    $staleMinutes = max(5, $staleMinutes);
+    $conn->query("
+        UPDATE security_scores
+        SET score = 0
+        WHERE score > 0
+          AND updated_at < DATE_SUB(NOW(), INTERVAL {$staleMinutes} MINUTE)
+    ");
+}
+
+function hackme_apply_suspicious_score(
+    PdoMysqliShim $conn,
+    string $eventKey,
+    ?int $userId,
+    string $ipAddress,
+    int $blockSeconds = 60
+): array {
+    hackme_ensure_security_tables($conn);
+    // Prevent stale historical points from causing unexpected immediate blocks.
+    hackme_decay_stale_suspicious_scores($conn, 20);
+    $points = hackme_suspicious_points_for_event($eventKey);
+    $uid = $userId !== null && $userId > 0 ? (int)$userId : 0;
+    $uidSql = $uid > 0 ? (string)$uid : 'NULL';
+    $ipEsc = $conn->real_escape_string($ipAddress);
+    $eventEsc = $conn->real_escape_string(trim($eventKey) !== '' ? trim($eventKey) : 'unknown');
+
+    // Keep event history for auditing/forensics.
+    $conn->query("INSERT INTO security_events (user_id, ip_address, event_type) VALUES ($uidSql, '{$ipEsc}', '{$eventEsc}')");
+
+    if ($points > 0) {
+        if ($uid > 0) {
+            $conn->query("
+                INSERT INTO security_scores (user_id, ip_address, score)
+                VALUES ({$uid}, NULL, {$points})
+                ON DUPLICATE KEY UPDATE score = GREATEST(0, score + {$points})
+            ");
+        }
+        if (trim($ipAddress) !== '') {
+            $conn->query("
+                INSERT INTO security_scores (user_id, ip_address, score)
+                VALUES (NULL, '{$ipEsc}', {$points})
+                ON DUPLICATE KEY UPDATE score = GREATEST(0, score + {$points})
+            ");
+        }
+    }
+
+    $scoreState = hackme_read_current_score($conn, $userId, $ipAddress);
+    $effectiveScore = (int)($scoreState['score'] ?? 0);
+    $level = hackme_suspicious_level_from_score($effectiveScore);
+    $blocked = false;
+    $blockedUntil = '';
+    $reason = '';
+
+    if ($level === 'attack') {
+        $existing = hackme_is_blocked_now($conn, $userId, $ipAddress);
+        if (!empty($existing['blocked'])) {
+            $blocked = true;
+            $blockedUntil = (string)($existing['blocked_until'] ?? '');
+            $reason = (string)($existing['reason'] ?? 'suspicious_score_attack');
+        } else {
+            $block = hackme_apply_temporary_block($conn, $userId, $ipAddress, 'suspicious_score_attack', $blockSeconds);
+            $blocked = true;
+            $blockedUntil = (string)($block['blocked_until'] ?? '');
+            $reason = (string)($block['reason'] ?? 'suspicious_score_attack');
+        }
+    }
+
+    return [
+        'event' => $eventKey,
+        'points_added' => $points,
+        'score' => $effectiveScore,
+        'score_by_user' => (int)($scoreState['score_by_user'] ?? 0),
+        'score_by_ip' => (int)($scoreState['score_by_ip'] ?? 0),
+        'triggered_by' => (string)($scoreState['triggered_by'] ?? ''),
+        'level' => $level,
+        'blocked' => $blocked,
+        'blocked_until' => $blockedUntil,
+        'reason' => $reason,
+    ];
 }
 
 function hackme_is_blocked_now(PdoMysqliShim $conn, ?int $userId, string $ipAddress): array

@@ -155,38 +155,65 @@ function hackme_write_audit_log(PdoMysqliShim $conn, array $payload): bool
     $detailsJson = json_encode($detailsObj, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}';
 
     // Legacy compatibility: some schemas require a non-null user_id column.
-    $legacyUserId = $actorUserId ?? $targetUserId ?? null;
-    if ($legacyUserId === null) {
-        // Skip writes we can't map to a concrete user in legacy schema.
-        error_log('[HackMe AUDIT] skipped write: legacy user_id is required for action=' . $action);
-        return false;
+    // Use 0 fallback so security events for unknown/unauthenticated actors are still persisted.
+    $legacyUserId = $actorUserId ?? $targetUserId ?? 0;
+
+    $hasUserIdColumn = false;
+    $colRes = $conn->query("SHOW COLUMNS FROM audit_logs LIKE 'user_id'");
+    if ($colRes && $colRes->num_rows > 0) {
+        $hasUserIdColumn = true;
     }
 
-    $sql = "
-        INSERT INTO audit_logs (
-            user_id, actor_user_id, actor_username, action, status,
-            target_user_id, target_username, details, ip_address, user_agent
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ";
-    $stmt = $conn->prepare($sql);
+    if ($hasUserIdColumn) {
+        $sql = "
+            INSERT INTO audit_logs (
+                user_id, actor_user_id, actor_username, action, status,
+                target_user_id, target_username, details, ip_address, user_agent
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ";
+        $stmt = $conn->prepare($sql);
+    } else {
+        $sql = "
+            INSERT INTO audit_logs (
+                actor_user_id, actor_username, action, status,
+                target_user_id, target_username, details, ip_address, user_agent
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ";
+        $stmt = $conn->prepare($sql);
+    }
     if (!$stmt) {
         error_log('[HackMe AUDIT] prepare failed: ' . $conn->error);
         return false;
     }
 
-    $stmt->bind_param(
-        'iisssissss',
-        $legacyUserId,
-        $actorUserId,
-        $actorUsername,
-        $action,
-        $status,
-        $targetUserId,
-        $targetUsername,
-        $detailsJson,
-        $ipAddress,
-        $userAgent
-    );
+    if ($hasUserIdColumn) {
+        $stmt->bind_param(
+            'iisssissss',
+            $legacyUserId,
+            $actorUserId,
+            $actorUsername,
+            $action,
+            $status,
+            $targetUserId,
+            $targetUsername,
+            $detailsJson,
+            $ipAddress,
+            $userAgent
+        );
+    } else {
+        $stmt->bind_param(
+            'isssissss',
+            $actorUserId,
+            $actorUsername,
+            $action,
+            $status,
+            $targetUserId,
+            $targetUsername,
+            $detailsJson,
+            $ipAddress,
+            $userAgent
+        );
+    }
     $ok = $stmt->execute();
     $stmtError = property_exists($stmt, 'error') ? (string)$stmt->error : '';
     $stmt->close();

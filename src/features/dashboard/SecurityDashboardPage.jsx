@@ -64,6 +64,16 @@ const SecurityDashboardPage = ({ currentUser }) => {
     ? Math.round(((data?.failed_vs_success?.success ?? 0) / ratioTotal) * 1000) / 10
     : 0;
 
+  const formatUpdatedAt = (raw) => {
+    const v = String(raw || "").trim();
+    if (!v) return "—";
+    // DB timestamp is stored without timezone; treat it as UTC then render local time.
+    const isoUtc = v.includes("T") ? `${v}Z` : `${v.replace(" ", "T")}Z`;
+    const d = new Date(isoUtc);
+    if (Number.isNaN(d.getTime())) return v;
+    return d.toLocaleString();
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-gray-800 pt-24 pb-12 px-4">
       <div className="max-w-7xl mx-auto">
@@ -206,6 +216,46 @@ const SecurityDashboardPage = ({ currentUser }) => {
                 </div>
 
                 <div>
+                  <h2 className="text-lg font-mono text-white flex items-center gap-2 mb-4">
+                    <Users className="w-5 h-5 text-cyan-400" />
+                    TOP_SUSPICIOUS_USERS
+                  </h2>
+                  <p className="text-xs text-gray-500 font-mono mb-3">
+                    Live score table from <span className="text-gray-300">security_scores</span> (auto-updated).
+                  </p>
+                  {(data?.top_suspicious_users || []).length === 0 ? (
+                    <p className="text-gray-500 font-mono text-xs mb-6">NO_SUSPICIOUS_USERS</p>
+                  ) : (
+                    <div className="overflow-x-auto max-h-[220px] mb-6">
+                      <table className="w-full min-w-[540px] text-left font-mono text-xs">
+                        <thead>
+                          <tr className="border-b border-gray-700 text-gray-500">
+                            <th className="py-2 pr-2">USERNAME</th>
+                            <th className="py-2 pr-2">USER_ID</th>
+                            <th className="py-2 pr-2">IP</th>
+                            <th className="py-2 pr-2 text-right">SCORE</th>
+                            <th className="py-2 pr-2">UPDATED_AT</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {data.top_suspicious_users.map((u, idx) => (
+                            <tr key={`${u.user_id || "u"}-${u.ip}-${idx}`} className="border-b border-gray-800 text-gray-200">
+                              <td className="py-2 pr-2 truncate max-w-[160px]" title={u.username || "—"}>
+                                {u.username || "—"}
+                              </td>
+                              <td className="py-2 pr-2 text-amber-200/90">{u.user_id ? `#${u.user_id}` : "—"}</td>
+                              <td className="py-2 pr-2 truncate max-w-[180px]" title={u.ip || "—"}>
+                                {u.ip || "—"}
+                              </td>
+                              <td className="py-2 pr-2 text-right text-amber-300 font-semibold">{u.score ?? 0}</td>
+                              <td className="py-2 pr-2 text-emerald-200/90">{formatUpdatedAt(u.updated_at)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
                   <h2 className="text-lg font-mono text-white flex items-center gap-2 mb-4">
                     <Users className="w-5 h-5 text-amber-400" />
                     BLOCKED_USERS

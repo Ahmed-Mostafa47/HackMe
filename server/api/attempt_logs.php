@@ -30,6 +30,71 @@ function hackme_parse_details(?string $raw): array
     return (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) ? $decoded : [];
 }
 
+function hackme_parse_datetime_unix_for_attempts(string $raw): int|false
+{
+    $raw = trim($raw);
+    if ($raw === '') {
+        return false;
+    }
+    $ts = strtotime($raw);
+    if ($ts !== false) {
+        return $ts;
+    }
+    $normalized = preg_replace('#\.\d+#', '', $raw);
+    $normalized = str_replace('T', ' ', $normalized);
+    $ts = strtotime($normalized);
+    if ($ts !== false) {
+        return $ts;
+    }
+    return false;
+}
+
+function hackme_infer_block_duration_minutes(array $details, string $createdAt): int
+{
+    if (isset($details['block_duration_minutes']) && is_numeric($details['block_duration_minutes'])) {
+        $v = (int)round((float)$details['block_duration_minutes']);
+        if ($v >= 1) {
+            return $v;
+        }
+    }
+    if (isset($details['block_duration']) && is_numeric($details['block_duration'])) {
+        $v = (int)round((float)$details['block_duration']);
+        if ($v >= 1) {
+            return $v;
+        }
+    }
+
+    $untilTs = hackme_parse_datetime_unix_for_attempts((string)($details['blocked_until'] ?? ''));
+    $createdTs = hackme_parse_datetime_unix_for_attempts($createdAt);
+    if ($untilTs !== false && $createdTs !== false && $untilTs > $createdTs) {
+        return max(1, (int)ceil(($untilTs - $createdTs) / 60));
+    }
+
+    if ($untilTs !== false) {
+        $nowTs = time();
+        if ($untilTs > $nowTs) {
+            return max(1, (int)ceil(($untilTs - $nowTs) / 60));
+        }
+    }
+
+    return 1;
+}
+
+function hackme_sanitize_actor_username_for_failed(string $actorUsername): string
+{
+    $actorUsername = trim($actorUsername);
+    if ($actorUsername === '') {
+        return 'guest';
+    }
+    if (strpos($actorUsername, '@') !== false) {
+        $candidate = trim((string)strtok($actorUsername, '@'));
+        $candidate = preg_replace('/[^a-zA-Z0-9._-]/', '', $candidate ?? '');
+        $candidate = trim((string)$candidate);
+        return $candidate !== '' ? $candidate : 'guest';
+    }
+    return $actorUsername;
+}
+
 function hackme_attempt_severity(array $log, array $details): string
 {
     $action = strtolower(trim((string)($log['action'] ?? '')));
@@ -101,7 +166,7 @@ function hackme_geo_info_from_ip(?string $ip): string
     $ip = trim((string)$ip);
     if ($ip === '') return 'unknown';
     if ($ip === '127.0.0.1' || $ip === '::1' || strtolower($ip) === 'localhost') {
-        return 'localhost / local machine';
+        return 'owner / local machine';
     }
     if (hackme_is_private_ip($ip)) {
         return 'private-network / local subnet';
@@ -194,6 +259,7 @@ $ipExact = trim((string)($_GET['ip'] ?? ''));
 
 $attemptActions = [
     'login',
+    'suspicious_score_update',
     'access_restricted',
     'url_tamper_attempt',
     'privilege_escalation_attempt',
@@ -225,7 +291,9 @@ if ($ipExact !== '') {
 $logIdExpr = isset($available['log_id']) ? 'l.log_id' : (isset($available['id']) ? 'l.id AS log_id' : '0 AS log_id');
 $actorUserIdRawExpr = isset($available['actor_user_id']) ? 'l.actor_user_id' : 'NULL';
 $actorUserExpr = $actorUserIdRawExpr . ' AS actor_user_id';
-$actorNameExpr = isset($available['actor_username']) ? 'l.actor_username' : (isset($available['username']) ? 'l.username AS actor_username' : 'NULL AS actor_username');
+$actorNameExpr = "(COALESCE((SELECT u.username FROM users u WHERE u.user_id = {$actorUserIdRawExpr} LIMIT 1), "
+    . (isset($available['actor_username']) ? 'l.actor_username' : (isset($available['username']) ? 'l.username' : 'NULL'))
+    . ")) AS actor_username";
 $actionExpr = isset($available['action']) ? 'l.action' : (isset($available['event']) ? 'l.event AS action' : "'unknown' AS action");
 $statusExpr = isset($available['status']) ? 'l.status' : "'success' AS status";
 $targetUserIdRawExpr = isset($available['target_user_id']) ? 'l.target_user_id' : 'NULL';
@@ -254,6 +322,11 @@ if ($result === false) {
 $logs = [];
 while ($row = $result->fetch_assoc()) {
     $details = hackme_parse_details((string)($row['details'] ?? ''));
+    $status = strtolower(trim((string)($row['status'] ?? '')));
+    $actorUsername = trim((string)($row['actor_username'] ?? ''));
+    if ($status === 'failed' && strpos($actorUsername, '@') !== false) {
+        $row['actor_username'] = hackme_sanitize_actor_username_for_failed($actorUsername);
+    }
     $actorId = (int)($row['actor_user_id'] ?? 0);
     $row['is_authenticated'] = $actorId > 0;
     $row['severity'] = hackme_attempt_severity($row, $details);
@@ -269,6 +342,15 @@ while ($row = $result->fetch_assoc()) {
         $bucketTs = strtotime($created);
         $minuteBucket = $bucketTs !== false ? date('YmdHi', $bucketTs) : gmdate('YmdHi');
         $row['correlation_id'] = 'corr_' . substr(sha1($actorKey . '|' . (string)($row['action'] ?? '') . '|' . $minuteBucket), 0, 12);
+    }
+    $action = strtolower(trim((string)($row['action'] ?? '')));
+    if (
+        in_array($action, ['security_block', 'login_rate_limit', 'password_change_rate_limit'], true)
+        || (isset($details['blocked']) && (bool)$details['blocked'] === true)
+    ) {
+        $row['block_duration_minutes'] = hackme_infer_block_duration_minutes($details, (string)($row['created_at'] ?? ''));
+    } else {
+        $row['block_duration_minutes'] = null;
     }
     $logs[] = $row;
 }

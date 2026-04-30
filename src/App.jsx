@@ -64,8 +64,10 @@ function AppContent() {
   const [pendingRoleRequests, setPendingRoleRequests] = useState([]);
   const [adminStats, setAdminStats] = useState(null);
   const [roleRequestAlert, setRoleRequestAlert] = useState(null);
+  const [securityWarningMessage, setSecurityWarningMessage] = useState("");
   const lastRestrictedAttemptKeyRef = useRef({});
   const lastUrlTamperAttemptKeyRef = useRef({});
+  const securityWarningTimerRef = useRef(null);
 
   const buildLabRoute = (lab, fromCategory, labType) => {
     const id = Number(lab?.lab_id);
@@ -135,10 +137,26 @@ function AppContent() {
         keepalive: true,
       });
       const data = await res.json().catch(() => ({}));
-      return Boolean(data?.blocked);
+      return {
+        blocked: Boolean(data?.blocked),
+        warning: typeof data?.warning === "string" ? data.warning : "",
+      };
     } catch (_) {
-      return false;
+      return { blocked: false, warning: "" };
     }
+  };
+
+  const showSecurityWarning = (message) => {
+    const msg = String(message || "").trim();
+    if (!msg) return;
+    setSecurityWarningMessage(msg);
+    if (securityWarningTimerRef.current) {
+      clearTimeout(securityWarningTimerRef.current);
+    }
+    securityWarningTimerRef.current = setTimeout(() => {
+      setSecurityWarningMessage("");
+      securityWarningTimerRef.current = null;
+    }, 7000);
   };
 
   useEffect(() => {
@@ -188,6 +206,15 @@ function AppContent() {
     }, 4000);
     return () => clearTimeout(timer);
   }, [roleRequestMessage]);
+
+  useEffect(() => {
+    return () => {
+      if (securityWarningTimerRef.current) {
+        clearTimeout(securityWarningTimerRef.current);
+        securityWarningTimerRef.current = null;
+      }
+    };
+  }, []);
 
   // When lab is solved (e.g. SQL lab in new tab), refresh points from DB
   useEffect(() => {
@@ -519,8 +546,11 @@ function AppContent() {
     lastUrlTamperAttemptKeyRef.current[key] = now;
 
     navigate("/home", { replace: true });
-    reportUrlTamperAttempt(path, "lab_id_modified").then((blocked) => {
-      if (blocked) {
+    reportUrlTamperAttempt(path, "lab_id_modified").then((result) => {
+      if (result?.warning) {
+        showSecurityWarning(`⚠️ ${result.warning}`);
+      }
+      if (result?.blocked) {
         handleLogout();
         navigate("/", { replace: true });
       }
@@ -592,6 +622,9 @@ function AppContent() {
           keepalive: true,
         });
         const data = await res.json().catch(() => ({}));
+        if (typeof data?.warning === "string" && data.warning.trim() !== "") {
+          showSecurityWarning(`⚠️ ${data.warning}`);
+        }
         if (data?.blocked) {
           handleLogout();
           navigate("/", { replace: true });
@@ -888,6 +921,17 @@ function AppContent() {
 
   return (
     <div className="min-h-screen">
+      {securityWarningMessage ? (
+        <div className="fixed right-4 top-20 z-[9999] max-w-md rounded-xl border border-amber-400/70 bg-amber-500/15 px-4 py-3 text-amber-100 shadow-2xl backdrop-blur-md">
+          <div className="flex items-start gap-2">
+            <span className="text-lg leading-none">⚠️</span>
+            <div>
+              <p className="font-semibold text-amber-200">Security Warning</p>
+              <p className="text-sm leading-relaxed">{securityWarningMessage.replace(/^⚠️\s*/, "")}</p>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {!isLoggedIn ? (
         renderAuthPage()
       ) : (

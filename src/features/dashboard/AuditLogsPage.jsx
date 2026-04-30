@@ -170,6 +170,7 @@ const AuditLogsPage = ({ currentUser }) => {
               <option value="lab_add">lab_add</option>
               <option value="lab_edit">lab_edit</option>
               <option value="lab_delete">lab_delete</option>
+              <option value="suspicious_score_update">suspicious_score_update</option>
             </select>
             <div className="flex gap-2">
               <select
@@ -202,13 +203,13 @@ const AuditLogsPage = ({ currentUser }) => {
             <table className="table-fixed w-full min-w-[1200px] text-sm">
               <colgroup>
                 <col className="w-[10%]" />
-                <col className="w-[8%]" />
-                <col className="w-[6%]" />
-                <col className="w-[9%]" />
                 <col className="w-[12%]" />
-                <col className="w-[5%]" />
+                <col className="w-[7%]" />
+                <col className="w-[9%]" />
                 <col className="w-[11%]" />
-                <col className="w-[18%]" />
+                <col className="w-[5%]" />
+                <col className="w-[10%]" />
+                <col className="w-[17%]" />
                 <col className="w-[108px]" />
                 <col className="min-w-[140px]" />
               </colgroup>
@@ -233,7 +234,7 @@ const AuditLogsPage = ({ currentUser }) => {
                       {formatEventTime(log)}
                     </td>
                     <td className="py-2 pr-2 align-top">
-                      <span className="inline-flex items-center gap-1 font-mono text-xs text-blue-300">
+                      <span className="inline-flex items-start gap-1 font-mono text-xs text-blue-300 break-all whitespace-normal leading-snug">
                         <Activity className="w-3 h-3 shrink-0" />
                         {log.action}
                       </span>
@@ -266,15 +267,17 @@ const AuditLogsPage = ({ currentUser }) => {
                       </div>
                     </td>
                     <td className="py-2 pr-2 text-xs align-top">
-                      <div className="break-words line-clamp-3" title={String(formatDetails(log) || "")}>
+                      <div className="break-all whitespace-normal line-clamp-3" title={String(formatDetails(log) || "")}>
                         {formatDetails(log)}
                       </div>
                     </td>
                     <td className="py-2 pr-2 font-mono text-[11px] align-top whitespace-nowrap">
                       {log.ip_address || "-"}
                     </td>
-                    <td className="py-2 pr-1 text-xs text-gray-300 align-top truncate" title={log.user_agent || "-"}>
-                      {log.user_agent || "-"}
+                    <td className="py-2 pr-1 text-xs text-gray-300 align-top">
+                      <div className="break-all whitespace-normal line-clamp-2" title={log.user_agent || "-"}>
+                        {log.user_agent || "-"}
+                      </div>
                     </td>
                   </tr>
                 ))}

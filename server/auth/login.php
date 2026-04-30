@@ -24,6 +24,7 @@ require_once __DIR__ . '/../utils/db_connect.php';
 require_once __DIR__ . '/../utils/permissions.php';
 require_once __DIR__ . '/../utils/audit_log.php';
 require_once __DIR__ . '/../utils/security_block.php';
+require_once __DIR__ . '/../utils/security_alert.php';
 
 // Read JSON body if provided
 $data = file_get_contents('php://input');
@@ -66,6 +67,44 @@ $clientTimezone = trim((string)($input['client_timezone'] ?? ''));
 $clientTzOffsetMinutes = isset($input['client_tz_offset_minutes']) ? (int)$input['client_tz_offset_minutes'] : null;
 $requestIp = hackme_client_ip();
 
+function hackme_compute_block_duration_minutes(string $blockedUntil): int
+{
+    $durationMinutes = 1;
+    $blockedUntilTs = strtotime($blockedUntil);
+    if ($blockedUntilTs !== false) {
+        $diffSeconds = $blockedUntilTs - time();
+        if ($diffSeconds > 0) {
+            $durationMinutes = max(1, (int)ceil($diffSeconds / 60));
+        }
+    }
+    return $durationMinutes;
+}
+
+function hackme_safe_actor_name(string $raw): string
+{
+    $value = trim($raw);
+    if ($value === '') {
+        return 'guest';
+    }
+    if (strpos($value, '@') !== false) {
+        $value = trim((string)strtok($value, '@'));
+    }
+    $value = preg_replace('/[^a-zA-Z0-9._-]/', '', $value ?? '');
+    $value = trim((string)$value);
+    return $value !== '' ? $value : 'guest';
+}
+
+function hackme_alert_ip(string $requestIp, string $clientLocalIp): string
+{
+    $requestIp = trim($requestIp);
+    $clientLocalIp = trim($clientLocalIp);
+    $isLoopback = in_array($requestIp, ['127.0.0.1', '::1', 'localhost', ''], true);
+    if ($isLoopback && filter_var($clientLocalIp, FILTER_VALIDATE_IP)) {
+        return $clientLocalIp;
+    }
+    return $requestIp !== '' ? $requestIp : ($clientLocalIp !== '' ? $clientLocalIp : 'unknown');
+}
+
 function hackme_log_security_block_attempt(
     PdoMysqliShim $conn,
     string $requestIp,
@@ -77,18 +116,20 @@ function hackme_log_security_block_attempt(
     string $clientTimezone,
     ?int $clientTzOffsetMinutes
 ): void {
+    $durationMinutes = hackme_compute_block_duration_minutes($blockedUntil);
     $detailsPayload = [
         'message' => 'Request blocked due to active temporary block',
         'email' => $email,
         'blocked' => true,
         'block_reason' => $reason,
         'blocked_until' => $blockedUntil,
+        'block_duration_minutes' => $durationMinutes,
         'client_time_utc' => $clientTimeUtc,
         'client_timezone' => $clientTimezone,
         'client_tz_offset_minutes' => $clientTzOffsetMinutes,
     ];
     hackme_write_audit_log($conn, [
-        'actor_username' => $email !== '' ? $email : 'unknown',
+        'actor_username' => hackme_safe_actor_name($email),
         'action' => 'security_block',
         'status' => 'failed',
         'details' => json_encode($detailsPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
@@ -96,6 +137,101 @@ function hackme_log_security_block_attempt(
         'client_local_ip' => $clientLocalIp,
         'user_agent' => (string)($_SERVER['HTTP_USER_AGENT'] ?? ''),
     ]);
+}
+
+function hackme_handle_failed_login_score(
+    PdoMysqliShim $conn,
+    ?int $userId,
+    string $actorUsername,
+    string $emailForDetails,
+    string $scoreEventKey,
+    string $requestIp,
+    string $clientLocalIp,
+    string $clientTimeUtc,
+    string $clientTimezone,
+    ?int $clientTzOffsetMinutes
+): array {
+    $scoreResult = hackme_apply_suspicious_score(
+        $conn,
+        $scoreEventKey,
+        $userId,
+        $requestIp,
+        60
+    );
+
+    $scoreTarget = 'login';
+    if ($scoreEventKey === 'password_spray') {
+        $scoreTarget = 'password';
+    } elseif ($scoreEventKey === 'credential_guess') {
+        $scoreTarget = 'email_or_password';
+    }
+
+    $alertMeta = hackme_send_security_alert_meta(
+        $conn,
+        $scoreEventKey,
+        hackme_safe_actor_name($actorUsername),
+        hackme_alert_ip($requestIp, $clientLocalIp),
+        $clientTimeUtc !== '' ? $clientTimeUtc : gmdate('Y-m-d\TH:i:s\Z'),
+        [
+            'email' => $emailForDetails,
+            'client_timezone' => $clientTimezone,
+            'score' => (int)($scoreResult['score'] ?? 0),
+            'score_level' => (string)($scoreResult['level'] ?? 'normal'),
+            'blocked' => !empty($scoreResult['blocked']) ? 'yes' : 'no',
+        ]
+    );
+    $alertSent = !empty($alertMeta['sent']);
+
+    hackme_write_audit_log($conn, [
+        'actor_user_id' => $userId !== null && $userId > 0 ? (int)$userId : null,
+        'actor_username' => hackme_safe_actor_name($actorUsername),
+        'action' => 'suspicious_score_update',
+        'status' => (($scoreResult['level'] ?? 'normal') === 'attack') ? 'failed' : 'success',
+        'details' => json_encode([
+            'message' => 'Suspicious score updated after failed login attempt',
+            'email' => $emailForDetails,
+            'score_event' => $scoreEventKey,
+            'attack_type' => $scoreEventKey,
+            'target' => $scoreTarget,
+            'score_target' => $scoreTarget,
+            'points_added' => (int)($scoreResult['points_added'] ?? 0),
+            'suspicious_score' => (int)($scoreResult['score'] ?? 0),
+            'score_level' => (string)($scoreResult['level'] ?? 'normal'),
+            'score_by_user' => (int)($scoreResult['score_by_user'] ?? 0),
+            'score_by_ip' => (int)($scoreResult['score_by_ip'] ?? 0),
+            'score_triggered_by' => (string)($scoreResult['triggered_by'] ?? ''),
+            'blocked' => !empty($scoreResult['blocked']),
+            'alert_email_sent' => $alertSent ? 'yes' : 'no',
+            'alert_email_sent_count' => (int)($alertMeta['sent_count'] ?? 0),
+            'alert_email_recipients' => (int)($alertMeta['recipients'] ?? 0),
+            'alert_email_error' => (string)($alertMeta['error'] ?? ''),
+            'block_reason' => (string)($scoreResult['reason'] ?? ''),
+            'blocked_until' => (string)($scoreResult['blocked_until'] ?? ''),
+            'block_duration_minutes' => hackme_compute_block_duration_minutes((string)($scoreResult['blocked_until'] ?? '')),
+            'client_time_utc' => $clientTimeUtc,
+            'client_timezone' => $clientTimezone,
+            'client_tz_offset_minutes' => $clientTzOffsetMinutes,
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        'ip_address' => $requestIp,
+        'client_local_ip' => $clientLocalIp,
+        'user_agent' => (string)($_SERVER['HTTP_USER_AGENT'] ?? ''),
+    ]);
+
+    if (!empty($scoreResult['blocked'])) {
+        hackme_log_security_block_attempt(
+            $conn,
+            $requestIp,
+            $clientLocalIp,
+            $emailForDetails,
+            (string)($scoreResult['reason'] ?? 'suspicious_score_attack'),
+            (string)($scoreResult['blocked_until'] ?? ''),
+            $clientTimeUtc,
+            $clientTimezone,
+            $clientTzOffsetMinutes
+        );
+    }
+
+    return $scoreResult;
 }
 
 $ipBlock = hackme_is_blocked_now($conn, null, $requestIp);
@@ -162,7 +298,7 @@ if (!$email || !$password) {
         'client_tz_offset_minutes' => $clientTzOffsetMinutes,
     ];
     hackme_write_audit_log($conn, [
-        'actor_username' => $email !== '' ? $email : 'unknown',
+        'actor_username' => hackme_safe_actor_name($email),
         'action' => 'login',
         'status' => 'failed',
         'details' => json_encode($detailsPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
@@ -170,8 +306,25 @@ if (!$email || !$password) {
         'client_local_ip' => $clientLocalIp,
         'user_agent' => (string)($_SERVER['HTTP_USER_AGENT'] ?? ''),
     ]);
+    $scoreResult = hackme_handle_failed_login_score(
+        $conn,
+        null,
+        hackme_safe_actor_name($email),
+        $email,
+        'credential_guess',
+        $requestIp,
+        $clientLocalIp,
+        $clientTimeUtc,
+        $clientTimezone,
+        $clientTzOffsetMinutes
+    );
+    if (!empty($scoreResult['blocked'])) {
+        echo json_encode(['success' => false, 'message' => 'Suspicious activity detected. You are temporarily blocked for 1 minute.']);
+        exit;
+    }
     hackme_detect_bruteforce($conn, $requestIp, $email, $clientLocalIp, $clientTimeUtc, $clientTimezone, $clientTzOffsetMinutes);
-    echo json_encode(['success' => false, 'message' => 'Email and password are required']);
+    $warn = (($scoreResult['level'] ?? 'normal') === 'suspicious');
+    echo json_encode(['success' => false, 'message' => $warn ? 'Email and password are required (warning: suspicious activity detected).' : 'Email and password are required']);
     exit;
 }
 
@@ -197,6 +350,8 @@ $stmt->close();
 if (!$user) {
     // Debug: Check if user exists but is inactive or doesn't exist
     $debug_stmt = $conn->prepare('SELECT user_id, email, is_active FROM users WHERE email = ? LIMIT 1');
+    $failedActorUserId = null;
+    $failedActorUsername = hackme_safe_actor_name($email);
     if ($debug_stmt) {
         $debug_stmt->bind_param('s', $email);
         $debug_stmt->execute();
@@ -205,6 +360,23 @@ if (!$user) {
         $debug_stmt->close();
         
         if ($debug_user) {
+            $failedActorUserId = (int)($debug_user['user_id'] ?? 0);
+            if ($failedActorUserId <= 0) {
+                $failedActorUserId = null;
+            }
+            if ($failedActorUserId !== null) {
+                $nameStmt = $conn->prepare('SELECT username FROM users WHERE user_id = ? LIMIT 1');
+                if ($nameStmt) {
+                    $nameStmt->bind_param('i', $failedActorUserId);
+                    $nameStmt->execute();
+                    $nameRes = $nameStmt->get_result();
+                    $nameRow = $nameRes ? $nameRes->fetch_assoc() : null;
+                    $nameStmt->close();
+                    if (is_array($nameRow) && trim((string)($nameRow['username'] ?? '')) !== '') {
+                        $failedActorUsername = trim((string)$nameRow['username']);
+                    }
+                }
+            }
             if ($debug_user['is_active'] == 0) {
                 echo json_encode(['success' => false, 'message' => 'Account is inactive. Please contact administrator.']);
             } else {
@@ -223,7 +395,8 @@ if (!$user) {
         'client_tz_offset_minutes' => $clientTzOffsetMinutes,
     ];
     hackme_write_audit_log($conn, [
-        'actor_username' => $email,
+        'actor_user_id' => $failedActorUserId,
+        'actor_username' => $failedActorUsername,
         'action' => 'login',
         'status' => 'failed',
         'details' => json_encode($detailsPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
@@ -231,7 +404,27 @@ if (!$user) {
         'client_local_ip' => $clientLocalIp,
         'user_agent' => (string)($_SERVER['HTTP_USER_AGENT'] ?? ''),
     ]);
+    $scoreResult = hackme_handle_failed_login_score(
+        $conn,
+        $failedActorUserId,
+        $failedActorUsername,
+        $email,
+        'credential_guess',
+        $requestIp,
+        $clientLocalIp,
+        $clientTimeUtc,
+        $clientTimezone,
+        $clientTzOffsetMinutes
+    );
+    if (!empty($scoreResult['blocked'])) {
+        echo json_encode(['success' => false, 'message' => 'Suspicious activity detected. You are temporarily blocked for 1 minute.']);
+        exit;
+    }
     hackme_detect_bruteforce($conn, $requestIp, $email, $clientLocalIp, $clientTimeUtc, $clientTimezone, $clientTzOffsetMinutes);
+    if (($scoreResult['level'] ?? 'normal') === 'suspicious') {
+        echo json_encode(['success' => false, 'message' => 'Invalid email or password (warning: suspicious activity detected).']);
+        exit;
+    }
     exit;
 }
 
@@ -262,7 +455,7 @@ if (!password_verify($password, $user['password_hash'])) {
     ];
     hackme_write_audit_log($conn, [
         'actor_user_id' => (int)$user['user_id'],
-        'actor_username' => (string)$user['email'],
+        'actor_username' => (string)$user['username'],
         'action' => 'login',
         'status' => 'failed',
         'details' => json_encode($detailsPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
@@ -270,53 +463,25 @@ if (!password_verify($password, $user['password_hash'])) {
         'client_local_ip' => $clientLocalIp,
         'user_agent' => (string)($_SERVER['HTTP_USER_AGENT'] ?? ''),
     ]);
-    $blockResult = hackme_record_event_and_maybe_block(
+    $scoreResult = hackme_handle_failed_login_score(
         $conn,
-        'login_failed',
         (int)$user['user_id'],
+        (string)$user['username'],
+        (string)$user['email'],
+        'password_spray',
         $requestIp,
-        3,
-        'login_bruteforce',
-        60,
-        60
+        $clientLocalIp,
+        $clientTimeUtc,
+        $clientTimezone,
+        $clientTzOffsetMinutes
     );
-    if (!empty($blockResult['blocked'])) {
-        hackme_write_audit_log($conn, [
-            'actor_user_id' => (int)$user['user_id'],
-            'actor_username' => (string)$user['email'],
-            'action' => 'login_rate_limit',
-            'status' => 'failed',
-            'details' => json_encode([
-                'message' => 'User temporarily blocked after repeated wrong passwords during login',
-                'email' => (string)$user['email'],
-                'blocked' => true,
-                'attempts_last_minute' => (int)($blockResult['attempts'] ?? 0),
-                'block_reason' => (string)($blockResult['reason'] ?? 'login_bruteforce'),
-                'blocked_until' => (string)($blockResult['blocked_until'] ?? ''),
-                'client_time_utc' => $clientTimeUtc,
-                'client_timezone' => $clientTimezone,
-                'client_tz_offset_minutes' => $clientTzOffsetMinutes,
-            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-            'ip_address' => $requestIp,
-            'client_local_ip' => $clientLocalIp,
-            'user_agent' => (string)($_SERVER['HTTP_USER_AGENT'] ?? ''),
-        ]);
-        hackme_log_security_block_attempt(
-            $conn,
-            $requestIp,
-            $clientLocalIp,
-            (string)$user['email'],
-            (string)($blockResult['reason'] ?? 'login_bruteforce'),
-            (string)($blockResult['blocked_until'] ?? ''),
-            $clientTimeUtc,
-            $clientTimezone,
-            $clientTzOffsetMinutes
-        );
-        echo json_encode(['success' => false, 'message' => 'Too many password attempts. Try again in 1 minute.']);
+    if (!empty($scoreResult['blocked'])) {
+        echo json_encode(['success' => false, 'message' => 'Suspicious activity detected. You are temporarily blocked for 1 minute.']);
         exit;
     }
     hackme_detect_bruteforce($conn, $requestIp, (string)$user['username'], $clientLocalIp, $clientTimeUtc, $clientTimezone, $clientTzOffsetMinutes);
-    echo json_encode(['success' => false, 'message' => 'Invalid email or password']);
+    $warn = (($scoreResult['level'] ?? 'normal') === 'suspicious');
+    echo json_encode(['success' => false, 'message' => $warn ? 'Invalid email or password (warning: suspicious activity detected).' : 'Invalid email or password']);
     exit;
 }
 

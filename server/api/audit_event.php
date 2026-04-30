@@ -20,6 +20,18 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 require_once __DIR__ . '/../utils/db_connect.php';
 require_once __DIR__ . '/../utils/audit_log.php';
 require_once __DIR__ . '/../utils/security_block.php';
+require_once __DIR__ . '/../utils/security_alert.php';
+
+function hackme_alert_ip(string $requestIp, string $clientLocalIp): string
+{
+    $requestIp = trim($requestIp);
+    $clientLocalIp = trim($clientLocalIp);
+    $isLoopback = in_array($requestIp, ['127.0.0.1', '::1', 'localhost', ''], true);
+    if ($isLoopback && filter_var($clientLocalIp, FILTER_VALIDATE_IP)) {
+        return $clientLocalIp;
+    }
+    return $requestIp !== '' ? $requestIp : ($clientLocalIp !== '' ? $clientLocalIp : 'unknown');
+}
 
 function hackme_recent_security_block_logged(
     PdoMysqliShim $conn,
@@ -59,6 +71,7 @@ $clientLocalIp = trim((string)($input['client_local_ip'] ?? ''));
 $clientTimeUtc = trim((string)($input['client_time_utc'] ?? ''));
 $clientTimezone = trim((string)($input['client_timezone'] ?? ''));
 $clientTzOffsetMinutes = isset($input['client_tz_offset_minutes']) ? (int)$input['client_tz_offset_minutes'] : null;
+$requestIp = hackme_client_ip();
 
 if ($userId < 1 || $action === '') {
     http_response_code(400);
@@ -82,6 +95,39 @@ if ($username === '') {
     }
 }
 
+$activeBlock = hackme_is_blocked_now($conn, $userId > 0 ? $userId : null, $requestIp);
+if (!empty($activeBlock['blocked'])) {
+    // Record the attempted action itself, even while blocked, for timeline visibility.
+    hackme_write_audit_log($conn, [
+        'actor_user_id' => $userId > 0 ? $userId : null,
+        'actor_username' => $username !== '' ? $username : ('user_' . $userId),
+        'action' => $action,
+        'status' => 'failed',
+        'details' => json_encode([
+            'message' => 'Attempt rejected because a temporary security block is active',
+            'blocked' => true,
+            'block_reason' => (string)($activeBlock['reason'] ?? 'suspicious_score_attack'),
+            'blocked_until' => (string)($activeBlock['blocked_until'] ?? ''),
+            'client_time_utc' => $clientTimeUtc,
+            'client_timezone' => $clientTimezone,
+            'client_tz_offset_minutes' => $clientTzOffsetMinutes,
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        'ip_address' => $requestIp,
+        'client_local_ip' => $clientLocalIp,
+        'user_agent' => (string)($_SERVER['HTTP_USER_AGENT'] ?? ''),
+    ]);
+    echo json_encode([
+        'success' => true,
+        'blocked' => true,
+        'warning' => '',
+        'suspicious_score' => null,
+        'score_level' => 'attack',
+        'points_added' => 0,
+        'blocked_until' => (string)($activeBlock['blocked_until'] ?? ''),
+    ]);
+    exit;
+}
+
 $email = '';
 $userLookup = $conn->query("SELECT email FROM users WHERE user_id = " . $userId . " LIMIT 1");
 if ($userLookup && $userLookup->num_rows > 0) {
@@ -101,29 +147,42 @@ $ok = hackme_write_audit_log($conn, [
         'client_timezone' => $clientTimezone,
         'client_tz_offset_minutes' => $clientTzOffsetMinutes,
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-    'ip_address' => hackme_client_ip(),
+    'ip_address' => $requestIp,
     'client_local_ip' => $clientLocalIp,
     'user_agent' => (string)($_SERVER['HTTP_USER_AGENT'] ?? ''),
 ]);
 
 $blocked = false;
-$blockRes = ['blocked' => false, 'attempts' => 0, 'blocked_until' => '', 'reason' => ''];
-$requestIp = hackme_client_ip();
+$scoreRes = ['blocked' => false, 'score' => 0, 'level' => 'normal', 'blocked_until' => '', 'reason' => '', 'points_added' => 0];
+$warning = '';
 if ($action === 'url_tamper_attempt') {
-    // Parameter tampering: block quickly after repeated attempts.
-    $blockRes = hackme_record_event_and_maybe_block(
+    $scoreRes = hackme_apply_suspicious_score(
         $conn,
         'url_tamper_attempt',
         $userId > 0 ? $userId : null,
         $requestIp,
-        2,
-        'url_tamper_repeated',
-        60,
         60
     );
-    $blocked = (bool)($blockRes['blocked'] ?? false);
+    $alertMeta = hackme_send_security_alert_meta(
+        $conn,
+        'url_tamper_attempt',
+        $username !== '' ? $username : ('user_' . $userId),
+        hackme_alert_ip($requestIp, $clientLocalIp),
+        $clientTimeUtc !== '' ? $clientTimeUtc : gmdate('Y-m-d\TH:i:s\Z'),
+        [
+            'client_timezone' => $clientTimezone,
+            'score' => (int)($scoreRes['score'] ?? 0),
+            'score_level' => (string)($scoreRes['level'] ?? 'normal'),
+            'blocked' => !empty($scoreRes['blocked']) ? 'yes' : 'no',
+        ]
+    );
+    $alertSent = !empty($alertMeta['sent']);
+    $blocked = (bool)($scoreRes['blocked'] ?? false);
+    if (!$blocked && (($scoreRes['level'] ?? 'normal') === 'suspicious')) {
+        $warning = 'Security warning: suspicious behavior detected on your activity.';
+    }
     if ($blocked) {
-        $blockReason = (string)($blockRes['reason'] ?? 'url_tamper_repeated');
+        $blockReason = (string)($scoreRes['reason'] ?? 'suspicious_score_attack');
         if (!hackme_recent_security_block_logged($conn, $userId, $requestIp, $blockReason)) {
             hackme_write_audit_log($conn, [
                 'actor_user_id' => $userId,
@@ -134,12 +193,19 @@ if ($action === 'url_tamper_attempt') {
                     'message' => 'User temporarily blocked after repeated URL tamper attempts',
                     'email' => $email,
                     'blocked' => true,
-                    'attempts_last_minute' => (int)($blockRes['attempts'] ?? 0),
-                    'attempts_last_minute_user' => (int)($blockRes['attempts_by_user'] ?? 0),
-                    'attempts_last_minute_ip' => (int)($blockRes['attempts_by_ip'] ?? 0),
-                    'block_triggered_by' => (string)($blockRes['triggered_by'] ?? ''),
+                    'suspicious_score' => (int)($scoreRes['score'] ?? 0),
+                    'score_level' => (string)($scoreRes['level'] ?? 'attack'),
+                    'score_by_user' => (int)($scoreRes['score_by_user'] ?? 0),
+                    'score_by_ip' => (int)($scoreRes['score_by_ip'] ?? 0),
+                    'score_triggered_by' => (string)($scoreRes['triggered_by'] ?? ''),
+                    'attack_type' => 'url_tamper_attempt',
+                    'target' => 'request_parameters',
+                    'alert_email_sent' => $alertSent ? 'yes' : 'no',
+                    'alert_email_sent_count' => (int)($alertMeta['sent_count'] ?? 0),
+                    'alert_email_recipients' => (int)($alertMeta['recipients'] ?? 0),
+                    'alert_email_error' => (string)($alertMeta['error'] ?? ''),
                     'block_reason' => $blockReason,
-                    'blocked_until' => (string)($blockRes['blocked_until'] ?? ''),
+                    'blocked_until' => (string)($scoreRes['blocked_until'] ?? ''),
                     'block_duration_minutes' => 1,
                     'target' => 'request_parameters',
                     'client_time_utc' => $clientTimeUtc,
@@ -153,20 +219,33 @@ if ($action === 'url_tamper_attempt') {
         }
     }
 } elseif ($action === 'access_restricted') {
-    // Restricted pages: block quickly after repeated attempts.
-    $blockRes = hackme_record_event_and_maybe_block(
+    $scoreRes = hackme_apply_suspicious_score(
         $conn,
         'access_restricted',
         $userId > 0 ? $userId : null,
         $requestIp,
-        2,
-        'access_restricted_repeated',
-        60,
         60
     );
-    $blocked = (bool)($blockRes['blocked'] ?? false);
+    $alertMeta = hackme_send_security_alert_meta(
+        $conn,
+        'access_restricted',
+        $username !== '' ? $username : ('user_' . $userId),
+        hackme_alert_ip($requestIp, $clientLocalIp),
+        $clientTimeUtc !== '' ? $clientTimeUtc : gmdate('Y-m-d\TH:i:s\Z'),
+        [
+            'client_timezone' => $clientTimezone,
+            'score' => (int)($scoreRes['score'] ?? 0),
+            'score_level' => (string)($scoreRes['level'] ?? 'normal'),
+            'blocked' => !empty($scoreRes['blocked']) ? 'yes' : 'no',
+        ]
+    );
+    $alertSent = !empty($alertMeta['sent']);
+    $blocked = (bool)($scoreRes['blocked'] ?? false);
+    if (!$blocked && (($scoreRes['level'] ?? 'normal') === 'suspicious')) {
+        $warning = 'Security warning: suspicious behavior detected on your activity.';
+    }
     if ($blocked) {
-        $blockReason = (string)($blockRes['reason'] ?? 'access_restricted_repeated');
+        $blockReason = (string)($scoreRes['reason'] ?? 'suspicious_score_attack');
         if (!hackme_recent_security_block_logged($conn, $userId, $requestIp, $blockReason)) {
             hackme_write_audit_log($conn, [
                 'actor_user_id' => $userId,
@@ -177,12 +256,19 @@ if ($action === 'url_tamper_attempt') {
                     'message' => 'User temporarily blocked after repeated restricted-page access attempts',
                     'email' => $email,
                     'blocked' => true,
-                    'attempts_last_minute' => (int)($blockRes['attempts'] ?? 0),
-                    'attempts_last_minute_user' => (int)($blockRes['attempts_by_user'] ?? 0),
-                    'attempts_last_minute_ip' => (int)($blockRes['attempts_by_ip'] ?? 0),
-                    'block_triggered_by' => (string)($blockRes['triggered_by'] ?? ''),
+                    'suspicious_score' => (int)($scoreRes['score'] ?? 0),
+                    'score_level' => (string)($scoreRes['level'] ?? 'attack'),
+                    'score_by_user' => (int)($scoreRes['score_by_user'] ?? 0),
+                    'score_by_ip' => (int)($scoreRes['score_by_ip'] ?? 0),
+                    'score_triggered_by' => (string)($scoreRes['triggered_by'] ?? ''),
+                    'attack_type' => 'access_restricted',
+                    'target' => 'restricted_route',
+                    'alert_email_sent' => $alertSent ? 'yes' : 'no',
+                    'alert_email_sent_count' => (int)($alertMeta['sent_count'] ?? 0),
+                    'alert_email_recipients' => (int)($alertMeta['recipients'] ?? 0),
+                    'alert_email_error' => (string)($alertMeta['error'] ?? ''),
                     'block_reason' => $blockReason,
-                    'blocked_until' => (string)($blockRes['blocked_until'] ?? ''),
+                    'blocked_until' => (string)($scoreRes['blocked_until'] ?? ''),
                     'block_duration_minutes' => 1,
                     'target' => 'restricted_route',
                     'client_time_utc' => $clientTimeUtc,
@@ -197,4 +283,11 @@ if ($action === 'url_tamper_attempt') {
     }
 }
 
-echo json_encode(['success' => (bool)$ok, 'blocked' => $blocked]);
+echo json_encode([
+    'success' => (bool)$ok,
+    'blocked' => $blocked,
+    'warning' => $warning,
+    'suspicious_score' => (int)($scoreRes['score'] ?? 0),
+    'score_level' => (string)($scoreRes['level'] ?? 'normal'),
+    'points_added' => (int)($scoreRes['points_added'] ?? 0),
+]);
